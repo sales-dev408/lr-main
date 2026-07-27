@@ -17,6 +17,16 @@ npm run lint
 npm run export:web
 ```
 
+## Deploy
+
+Cloud builds and store submissions run through EAS — see
+[docs/deploy-mobile-eas.md](../docs/deploy-mobile-eas.md).
+
+```bash
+eas build --profile preview --platform android   # installable test build
+eas build --profile production --platform all    # store builds
+```
+
 ## Environment
 
 - `EXPO_PUBLIC_API_BASE_URL` — backend base URL, default `http://localhost:4000/api`
