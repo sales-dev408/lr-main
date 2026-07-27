@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 import { dbQuery, withDbClient } from '../db/pool.js';
 import { verifyCaptcha } from '../services/captcha.js';
 import { signJwt } from '../services/jwt.js';
+import { normalizePhone } from '../utils/phone.js';
 import type { AdminProfile, UserProfile, VendorProfile } from '../types.js';
 
 const customerRegisterSchema = z.object({
@@ -11,6 +12,8 @@ const customerRegisterSchema = z.object({
   phone: z.string().min(7).optional(),
   password: z.string().min(8),
   fullName: z.string().min(1).default('Customer'),
+  firstName: z.string().trim().min(1).optional(),
+  lastName: z.string().trim().min(1).optional(),
   socialProvider: z.string().min(1).optional(),
   socialId: z.string().min(1).optional(),
   captchaToken: z.string().optional(),
@@ -47,7 +50,9 @@ const adminLoginSchema = z.object({
 
 async function buildCustomerProfile(userId: string): Promise<UserProfile | null> {
   const rows = await dbQuery<UserProfile>(
-    'SELECT id, email::text AS email, phone, full_name AS "fullName", status FROM users WHERE id = $1 LIMIT 1',
+    `SELECT id, email::text AS email, phone, full_name AS "fullName",
+            first_name AS "firstName", last_name AS "lastName", status
+     FROM users WHERE id = $1 LIMIT 1`,
     [userId],
   );
   return rows[0] ?? null;
@@ -69,16 +74,21 @@ export async function registerAuthRoutes(fastify: FastifyInstance): Promise<void
     }
 
     const passwordHash = await bcrypt.hash(body.password, 10);
+    const phone = normalizePhone(body.phone);
+    if (body.phone && !phone) {
+      return reply.code(400).send({ error: 'Invalid phone number' });
+    }
+    const fullName = [body.firstName, body.lastName].filter(Boolean).join(' ').trim() || body.fullName;
     const rows = await withDbClient(async (client) => {
       await client.query('BEGIN');
       try {
         const result = await client.query<{ id: string }>(
           `
-            INSERT INTO users (email, phone, password_hash, social_provider, social_id, full_name)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO users (email, phone, password_hash, social_provider, social_id, full_name, first_name, last_name)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             RETURNING id
           `,
-          [body.email ?? null, body.phone ?? null, passwordHash, body.socialProvider ?? null, body.socialId ?? null, body.fullName],
+          [body.email ?? null, phone, passwordHash, body.socialProvider ?? null, body.socialId ?? null, fullName, body.firstName ?? null, body.lastName ?? null],
         );
         await client.query('COMMIT');
         return result.rows;
@@ -113,7 +123,7 @@ export async function registerAuthRoutes(fastify: FastifyInstance): Promise<void
         WHERE (email::text = $1 OR phone = $2)
         LIMIT 1
       `,
-      [body.email ?? null, body.phone ?? null],
+      [body.email ?? null, normalizePhone(body.phone)],
     );
 
     const user = rows[0];

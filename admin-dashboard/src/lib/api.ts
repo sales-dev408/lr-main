@@ -5,8 +5,11 @@ import type {
   AuthResponse,
   CardDetailResponse,
   CardSummary,
+  ContentBlock,
+  ContentKind,
   CreateVendorResult,
   DiscountSummary,
+  ThemeSettings,
   VendorActivityRecord,
   VendorPassResult,
   VendorRecord,
@@ -314,4 +317,53 @@ export async function updateDiscount(id: string, body: Record<string, unknown>):
 
 export async function deleteDiscount(id: string): Promise<unknown> {
   return apiRequest(`/admin/discounts/${id}`, { method: 'DELETE' });
+}
+
+// ---- CMS content ---------------------------------------------------------
+
+export async function listContent(): Promise<ContentBlock[]> {
+  return apiRequest<ContentBlock[]>('/admin/content');
+}
+
+export async function createContent(body: {
+  kind: ContentKind;
+  title: string;
+  body?: string;
+  url?: string;
+  dataUrl?: string;
+  position?: number;
+  published?: boolean;
+}): Promise<ContentBlock> {
+  return apiRequest('/admin/content', { method: 'POST', body: jsonBody(body) });
+}
+
+export async function updateContent(
+  id: string,
+  body: Partial<{ kind: ContentKind; title: string; body: string; url: string; dataUrl: string; position: number; published: boolean }>,
+): Promise<ContentBlock> {
+  return apiRequest(`/admin/content/${id}`, { method: 'PATCH', body: jsonBody(body) });
+}
+
+export async function deleteContent(id: string): Promise<{ deleted: boolean }> {
+  return apiRequest(`/admin/content/${id}`, { method: 'DELETE' });
+}
+
+// ---- Theme ---------------------------------------------------------------
+
+export async function getTheme(): Promise<ThemeSettings> {
+  return apiRequest<ThemeSettings>('/admin/settings/theme');
+}
+
+export async function saveTheme(theme: ThemeSettings): Promise<ThemeSettings> {
+  return apiRequest<ThemeSettings>('/admin/settings/theme', { method: 'PATCH', body: jsonBody(theme) });
+}
+
+// Reads a File into a base64 data URL for upload via the content API.
+export function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error ?? new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
 }

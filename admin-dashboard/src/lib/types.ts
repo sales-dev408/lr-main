@@ -144,6 +144,33 @@ export interface CardDetailResponse extends CardSummary {
   }>;
 }
 
+export type ContentKind = 'text' | 'article' | 'image' | 'file' | 'embed';
+
+export interface ContentBlock {
+  id: string;
+  kind: ContentKind;
+  title: string;
+  body: string | null;
+  url: string | null;
+  position: number;
+  published: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ThemeTab {
+  key: string;
+  label: string;
+  color: string;
+  gradient: [string, string];
+}
+
+export interface ThemeSettings {
+  brand: string;
+  primaryGradient: [string, string];
+  tabs: ThemeTab[];
+}
+
 export interface PublicCardsResponseItem {
   id: string;
   name: string;

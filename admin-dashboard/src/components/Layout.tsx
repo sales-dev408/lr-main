@@ -1,9 +1,24 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
+import { useTheme } from '../lib/theme';
 import { Button } from './Ui';
+
+// Bottom-tab items, styled with the published blue / red / green gradients so
+// the admin console mirrors the app's navigation.
+const NAV_ITEMS: Array<{ to: string; label: string; end?: boolean; icon: string }> = [
+  { to: '/', label: 'Overview', end: true, icon: '◆' },
+  { to: '/vendors', label: 'Vendors', icon: '▲' },
+  { to: '/cards', label: 'Cards', icon: '❖' },
+  { to: '/content', label: 'Content', icon: '✎' },
+  { to: '/theme', label: 'Theme', icon: '✿' },
+  { to: '/audit', label: 'Audit', icon: '☰' },
+  { to: '/settings', label: 'Settings', icon: '⚙' },
+];
 
 export function AppLayout() {
   const { profile, logout } = useAuth();
+  const { theme } = useTheme();
+  const gradientFor = (index: number) => theme.tabs[index % theme.tabs.length]?.gradient ?? theme.primaryGradient;
 
   return (
     <div className="app-shell">
@@ -17,13 +32,11 @@ export function AppLayout() {
             </div>
           </div>
           <nav className="nav">
-            <NavLink to="/" end>
-              Overview
-            </NavLink>
-            <NavLink to="/vendors">Vendors</NavLink>
-            <NavLink to="/cards">Cards</NavLink>
-            <NavLink to="/audit">Audit</NavLink>
-            <NavLink to="/settings">Settings</NavLink>
+            {NAV_ITEMS.map((item) => (
+              <NavLink key={item.to} to={item.to} end={item.end}>
+                {item.label}
+              </NavLink>
+            ))}
           </nav>
         </div>
       </aside>
@@ -41,6 +54,26 @@ export function AppLayout() {
           <Outlet />
         </main>
       </div>
+      <nav className="bottom-tabs" aria-label="Primary">
+        {NAV_ITEMS.map((item, index) => (
+          <NavLink key={item.to} to={item.to} end={item.end} className="bottom-tab">
+            {({ isActive }) => (
+              <>
+                <span
+                  className="bottom-tab-icon"
+                  style={{
+                    backgroundImage: `linear-gradient(135deg, ${gradientFor(index)[0]}, ${gradientFor(index)[1]})`,
+                    opacity: isActive ? 1 : 0.55,
+                  }}
+                >
+                  {item.icon}
+                </span>
+                <span className="bottom-tab-label">{item.label}</span>
+              </>
+            )}
+          </NavLink>
+        ))}
+      </nav>
     </div>
   );
 }
