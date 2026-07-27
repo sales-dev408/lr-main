@@ -22,29 +22,16 @@ export function AppLayout() {
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <div>
+      <div className="content">
+        <header className="topbar">
           <div className="brand">
             <img className="brand-logo" src="/logo.png" alt="Light Rail Deals" />
             <div>
               <strong>Light Rail Deals</strong>
-              <p className="muted">Admin console</p>
+              <p className="muted">
+                {profile?.email} · {profile?.role}
+              </p>
             </div>
-          </div>
-          <nav className="nav">
-            {NAV_ITEMS.map((item) => (
-              <NavLink key={item.to} to={item.to} end={item.end}>
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
-        </div>
-      </aside>
-      <div className="content">
-        <header className="topbar">
-          <div>
-            <strong>{profile?.email}</strong>
-            <p className="muted">Role: {profile?.role}</p>
           </div>
           <Button variant="secondary" onClick={logout}>
             Logout
