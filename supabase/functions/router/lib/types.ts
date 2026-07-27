@@ -58,6 +58,7 @@ export interface DiscountRule {
   uses_count: number;
   city_overrides: Record<string, { type?: 'fixed' | 'percent' | 'bogo'; value?: number }> | null;
   active: boolean;
+  discount_code?: string | null;
 }
 
 export interface RedeemResult {

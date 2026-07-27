@@ -21,6 +21,8 @@ export interface UserProfile {
   email: string | null;
   phone: string | null;
   fullName: string;
+  firstName: string | null;
+  lastName: string | null;
   status: UserStatus;
 }
 

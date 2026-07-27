@@ -1,27 +1,13 @@
 import { Tabs } from 'expo-router';
-import { theme } from '@/lib/theme';
+import { GradientTabBar } from '@/components/GradientTabBar';
 
 export default function TabLayout() {
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: theme.brand,
-        tabBarInactiveTintColor: theme.subtle,
-        tabBarStyle: {
-          backgroundColor: theme.panel,
-          borderTopColor: theme.border,
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 6,
-        },
-        tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
-      }}
-    >
+    <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <GradientTabBar {...props} />}>
       <Tabs.Screen name="vendors" options={{ title: 'Deals' }} />
       <Tabs.Screen name="index" options={{ title: 'Browse' }} />
-      <Tabs.Screen name="website" options={{ title: 'Website' }} />
-      <Tabs.Screen name="passes" options={{ title: 'My Passes' }} />
+      <Tabs.Screen name="discover" options={{ title: 'Discover' }} />
+      <Tabs.Screen name="passes" options={{ title: 'My Pass' }} />
       <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
     </Tabs>
   );

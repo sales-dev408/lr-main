@@ -8,7 +8,42 @@ export interface UserProfile {
   email: string | null;
   phone: string | null;
   fullName: string;
+  firstName?: string | null;
+  lastName?: string | null;
   status: 'active' | 'suspended' | 'deleted';
+}
+
+export interface AdminAuthProfile {
+  id: string;
+  email: string;
+  role: string;
+}
+
+export type ContentKind = 'text' | 'article' | 'image' | 'file' | 'embed';
+
+export interface ContentBlock {
+  id: string;
+  kind: ContentKind;
+  title: string;
+  body: string | null;
+  url: string | null;
+  position: number;
+  published: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ThemeTab {
+  key: string;
+  label: string;
+  color: string;
+  gradient: [string, string];
+}
+
+export interface ThemeSettings {
+  brand: string;
+  primaryGradient: [string, string];
+  tabs: ThemeTab[];
 }
 
 export interface AuthResponse<TProfile> {
@@ -181,6 +216,7 @@ export interface LookupResult {
     instruction?: string;
     cardId?: string;
     vendorId?: string;
+    discountCode?: string | null;
   }[];
 }
 

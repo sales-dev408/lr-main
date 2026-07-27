@@ -44,8 +44,11 @@ export default function ProfileScreen() {
 
         <Card>
           <SectionTitle title="About & Legal" subtitle="Website, terms, and privacy." />
+          <AppButton variant="secondary" onPress={() => router.push('/website')}>
+            Open lightraildeals.com
+          </AppButton>
           <AppButton variant="secondary" onPress={() => void Linking.openURL(WEBSITE_URL)}>
-            Visit lightraildeals.com
+            Open in browser
           </AppButton>
           <AppButton variant="secondary" onPress={() => router.push('/legal?doc=terms')}>
             Terms of Service

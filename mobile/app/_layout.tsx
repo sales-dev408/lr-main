@@ -1,23 +1,32 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { AdminProvider } from '@/lib/admin';
+import { AppThemeProvider } from '@/lib/appTheme';
 import { AuthProvider } from '@/lib/auth';
 import { OnboardingProvider } from '@/lib/onboarding';
 
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <OnboardingProvider>
-        <StatusBar style="dark" />
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="onboard" />
-          <Stack.Screen name="auth" />
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="card/[id]" />
-          <Stack.Screen name="pass/[serial]" />
-          <Stack.Screen name="legal" />
-        </Stack>
-      </OnboardingProvider>
+      <AdminProvider>
+        <AppThemeProvider>
+          <OnboardingProvider>
+            <StatusBar style="dark" />
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="index" />
+              <Stack.Screen name="onboard" />
+              <Stack.Screen name="auth" />
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="admin/content" />
+              <Stack.Screen name="admin/theme" />
+              <Stack.Screen name="card/[id]" />
+              <Stack.Screen name="pass/[serial]" />
+              <Stack.Screen name="website" />
+              <Stack.Screen name="legal" />
+            </Stack>
+          </OnboardingProvider>
+        </AppThemeProvider>
+      </AdminProvider>
     </AuthProvider>
   );
 }

@@ -66,5 +66,8 @@ export function buildLookupDiscountView(discount: DiscountRule, city?: string | 
     usesCount: discount.uses_count,
     cityOverrides: discount.city_overrides,
     active: discount.active,
+    // Per-vendor POS code the business types into their register. The member
+    // barcode stays opaque; codes are only ever resolved server-side here.
+    discountCode: discount.discount_code ?? null,
   };
 }

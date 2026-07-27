@@ -1,10 +1,13 @@
 import { getApiBaseUrl } from './config';
 import { ApiError } from './errors';
 import type {
+  AdminAuthProfile,
   AuthResponse,
   CityOverrideMap,
   CardDiscount,
   CardDetail,
+  ContentBlock,
+  ContentKind,
   DiscountType,
   CardSummary,
   CreatePassResponse,
@@ -13,6 +16,7 @@ import type {
   OnboardingResponse,
   PassDetail,
   RedeemResult,
+  ThemeSettings,
   UserProfile,
   VendorListItem,
   WalletPlatform,
@@ -153,9 +157,13 @@ async function parseError(response: Response): Promise<{ code: string; message: 
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set('Accept', 'application/json');
-  const auth = await getStoredAuth();
-  if (auth?.token) {
-    headers.set('Authorization', `Bearer ${auth.token}`);
+  // An explicit Authorization header (e.g. an admin session) wins over the
+  // stored member token.
+  if (!headers.has('Authorization')) {
+    const auth = await getStoredAuth();
+    if (auth?.token) {
+      headers.set('Authorization', `Bearer ${auth.token}`);
+    }
   }
   if (init.body && !(init.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
@@ -187,7 +195,15 @@ export async function login(body: { email?: string; phone?: string; password: st
   return apiRequest<AuthResponse<UserProfile>>('/auth/login', { method: 'POST', body: JSON.stringify(body) });
 }
 
-export async function register(body: { email?: string; phone?: string; password: string; fullName: string; social?: string }) {
+export async function register(body: {
+  email?: string;
+  phone?: string;
+  password: string;
+  fullName: string;
+  firstName?: string;
+  lastName?: string;
+  social?: string;
+}) {
   return apiRequest<AuthResponse<UserProfile>>('/auth/register', { method: 'POST', body: JSON.stringify(body) });
 }
 
@@ -302,4 +318,57 @@ export async function redeem(body: {
   purchaseAmount?: number;
 }) {
   return apiRequest<RedeemResult>('/redeem', { method: 'POST', body: JSON.stringify(body) });
+}
+
+// ---- CMS content + theme --------------------------------------------------
+
+export async function getAppTheme() {
+  return apiRequest<ThemeSettings>('/settings/theme');
+}
+
+export async function listPublishedContent() {
+  return apiRequest<ContentBlock[]>('/content');
+}
+
+// ---- In-app admin editing -------------------------------------------------
+// The app presents the first/last-name inputs as the credential fields, but the
+// values are always validated server-side by the admin login endpoint.
+
+export async function adminLogin(body: { email: string; password: string }) {
+  return apiRequest<AuthResponse<AdminAuthProfile>>('/auth/admin/login', { method: 'POST', body: JSON.stringify(body) });
+}
+
+function adminHeaders(token: string): HeadersInit {
+  return { Authorization: `Bearer ${token}` };
+}
+
+export async function adminListContent(token: string) {
+  return apiRequest<ContentBlock[]>('/admin/content', { headers: adminHeaders(token) });
+}
+
+export async function adminCreateContent(
+  token: string,
+  body: { kind: ContentKind; title: string; body?: string; url?: string; position?: number; published?: boolean },
+) {
+  return apiRequest<ContentBlock>('/admin/content', { method: 'POST', headers: adminHeaders(token), body: JSON.stringify(body) });
+}
+
+export async function adminUpdateContent(
+  token: string,
+  id: string,
+  body: Partial<{ kind: ContentKind; title: string; body: string; url: string; position: number; published: boolean }>,
+) {
+  return apiRequest<ContentBlock>(`/admin/content/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: adminHeaders(token),
+    body: JSON.stringify(body),
+  });
+}
+
+export async function adminDeleteContent(token: string, id: string) {
+  return apiRequest<{ deleted: boolean }>(`/admin/content/${encodeURIComponent(id)}`, { method: 'DELETE', headers: adminHeaders(token) });
+}
+
+export async function adminSaveTheme(token: string, theme: ThemeSettings) {
+  return apiRequest<ThemeSettings>('/admin/settings/theme', { method: 'PATCH', headers: adminHeaders(token), body: JSON.stringify(theme) });
 }

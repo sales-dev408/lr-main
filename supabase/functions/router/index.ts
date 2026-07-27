@@ -12,6 +12,15 @@ import { buildMemberPassUrl } from './lib/wallet.ts';
 import { createVendorWithDiscount } from './lib/vendors.ts';
 import { ensureMembershipPass, membershipWalletUrl } from './lib/membership.ts';
 import { humanDiscountLabel } from './lib/codes.ts';
+import { normalizePhone } from './lib/phone.ts';
+import {
+  createContentBlock,
+  deleteContentBlock,
+  getTheme,
+  listContentBlocks,
+  saveTheme,
+  updateContentBlock,
+} from './lib/content.ts';
 
 // Shape the customer-facing membership pass payload (wallet + barcode links),
 // creating the pass idempotently. Returns null if pass generation fails.
@@ -38,8 +47,35 @@ const customerRegisterSchema = z.object({
   phone: z.string().min(7).optional(),
   password: z.string().min(8),
   fullName: z.string().min(1).default('Customer'),
+  firstName: z.string().trim().min(1).optional(),
+  lastName: z.string().trim().min(1).optional(),
   socialProvider: z.string().min(1).optional(),
   socialId: z.string().min(1).optional(),
+});
+
+const contentCreateSchema = z.object({
+  kind: z.enum(['text', 'article', 'image', 'file', 'embed']).default('text'),
+  title: z.string().min(1),
+  body: z.string().optional(),
+  url: z.string().optional(),
+  dataUrl: z.string().optional(),
+  position: z.number().int().optional(),
+  published: z.boolean().optional(),
+});
+
+const contentUpdateSchema = contentCreateSchema.partial();
+
+const themeTabSchema = z.object({
+  key: z.string().min(1),
+  label: z.string().min(1),
+  color: z.string().min(1),
+  gradient: z.tuple([z.string().min(1), z.string().min(1)]),
+});
+
+const themeSchema = z.object({
+  brand: z.string().min(1),
+  primaryGradient: z.tuple([z.string().min(1), z.string().min(1)]),
+  tabs: z.array(themeTabSchema).min(1),
 });
 
 const customerLoginSchema = z.object({
@@ -165,8 +201,18 @@ async function issueToken(role: 'customer' | 'vendor' | 'admin', id: string, ema
 }
 
 async function buildCustomerProfile(userId: string) {
-  const rows = await dbQuery<{ id: string; email: string | null; phone: string | null; fullName: string; status: string }>(
-    'SELECT id, email::text AS email, phone, full_name AS "fullName", status FROM users WHERE id = $1 LIMIT 1',
+  const rows = await dbQuery<{
+    id: string;
+    email: string | null;
+    phone: string | null;
+    fullName: string;
+    firstName: string | null;
+    lastName: string | null;
+    status: string;
+  }>(
+    `SELECT id, email::text AS email, phone, full_name AS "fullName",
+            first_name AS "firstName", last_name AS "lastName", status
+     FROM users WHERE id = $1 LIMIT 1`,
     [userId],
   );
   return rows[0] ?? null;
@@ -328,13 +374,18 @@ Deno.serve(async (request) => {
     if (path === '/api/auth/register' && request.method === 'POST') {
       const body = customerRegisterSchema.parse(await readJsonBody(request, {}));
       if (!body.email && !body.phone && !body.socialProvider) return json(request, { error: 'Email, phone, or social login is required' }, { status: 400 });
+      // Phone numbers authenticate members, so store one canonical form.
+      const phone = normalizePhone(body.phone);
+      if (body.phone && !phone) return json(request, { error: 'Invalid phone number' }, { status: 400 });
       const passwordHash = await bcrypt.hash(body.password, 10);
+      // Derive full_name from the onboarding first/last name when provided.
+      const fullName = [body.firstName, body.lastName].filter(Boolean).join(' ').trim() || body.fullName;
       const rows = await withDbClient(async (client) => {
         await client.query('BEGIN');
         try {
           const result = await client.query<{ id: string }>(
-            `INSERT INTO users (email, phone, password_hash, social_provider, social_id, full_name) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-            [body.email ?? null, body.phone ?? null, passwordHash, body.socialProvider ?? null, body.socialId ?? null, body.fullName],
+            `INSERT INTO users (email, phone, password_hash, social_provider, social_id, full_name, first_name, last_name) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+            [body.email ?? null, phone, passwordHash, body.socialProvider ?? null, body.socialId ?? null, fullName, body.firstName ?? null, body.lastName ?? null],
           );
           await client.query('COMMIT');
           return result.rows;
@@ -354,7 +405,7 @@ Deno.serve(async (request) => {
       const body = customerLoginSchema.parse(await readJsonBody(request, {}));
       const rows = await dbQuery<{ id: string; email: string | null; password_hash: string | null }>(
         'SELECT id, email::text AS email, password_hash FROM users WHERE (email::text = $1 OR phone = $2) LIMIT 1',
-        [body.email ?? null, body.phone ?? null],
+        [body.email ?? null, normalizePhone(body.phone)],
       );
       const user = rows[0];
       if (!user || !user.password_hash || !(await bcrypt.compare(body.password, user.password_hash))) {
@@ -403,7 +454,22 @@ Deno.serve(async (request) => {
       const rows = await dbQuery<{ id: string; email: string; password_hash: string; role: string }>('SELECT id, email::text AS email, password_hash, role FROM admins WHERE email::text = $1 LIMIT 1', [
         body.email,
       ]);
-      const admin = rows[0];
+      let admin = rows[0];
+      // Bootstrap the first owner from the configured ADMIN_EMAIL/ADMIN_PASSWORD
+      // when no admin exists yet, so the owner can sign in and then manage
+      // credentials from the dashboard. Credentials are never hardcoded here.
+      if (!admin) {
+        const counted = await dbQuery<{ count: string }>('SELECT count(*)::text AS count FROM admins');
+        const noAdmins = counted[0]?.count === '0';
+        if (noAdmins && body.email.toLowerCase() === config.adminEmail.toLowerCase() && body.password === config.adminPassword) {
+          const seedHash = await bcrypt.hash(body.password, 10);
+          const created = await dbQuery<{ id: string; email: string; password_hash: string; role: string }>(
+            `INSERT INTO admins (email, password_hash, role) VALUES ($1, $2, 'owner') RETURNING id, email::text AS email, password_hash, role`,
+            [config.adminEmail, seedHash],
+          );
+          admin = created[0];
+        }
+      }
       if (!admin || !(await bcrypt.compare(body.password, admin.password_hash))) return json(request, { error: 'Invalid credentials' }, { status: 401 });
       const token = await issueToken('admin', admin.id, admin.email);
       return json(request, { token, expiresIn: '7d', profile: { id: admin.id, email: admin.email, role: admin.role } });
@@ -664,6 +730,53 @@ Deno.serve(async (request) => {
       if (auth instanceof Response) return auth;
       const id = path.split('/').pop()!;
       return json(request, await dbQuery('DELETE FROM discounts WHERE id = $1 RETURNING id', [id]));
+    }
+
+    // ---- CMS content + theme ------------------------------------------------
+    // Public: published content blocks rendered in the app's Discover feed.
+    if (path === '/api/content' && request.method === 'GET') {
+      return json(request, await listContentBlocks({ publishedOnly: true }));
+    }
+    // Public: shared theme (blue/red/green bottom-tab styling) for app + admin.
+    if (path === '/api/settings/theme' && request.method === 'GET') {
+      return json(request, await getTheme());
+    }
+    if (path === '/api/admin/content' && request.method === 'GET') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      return json(request, await listContentBlocks({ publishedOnly: false }));
+    }
+    if (path === '/api/admin/content' && request.method === 'POST') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const body = contentCreateSchema.parse(await readJsonBody(request, {}));
+      return json(request, await createContentBlock(body), { status: 201 });
+    }
+    if (/^\/api\/admin\/content\/[^/]+$/.test(path) && request.method === 'PATCH') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const id = path.split('/').pop()!;
+      const body = contentUpdateSchema.parse(await readJsonBody(request, {}));
+      const updated = await updateContentBlock(id, body);
+      if (!updated) return json(request, { error: 'Content not found' }, { status: 404 });
+      return json(request, updated);
+    }
+    if (/^\/api\/admin\/content\/[^/]+$/.test(path) && request.method === 'DELETE') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const id = path.split('/').pop()!;
+      return json(request, { deleted: await deleteContentBlock(id) });
+    }
+    if (path === '/api/admin/settings/theme' && request.method === 'GET') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      return json(request, await getTheme());
+    }
+    if (path === '/api/admin/settings/theme' && request.method === 'PATCH') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const body = themeSchema.parse(await readJsonBody(request, {}));
+      return json(request, await saveTheme(body));
     }
 
     // Resolves a membership pass to its wallet download. 302-redirects to the
