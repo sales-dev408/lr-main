@@ -17,8 +17,8 @@ Identifiers already set in `app.json`:
 
 | Field | Value |
 | --- | --- |
-| iOS `bundleIdentifier` | `com.lightrailphx.deals` |
-| Android `package` | `com.lightrailphx.deals` |
+| iOS `bundleIdentifier` | `com.lightraildeals.app` |
+| Android `package` | `com.lightraildeals.app` |
 
 These are permanent once an app is published to either store — change them
 before your first submission if you want something different.
