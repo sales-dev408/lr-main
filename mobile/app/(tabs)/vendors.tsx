@@ -34,8 +34,8 @@ export default function VendorsScreen() {
         if (active) setLoading(false);
       });
       const interval = setInterval(() => {
-        void load();
-      }, 20000);
+        if (active) void load();
+      }, 30000);
       return () => {
         active = false;
         clearInterval(interval);

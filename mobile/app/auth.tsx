@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ScrollView, Text } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { AppButton, Banner, Card, FieldInput, Screen, SectionTitle } from '@/components/Ui';
 import { useAdmin } from '@/lib/admin';
 import { useAuth } from '@/lib/auth';
@@ -9,9 +9,10 @@ type Mode = 'login' | 'register';
 
 export default function AuthScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ mode?: string }>();
   const auth = useAuth();
   const admin = useAdmin();
-  const [mode, setMode] = useState<Mode>('login');
+  const [mode, setMode] = useState<Mode>(params.mode === 'register' ? 'register' : 'login');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
