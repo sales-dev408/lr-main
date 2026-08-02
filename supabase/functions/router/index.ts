@@ -169,7 +169,7 @@ function json(request: Request, body: unknown, init: ResponseInit = {}): Respons
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
       'Access-Control-Allow-Origin': corsOrigin(request),
-      'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+      'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, pragma',
       'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
       ...(init.headers ?? {}),
     },
@@ -354,7 +354,7 @@ Deno.serve(async (request) => {
       status: 204,
       headers: {
         'Access-Control-Allow-Origin': corsOrigin(request),
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, pragma',
         'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
       },
     });

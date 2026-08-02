@@ -170,10 +170,11 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
     headers.set('Content-Type', 'application/json');
   }
   // Never serve stale admin content, theme, vendors, or card data from caches.
+  // Use the fetch cache option instead of Cache-Control/Pragma headers so the
+  // request stays a simple CORS request and avoids an extra preflight.
   const method = init.method?.toUpperCase() ?? 'GET';
-  if (method === 'GET') {
-    headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-    headers.set('Pragma', 'no-cache');
+  if (method === 'GET' && !init.cache) {
+    init.cache = 'no-store';
   }
 
   let response: Response;

@@ -30,7 +30,12 @@ Run the repo migrations against Supabase Postgres. The schema currently lives in
 - `backend/src/db/migrations/002_pos_integration.sql`
 
 For a clean Supabase deployment, load those migrations into the Supabase SQL
-editor or run them with your preferred SQL client.
+editor or run them with your preferred SQL client. If you are updating an
+existing database, also apply the newer migrations:
+
+- `backend/src/db/migrations/004_membership_card.sql`
+- `backend/src/db/migrations/005_cms_onboarding_theme.sql`
+- `backend/src/db/migrations/006_event_tickets.sql`
 
 ## 3) Move the backend contract to a Supabase Edge Function
 
@@ -89,6 +94,8 @@ psql "$SUPABASE_DB_URL" -f backend/src/db/migrations/001_init.sql
 psql "$SUPABASE_DB_URL" -f backend/src/db/migrations/002_pos_integration.sql
 psql "$SUPABASE_DB_URL" -f backend/src/db/migrations/003_discount_workflow.sql
 psql "$SUPABASE_DB_URL" -f backend/src/db/migrations/004_membership_card.sql
+psql "$SUPABASE_DB_URL" -f backend/src/db/migrations/005_cms_onboarding_theme.sql
+psql "$SUPABASE_DB_URL" -f backend/src/db/migrations/006_event_tickets.sql
 # function
 supabase secrets set SUPABASE_DB_URL=... JWT_SECRET=... POS_TOKEN_ENC_KEY=... ALLOWED_ORIGINS=... \
   PASSCREATOR_API_KEY=... PASSCREATOR_TEMPLATE_ID=...
@@ -124,7 +131,7 @@ VITE_API_BASE_URL=https://<project>.supabase.co/functions/v1/router
 VITE_API_BASE_URL=https://api.yourdomain.com/api
 ```
 
-Both talk to the same Postgres schema (`001_init.sql` + `002_pos_integration.sql`),
+Both talk to the same Postgres schema (`001_init.sql` through `006_event_tickets.sql`),
 so you can even run them side by side against one Supabase database and cut over
 by flipping `VITE_API_BASE_URL` (and `EXPO_PUBLIC_API_BASE_URL` for mobile).
 
