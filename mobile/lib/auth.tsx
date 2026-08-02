@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { login as loginRequest, register as registerRequest, socialLogin as socialLoginRequest } from './api';
+import { login as loginRequest, register as registerRequest } from './api';
 import { getItem, removeItem, setItem } from './storage';
 import type { AuthResponse, UserProfile } from './types';
 
@@ -9,9 +9,8 @@ type AuthContextValue = {
   loading: boolean;
   token: string | null;
   profile: UserProfile | null;
-  loginWithPassword: (body: { email?: string; phone?: string; password: string }) => Promise<void>;
-  registerAccount: (body: { email?: string; phone?: string; password: string; fullName: string; firstName?: string; lastName?: string }) => Promise<void>;
-  loginWithSocial: () => Promise<void>;
+  signIn: (body: { firstName: string; lastName: string }) => Promise<void>;
+  registerAccount: (body: { firstName: string; lastName: string; email?: string; phone?: string }) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -57,20 +56,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       token,
       profile,
-      loginWithPassword: async (body) => {
+      signIn: async (body) => {
         const auth = await loginRequest(body);
         await persist(auth);
       },
       registerAccount: async (body) => {
         const auth = await registerRequest(body);
-        await persist(auth);
-      },
-      loginWithSocial: async () => {
-        const auth = await socialLoginRequest({
-          provider: 'stub',
-          token: 'placeholder-token',
-          fullName: 'Social User',
-        });
         await persist(auth);
       },
       logout: async () => {

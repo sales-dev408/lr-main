@@ -3,8 +3,8 @@ import { config } from '../config.js';
 import type { JwtClaims, Role } from '../types.js';
 import type { Secret, SignOptions } from 'jsonwebtoken';
 
-export function signJwt(payload: { sub: string; role: Role; email?: string | null }): string {
-  const options = { expiresIn: config.jwtExpiresIn } as SignOptions;
+export function signJwt(payload: { sub: string; role: Role; email?: string | null }, expiresIn = config.jwtExpiresIn): string {
+  const options = { expiresIn } as SignOptions;
   return jwt.sign({ ...payload, sub: payload.sub }, config.jwtSecret as Secret, options);
 }
 

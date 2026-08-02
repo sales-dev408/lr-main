@@ -43,14 +43,10 @@ async function buildMembershipPassResponse(userId: string, baseUrl?: string) {
 }
 
 const customerRegisterSchema = z.object({
+  firstName: z.string().trim().min(1),
+  lastName: z.string().trim().min(1),
   email: z.string().email().optional(),
   phone: z.string().min(7).optional(),
-  password: z.string().min(8),
-  fullName: z.string().min(1).default('Customer'),
-  firstName: z.string().trim().min(1).optional(),
-  lastName: z.string().trim().min(1).optional(),
-  socialProvider: z.string().min(1).optional(),
-  socialId: z.string().min(1).optional(),
 });
 
 const contentCreateSchema = z.object({
@@ -79,9 +75,8 @@ const themeSchema = z.object({
 });
 
 const customerLoginSchema = z.object({
-  email: z.string().email().optional(),
-  phone: z.string().min(7).optional(),
-  password: z.string().min(1),
+  firstName: z.string().trim().min(1),
+  lastName: z.string().trim().min(1),
 });
 
 const socialSchema = z
@@ -197,7 +192,9 @@ function decodeBase64UrlJson<T>(value: string): T | null {
 
 async function issueToken(role: 'customer' | 'vendor' | 'admin', id: string, email?: string | null) {
   const { signJwt } = await import('./lib/jwt.ts');
-  return signJwt({ sub: id, role, email: email ?? null });
+  // Members stay signed in until they manually log out.
+  const expiresIn = role === 'customer' ? '365d' : '7d';
+  return signJwt({ sub: id, role, email: email ?? null }, expiresIn);
 }
 
 async function buildCustomerProfile(userId: string) {
@@ -373,19 +370,16 @@ Deno.serve(async (request) => {
 
     if (path === '/api/auth/register' && request.method === 'POST') {
       const body = customerRegisterSchema.parse(await readJsonBody(request, {}));
-      if (!body.email && !body.phone && !body.socialProvider) return json(request, { error: 'Email, phone, or social login is required' }, { status: 400 });
       // Phone numbers authenticate members, so store one canonical form.
       const phone = normalizePhone(body.phone);
       if (body.phone && !phone) return json(request, { error: 'Invalid phone number' }, { status: 400 });
-      const passwordHash = await bcrypt.hash(body.password, 10);
-      // Derive full_name from the onboarding first/last name when provided.
-      const fullName = [body.firstName, body.lastName].filter(Boolean).join(' ').trim() || body.fullName;
+      const fullName = `${body.firstName} ${body.lastName}`.trim();
       const rows = await withDbClient(async (client) => {
         await client.query('BEGIN');
         try {
           const result = await client.query<{ id: string }>(
-            `INSERT INTO users (email, phone, password_hash, social_provider, social_id, full_name, first_name, last_name) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
-            [body.email ?? null, phone, passwordHash, body.socialProvider ?? null, body.socialId ?? null, fullName, body.firstName ?? null, body.lastName ?? null],
+            `INSERT INTO users (email, phone, password_hash, full_name, first_name, last_name) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+            [body.email ?? null, phone ?? null, null, fullName, body.firstName, body.lastName],
           );
           await client.query('COMMIT');
           return result.rows;
@@ -398,23 +392,23 @@ Deno.serve(async (request) => {
       const token = await issueToken('customer', rows[0]!.id, profile?.email ?? body.email ?? null);
       // Auto-generate the member's all-in-one membership pass right after signup.
       const membershipPass = await buildMembershipPassResponse(rows[0]!.id, baseUrl);
-      return json(request, { token, expiresIn: '7d', profile, membershipPass, walletUrl: membershipPass?.walletUrl ?? null }, { status: 201 });
+      return json(request, { token, expiresIn: '365d', profile, membershipPass, walletUrl: membershipPass?.walletUrl ?? null }, { status: 201 });
     }
 
     if (path === '/api/auth/login' && request.method === 'POST') {
       const body = customerLoginSchema.parse(await readJsonBody(request, {}));
-      const rows = await dbQuery<{ id: string; email: string | null; password_hash: string | null }>(
-        'SELECT id, email::text AS email, password_hash FROM users WHERE (email::text = $1 OR phone = $2) LIMIT 1',
-        [body.email ?? null, normalizePhone(body.phone)],
+      const rows = await dbQuery<{ id: string; email: string | null; status: string; full_name: string }>(
+        'SELECT id, email::text AS email, status, full_name FROM users WHERE first_name = $1 AND last_name = $2 ORDER BY created_at DESC LIMIT 1',
+        [body.firstName, body.lastName],
       );
       const user = rows[0];
-      if (!user || !user.password_hash || !(await bcrypt.compare(body.password, user.password_hash))) {
+      if (!user || user.status !== 'active') {
         return json(request, { error: 'Invalid credentials' }, { status: 401 });
       }
       const profile = await buildCustomerProfile(user.id);
       const token = await issueToken('customer', user.id, user.email);
       const membershipPass = await buildMembershipPassResponse(user.id, baseUrl);
-      return json(request, { token, expiresIn: '7d', profile, membershipPass, walletUrl: membershipPass?.walletUrl ?? null });
+      return json(request, { token, expiresIn: '365d', profile, membershipPass, walletUrl: membershipPass?.walletUrl ?? null });
     }
 
     if (path === '/api/auth/social' && request.method === 'POST') {
