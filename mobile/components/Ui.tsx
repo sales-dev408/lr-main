@@ -1,4 +1,4 @@
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View, type PressableProps, type TextInputProps, type ViewProps } from 'react-native';
+import { ActivityIndicator, Image, Platform, Pressable, StyleSheet, Text, TextInput, View, type PressableProps, type TextInputProps, type ViewProps } from 'react-native';
 import type { ReactNode } from 'react';
 import { APPLE_TRADEMARK_NOTICE, theme } from '@/lib/theme';
 
@@ -88,6 +88,11 @@ export function Spinner() {
   return <ActivityIndicator color={theme.brand} />;
 }
 
+// react-native-web deprecates the iOS-only shadow* props; use CSS box-shadow on web.
+const cardShadow = (Platform.OS === 'web'
+  ? { boxShadow: '0 8px 24px rgba(11, 31, 42, 0.08)', elevation: 8 }
+  : theme.shadow) as Record<string, unknown>;
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -129,7 +134,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.border,
     gap: 12,
-    ...theme.shadow,
+    ...cardShadow,
   },
   sectionHeader: {
     gap: 4,
