@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Image, ScrollView, Text, View } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, useFocusEffect } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, FieldInput, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { listCards } from '@/lib/api';
 import { useOnboarding } from '@/lib/onboarding';
@@ -16,39 +16,35 @@ export default function BrowseScreen() {
   const onboarding = useOnboarding();
   const [theme, setTheme] = useState<CardTheme>(onboarding.selection.theme ?? 'shops_restaurants');
   const [city, setCity] = useState(onboarding.selection.city ?? '');
+  const [cityInput, setCityInput] = useState(city);
   const [cards, setCards] = useState<CardSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let mounted = true;
-    async function load() {
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
       setLoading(true);
       setError(null);
-      try {
-        const data = await listCards({ theme, city: city.trim() || undefined });
-        if (mounted) {
-          setCards(data);
-        }
-      } catch (err) {
-        if (mounted) {
-          setError(err instanceof Error ? err.message : 'Unable to load cards');
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    }
-    void load();
-    return () => {
-      mounted = false;
-    };
-  }, [theme, city]);
+      listCards({ theme, city: city.trim() || undefined })
+        .then((data) => {
+          if (active) setCards(data);
+        })
+        .catch((err) => {
+          if (active) setError(err instanceof Error ? err.message : 'Unable to load cards');
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
+      return () => {
+        active = false;
+      };
+    }, [theme, city]),
+  );
 
-  useEffect(() => {
-    void onboarding.updateSelection({ theme, city: city.trim() || undefined });
-  }, [city, onboarding, theme]);
+  const applyCity = useCallback(() => {
+    setCity(cityInput.trim());
+  }, [cityInput]);
 
   const featured = useMemo(() => cards[0] ?? null, [cards]);
 
@@ -63,7 +59,13 @@ export default function BrowseScreen() {
               Loaded from onboarding code: {onboarding.selection.cardName} · {onboarding.selection.vendorName}
             </Banner>
           ) : null}
-          <FieldInput value={city} onChangeText={setCity} placeholder="City (optional)" />
+          <FieldInput
+            value={cityInput}
+            onChangeText={setCityInput}
+            onBlur={applyCity}
+            placeholder="City (optional)"
+            autoCapitalize="words"
+          />
           <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
             {THEMES.map((value) => (
               <AppButton key={value} variant={theme === value ? 'primary' : 'secondary'} onPress={() => setTheme(value)}>

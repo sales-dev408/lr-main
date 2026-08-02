@@ -168,6 +168,12 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   if (init.body && !(init.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
   }
+  // Never serve stale admin content, theme, vendors, or card data from caches.
+  const method = init.method?.toUpperCase() ?? 'GET';
+  if (method === 'GET') {
+    headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    headers.set('Pragma', 'no-cache');
+  }
 
   let response: Response;
   try {

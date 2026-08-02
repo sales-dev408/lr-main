@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 import { getAppTheme } from './api';
 import { DEFAULT_THEME_SETTINGS } from './theme';
 import type { ThemeSettings, ThemeTab } from './types';
@@ -41,6 +42,22 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
     void refresh();
     return () => {
       mounted.current = false;
+    };
+  }, [refresh]);
+
+  // Refresh the theme when the app returns to the foreground and periodically
+  // while it is active, so admin console changes show up without a restart.
+  useEffect(() => {
+    const handleAppState = (next: AppStateStatus) => {
+      if (next === 'active') {
+        void refresh();
+      }
+    };
+    const subscription = AppState.addEventListener('change', handleAppState);
+    const interval = setInterval(() => void refresh(), 30000);
+    return () => {
+      subscription.remove();
+      clearInterval(interval);
     };
   }, [refresh]);
 

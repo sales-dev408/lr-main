@@ -30,8 +30,13 @@ export default function DiscoverScreen() {
       void load().finally(() => {
         if (active) setLoading(false);
       });
+      // Keep Discover feed in sync while the admin console is being edited.
+      const interval = setInterval(() => {
+        if (active) void load();
+      }, 30000);
       return () => {
         active = false;
+        clearInterval(interval);
       };
     }, [load]),
   );
