@@ -2,30 +2,23 @@ import { Linking, ScrollView, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AppButton, AppleTrademark, Banner, BrandHeader, Card, Screen, SectionTitle } from '@/components/Ui';
 import { useAuth } from '@/lib/auth';
-import { useOnboarding } from '@/lib/onboarding';
 import { WEBSITE_URL } from '@/lib/theme';
-
-function selectedSummary(theme?: string, cardName?: string, vendorName?: string) {
-  const parts = [theme, cardName, vendorName].filter(Boolean);
-  return parts.length ? parts.join(' · ') : 'No onboarding selection yet';
-}
 
 export default function ProfileScreen() {
   const router = useRouter();
   const auth = useAuth();
-  const onboarding = useOnboarding();
 
   return (
     <Screen>
       <ScrollView contentContainerStyle={{ gap: 14, paddingBottom: 24 }}>
         <BrandHeader subtitle="Your account" />
+
         <Card>
-          <SectionTitle title="Profile" subtitle="Signed-in customer details and app preferences." />
+          <SectionTitle title="Profile" subtitle="Signed-in customer details" />
           {auth.profile ? (
             <>
-              <Text style={{ fontWeight: '700', color: '#10223d' }}>{auth.profile.fullName}</Text>
-              <Text style={{ color: '#52617a' }}>{auth.profile.email ?? auth.profile.phone ?? 'No email/phone on file'}</Text>
-              <Text style={{ color: '#52617a' }}>Status: {auth.profile.status}</Text>
+              <Text style={{ fontWeight: '700', color: '#10223d', fontSize: 18 }}>{auth.profile.fullName}</Text>
+              <Text style={{ color: '#52617a' }}>{auth.profile.email ?? auth.profile.phone ?? 'No email or phone on file'}</Text>
             </>
           ) : (
             <Banner tone="info">No customer profile is signed in.</Banner>
@@ -33,22 +26,19 @@ export default function ProfileScreen() {
         </Card>
 
         <Card>
-          <SectionTitle title="Onboarding selection" subtitle="What the poster QR pre-selected." />
-          <Text style={{ color: '#10223d' }}>{selectedSummary(onboarding.selection.theme, onboarding.selection.cardName, onboarding.selection.vendorName)}</Text>
-          <Text style={{ color: '#52617a' }}>App Store: {onboarding.selection.appStoreUrl ?? 'n/a'}</Text>
-          <Text style={{ color: '#52617a' }}>Play Store: {onboarding.selection.playStoreUrl ?? 'n/a'}</Text>
-          <AppButton variant="secondary" onPress={() => router.push('/onboard')}>
-            Re-open onboarding
+          <SectionTitle title="Membership & tickets" subtitle="Passes and event tickets" />
+          <AppButton variant="secondary" onPress={() => router.push('/(tabs)/passes')}>
+            My membership pass
+          </AppButton>
+          <AppButton variant="secondary" onPress={() => router.push('/tickets')}>
+            My event tickets
           </AppButton>
         </Card>
 
         <Card>
-          <SectionTitle title="About & Legal" subtitle="Website, terms, and privacy." />
-          <AppButton variant="secondary" onPress={() => router.push('/website')}>
-            Open lightraildeals.com
-          </AppButton>
+          <SectionTitle title="About & Legal" subtitle="Website, terms, and privacy" />
           <AppButton variant="secondary" onPress={() => void Linking.openURL(WEBSITE_URL)}>
-            Open in browser
+            Open website
           </AppButton>
           <AppButton variant="secondary" onPress={() => router.push('/legal?doc=terms')}>
             Terms of Service
@@ -60,7 +50,7 @@ export default function ProfileScreen() {
         </Card>
 
         <Card>
-          <SectionTitle title="Session" subtitle="JWT and user profile are stored securely when possible." />
+          <SectionTitle title="Session" subtitle="Account access" />
           <AppButton
             variant="danger"
             onPress={() => {

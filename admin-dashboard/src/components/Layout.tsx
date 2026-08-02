@@ -9,6 +9,7 @@ const NAV_ITEMS: Array<{ to: string; label: string; end?: boolean; icon: string 
   { to: '/', label: 'Overview', end: true, icon: '◆' },
   { to: '/vendors', label: 'Vendors', icon: '▲' },
   { to: '/cards', label: 'Cards', icon: '❖' },
+  { to: '/tickets', label: 'Tickets', icon: '🎫' },
   { to: '/content', label: 'Content', icon: '✎' },
   { to: '/theme', label: 'Theme', icon: '✿' },
   { to: '/audit', label: 'Audit', icon: '☰' },

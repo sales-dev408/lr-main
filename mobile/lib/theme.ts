@@ -1,19 +1,29 @@
 import type { ThemeSettings } from './types';
 
-// Light Rail Deals brand theme. Centralized so screens/components stay consistent.
+// Light Rail Deals brand theme. These values mirror the admin console palette
+// and are consumed by the shared UI components so screens stay consistent.
 export const theme = {
-  brand: '#10a06a',
-  brandDark: '#0b7d51',
-  brandSoft: '#d8f3e6',
-  ink: '#0b1f2a',
+  brand: '#2563eb',
+  brandDark: '#1d4ed8',
+  brandSoft: '#dbeafe',
+  ink: '#0e1b2a',
   ink2: '#123141',
   bg: '#eef2f8',
   panel: '#ffffff',
-  border: '#e2e8f0',
-  muted: '#52617a',
+  border: '#dbe3f0',
+  muted: '#64748b',
   subtle: '#7c8a9d',
   danger: '#dc2626',
+  success: '#15803d',
+  warning: '#b45309',
   radius: 18,
+  shadow: {
+    shadowColor: '#0b1f2a',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+    elevation: 8,
+  },
 } as const;
 
 export const APPLE_TRADEMARK_NOTICE =

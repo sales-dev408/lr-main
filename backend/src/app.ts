@@ -10,6 +10,7 @@ import { registerPassRoutes } from './routes/passes.js';
 import { registerLookupRoutes } from './routes/lookup.js';
 import { registerQrRoutes } from './routes/qr.js';
 import { registerPosRoutes } from './routes/pos.js';
+import { registerTicketRoutes } from './routes/tickets.js';
 
 export async function buildApp() {
   const app = fastify({
@@ -29,6 +30,7 @@ export async function buildApp() {
   await registerLookupRoutes(app);
   await registerQrRoutes(app);
   await registerPosRoutes(app);
+  await registerTicketRoutes(app);
 
   return app;
 }

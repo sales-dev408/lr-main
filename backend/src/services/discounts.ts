@@ -7,6 +7,30 @@ export interface DiscountLike {
   cityOverrides?: CityOverrideMap | null;
 }
 
+export function humanDiscountLabel(type: 'fixed' | 'percent' | 'bogo', value: number): string {
+  if (type === 'percent') return `${value}% Off`;
+  if (type === 'fixed') return `$${value} Off`;
+  return 'Buy One Get One';
+}
+
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+export function randomDiscountSuffix(length = 4): string {
+  const chars = [];
+  for (let i = 0; i < length; i++) {
+    chars.push(CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)]);
+  }
+  return chars.join('');
+}
+
+export function generateDiscountCode(input: { merchantId: string; type: 'fixed' | 'percent' | 'bogo'; value: number }): string {
+  const clean = input.merchantId.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  const merchant = (clean.length >= 6 ? clean.slice(0, 6) : clean + randomDiscountSuffix(6 - clean.length)).slice(0, 6);
+  const normalized = Number.isInteger(input.value) ? String(input.value) : String(input.value).replace('.', 'P');
+  const amount = input.type === 'percent' ? `${normalized}PCT` : input.type === 'fixed' ? `${normalized}USD` : 'BOGO';
+  return `VEND-${merchant}-${amount}-${randomDiscountSuffix(4)}`;
+}
+
 export function normalizeNumber(value: number | string | null | undefined): number {
   if (value === null || value === undefined || value === '') {
     return 0;

@@ -123,12 +123,13 @@ const styles = StyleSheet.create({
     color: theme.subtle,
   },
   card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 18,
+    backgroundColor: theme.panel,
+    borderRadius: theme.radius,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#e5ebf3',
+    borderColor: theme.border,
     gap: 12,
+    ...theme.shadow,
   },
   sectionHeader: {
     gap: 4,
@@ -136,11 +137,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#10223d',
+    color: theme.ink,
   },
   sectionSubtitle: {
     fontSize: 14,
-    color: '#52617a',
+    color: theme.muted,
   },
   button: {
     borderRadius: 14,
@@ -151,29 +152,29 @@ const styles = StyleSheet.create({
   },
   button_primary: { backgroundColor: theme.brand },
   button_secondary: { backgroundColor: theme.brandSoft },
-  button_ghost: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#c9d5e6' },
+  button_ghost: { backgroundColor: 'transparent', borderWidth: 1, borderColor: theme.border },
   button_danger: { backgroundColor: theme.danger },
   buttonPressed: { opacity: 0.86 },
-  buttonText: { color: '#fff', fontWeight: '700' },
+  buttonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   buttonTextDark: { color: theme.ink },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.panel,
     borderWidth: 1,
-    borderColor: '#d7dfeb',
+    borderColor: theme.border,
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: '#10223d',
+    color: theme.ink,
   },
   banner: {
     borderRadius: 14,
     padding: 12,
   },
-  banner_info: { backgroundColor: '#e7f1ff' },
+  banner_info: { backgroundColor: theme.brandSoft },
   banner_error: { backgroundColor: '#fde8e8' },
   banner_success: { backgroundColor: '#e6f8ef' },
   bannerText: {
-    color: '#10223d',
+    color: theme.ink,
   },
   pill: {
     borderRadius: 999,
@@ -187,6 +188,6 @@ const styles = StyleSheet.create({
   pillText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#10223d',
+    color: theme.ink,
   },
 });

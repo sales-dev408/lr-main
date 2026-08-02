@@ -125,6 +125,7 @@ export interface VendorListItem {
   iconUrl: string | null;
   logoUrl: string | null;
   discount: { type: DiscountType; value: number; label: string };
+  discountCode: string | null;
   cardId: string;
   walletUrl: string | null;
 }
@@ -231,6 +232,17 @@ export interface RedeemResult {
   amountApplied?: number;
   instruction?: string;
   redemptionId?: string;
+}
+
+export interface Ticket {
+  id: string;
+  name: string;
+  barcode: string;
+  allowedUses: number;
+  usedUses: number;
+  remainingUses: number;
+  status: 'active' | 'used' | 'disabled';
+  createdAt?: string;
 }
 
 export interface ErrorShape {

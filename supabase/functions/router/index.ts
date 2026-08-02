@@ -129,6 +129,21 @@ const adminSettingsSchema = z.object({
   location: z.string().optional(),
 });
 
+const ticketCreateSchema = z.object({
+  barcode: z.string().min(1),
+  name: z.string().min(1).default('Event Ticket'),
+  allowedUses: z.number().int().positive().default(1),
+  userId: z.string().uuid().optional(),
+});
+
+const ticketUpdateSchema = z.object({
+  name: z.string().min(1).optional(),
+  allowedUses: z.number().int().positive().optional(),
+  usedUses: z.number().int().min(0).optional(),
+  status: z.enum(['active', 'used', 'disabled']).optional(),
+  userId: z.string().uuid().optional().nullable(),
+});
+
 const discountSchema = z.object({
   cardId: z.string().uuid(),
   vendorId: z.string().uuid(),
@@ -500,11 +515,12 @@ Deno.serve(async (request) => {
         card_id: string;
         discount_type: 'fixed' | 'percent' | 'bogo';
         discount_value: string;
+        discount_code: string | null;
         card_icon: string | null;
         card_logo: string | null;
       }>(
         `SELECT v.id, v.name, v.address, v.location, v.category, v.pos_system, v.icon_url, v.logo_url,
-                c.id AS card_id, d.type AS discount_type, d.value AS discount_value, c.icon_url AS card_icon, c.logo_url AS card_logo
+                c.id AS card_id, d.type AS discount_type, d.value AS discount_value, d.discount_code, c.icon_url AS card_icon, c.logo_url AS card_logo
          FROM vendors v
          JOIN cards c ON c.is_membership = true AND c.status = 'active'
          JOIN discounts d ON d.vendor_id = v.id AND d.card_id = c.id AND d.active = true
@@ -525,6 +541,7 @@ Deno.serve(async (request) => {
           value: Number(row.discount_value),
           label: humanDiscountLabel(row.discount_type, Number(row.discount_value)),
         },
+        discountCode: row.discount_code,
         cardId: row.card_id,
         walletUrl: null,
       }));
@@ -533,6 +550,117 @@ Deno.serve(async (request) => {
         return json(request, items[0]);
       }
       return json(request, items);
+    }
+
+    // Public customer-facing event tickets. Active tickets appear in the app automatically.
+    if (path === '/api/tickets' && request.method === 'GET') {
+      const claims = authenticate(request);
+      const userId = claims?.role === 'customer' ? claims.sub : null;
+      const rows = await dbQuery('SELECT id, name, barcode, allowed_uses, used_uses, status, created_at FROM tickets WHERE status = $1 AND (user_id IS NULL OR $2::uuid IS NULL OR user_id = $2) ORDER BY created_at DESC', ['active', userId]);
+      return json(request, rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        barcode: row.barcode,
+        allowedUses: row.allowed_uses,
+        usedUses: row.used_uses,
+        remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
+        status: row.status,
+        createdAt: row.created_at,
+      })));
+    }
+
+    if (/^\/api\/tickets\/[^/]+$/.test(path) && request.method === 'GET') {
+      const id = path.split('/').pop()!;
+      const rows = await dbQuery('SELECT id, name, barcode, allowed_uses, used_uses, status, created_at FROM tickets WHERE id = $1 LIMIT 1', [id]);
+      if (rows.length === 0) return json(request, { error: 'Ticket not found' }, { status: 404 });
+      const row = rows[0];
+      return json(request, {
+        id: row.id,
+        name: row.name,
+        barcode: row.barcode,
+        allowedUses: row.allowed_uses,
+        usedUses: row.used_uses,
+        remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
+        status: row.status,
+        createdAt: row.created_at,
+      });
+    }
+
+    if (/^\/api\/tickets\/[^/]+$/.test(path) && request.method === 'POST') {
+      const id = path.split('/').pop()!;
+      const rows = await dbQuery(
+        `UPDATE tickets
+         SET used_uses = used_uses + 1,
+             status = CASE WHEN used_uses + 1 >= allowed_uses THEN 'used' ELSE status END,
+             updated_at = now()
+         WHERE id = $1 AND status = 'active' AND used_uses < allowed_uses
+         RETURNING id, name, barcode, allowed_uses, used_uses, status`,
+        [id],
+      );
+      if (rows.length === 0) return json(request, { error: 'Ticket unavailable or fully used' }, { status: 409 });
+      const row = rows[0];
+      return json(request, {
+        id: row.id,
+        name: row.name,
+        barcode: row.barcode,
+        allowedUses: row.allowed_uses,
+        usedUses: row.used_uses,
+        remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
+        status: row.status,
+      });
+    }
+
+    // Admin ticket management.
+    if (path === '/api/admin/tickets' && request.method === 'GET') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const rows = await dbQuery('SELECT id, name, barcode, allowed_uses, used_uses, status, user_id, created_at FROM tickets ORDER BY created_at DESC', []);
+      return json(request, rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        barcode: row.barcode,
+        allowedUses: row.allowed_uses,
+        usedUses: row.used_uses,
+        remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
+        status: row.status,
+        userId: row.user_id,
+        createdAt: row.created_at,
+      })));
+    }
+
+    if (path === '/api/admin/tickets' && request.method === 'POST') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const body = ticketCreateSchema.parse(await readJsonBody(request, {}));
+      const rows = await dbQuery<{ id: string }>('INSERT INTO tickets (barcode, name, allowed_uses, user_id) VALUES ($1, $2, $3, $4) RETURNING id', [body.barcode, body.name, body.allowedUses, body.userId ?? null]);
+      return json(request, { id: rows[0]!.id }, { status: 201 });
+    }
+
+    if (/^\/api\/admin\/tickets\/[^/]+$/.test(path) && request.method === 'PATCH') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const id = path.split('/').pop()!;
+      const body = ticketUpdateSchema.parse(await readJsonBody(request, {}));
+      const rows = await dbQuery(
+        `UPDATE tickets
+         SET name = COALESCE($2, name),
+             allowed_uses = COALESCE($3, allowed_uses),
+             used_uses = COALESCE($4, used_uses),
+             status = COALESCE($5, status),
+             user_id = COALESCE($6, user_id),
+             updated_at = now()
+         WHERE id = $1
+         RETURNING *`,
+        [id, body.name ?? null, body.allowedUses ?? null, body.usedUses ?? null, body.status ?? null, body.userId === undefined ? null : body.userId],
+      );
+      return json(request, rows[0] ?? {});
+    }
+
+    if (/^\/api\/admin\/tickets\/[^/]+$/.test(path) && request.method === 'DELETE') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const id = path.split('/').pop()!;
+      return json(request, await dbQuery('DELETE FROM tickets WHERE id = $1 RETURNING id', [id]));
     }
 
     if (path === '/api/admin/cards' && request.method === 'GET') {

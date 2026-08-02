@@ -96,6 +96,18 @@ export interface VendorActivityRecord {
   created_at: string;
 }
 
+export interface TicketRecord {
+  id: string;
+  name: string;
+  barcode: string;
+  allowedUses: number;
+  usedUses: number;
+  remainingUses: number;
+  status: 'active' | 'used' | 'disabled';
+  userId: string | null;
+  createdAt?: string;
+}
+
 export interface CardSummary {
   id: string;
   name: string;
