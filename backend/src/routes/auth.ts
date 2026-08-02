@@ -8,21 +8,16 @@ import { normalizePhone } from '../utils/phone.js';
 import type { AdminProfile, UserProfile, VendorProfile } from '../types.js';
 
 const customerRegisterSchema = z.object({
+  firstName: z.string().trim().min(1),
+  lastName: z.string().trim().min(1),
   email: z.string().email().optional(),
   phone: z.string().min(7).optional(),
-  password: z.string().min(8),
-  fullName: z.string().min(1).default('Customer'),
-  firstName: z.string().trim().min(1).optional(),
-  lastName: z.string().trim().min(1).optional(),
-  socialProvider: z.string().min(1).optional(),
-  socialId: z.string().min(1).optional(),
   captchaToken: z.string().optional(),
 });
 
 const customerLoginSchema = z.object({
-  email: z.string().email().optional(),
-  phone: z.string().min(7).optional(),
-  password: z.string().min(1),
+  firstName: z.string().trim().min(1),
+  lastName: z.string().trim().min(1),
   captchaToken: z.string().optional(),
 });
 
@@ -59,7 +54,9 @@ async function buildCustomerProfile(userId: string): Promise<UserProfile | null>
 }
 
 async function issueProfileToken(role: 'customer' | 'vendor' | 'admin', id: string, email?: string | null) {
-  return signJwt({ sub: id, role, email: email ?? null });
+  // Members stay signed in until they manually log out.
+  const expiresIn = role === 'customer' ? '365d' : '7d';
+  return signJwt({ sub: id, role, email: email ?? null }, expiresIn);
 }
 
 export async function registerAuthRoutes(fastify: FastifyInstance): Promise<void> {
@@ -69,26 +66,21 @@ export async function registerAuthRoutes(fastify: FastifyInstance): Promise<void
       return reply.code(400).send({ error: 'CAPTCHA failed' });
     }
 
-    if (!body.email && !body.phone && !body.socialProvider) {
-      return reply.code(400).send({ error: 'Email, phone, or social login is required' });
-    }
-
-    const passwordHash = await bcrypt.hash(body.password, 10);
     const phone = normalizePhone(body.phone);
     if (body.phone && !phone) {
       return reply.code(400).send({ error: 'Invalid phone number' });
     }
-    const fullName = [body.firstName, body.lastName].filter(Boolean).join(' ').trim() || body.fullName;
+    const fullName = `${body.firstName} ${body.lastName}`.trim();
     const rows = await withDbClient(async (client) => {
       await client.query('BEGIN');
       try {
         const result = await client.query<{ id: string }>(
           `
-            INSERT INTO users (email, phone, password_hash, social_provider, social_id, full_name, first_name, last_name)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            INSERT INTO users (email, phone, password_hash, full_name, first_name, last_name)
+            VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING id
           `,
-          [body.email ?? null, phone, passwordHash, body.socialProvider ?? null, body.socialId ?? null, fullName, body.firstName ?? null, body.lastName ?? null],
+          [body.email ?? null, phone ?? null, null, fullName, body.firstName, body.lastName],
         );
         await client.query('COMMIT');
         return result.rows;
@@ -100,7 +92,7 @@ export async function registerAuthRoutes(fastify: FastifyInstance): Promise<void
 
     const profile = await buildCustomerProfile(rows[0]!.id);
     const token = await issueProfileToken('customer', rows[0]!.id, profile?.email ?? body.email ?? null);
-    return reply.code(201).send({ token, expiresIn: '7d', profile });
+    return reply.code(201).send({ token, expiresIn: '365d', profile });
   });
 
   fastify.post('/api/auth/login', async (request, reply) => {
@@ -113,32 +105,27 @@ export async function registerAuthRoutes(fastify: FastifyInstance): Promise<void
       id: string;
       email: string | null;
       phone: string | null;
-      password_hash: string | null;
       status: string;
       full_name: string;
     }>(
       `
-        SELECT id, email::text AS email, phone, password_hash, status, full_name
+        SELECT id, email::text AS email, phone, status, full_name
         FROM users
-        WHERE (email::text = $1 OR phone = $2)
+        WHERE first_name = $1 AND last_name = $2
+        ORDER BY created_at DESC
         LIMIT 1
       `,
-      [body.email ?? null, normalizePhone(body.phone)],
+      [body.firstName, body.lastName],
     );
 
     const user = rows[0];
-    if (!user || !user.password_hash) {
-      return reply.code(401).send({ error: 'Invalid credentials' });
-    }
-
-    const ok = await bcrypt.compare(body.password, user.password_hash);
-    if (!ok) {
+    if (!user || user.status !== 'active') {
       return reply.code(401).send({ error: 'Invalid credentials' });
     }
 
     const profile = await buildCustomerProfile(user.id);
     const token = await issueProfileToken('customer', user.id, user.email);
-    return reply.send({ token, expiresIn: '7d', profile });
+    return reply.send({ token, expiresIn: '365d', profile });
   });
 
   fastify.post('/api/auth/social', async (request, reply) => {
@@ -175,7 +162,7 @@ export async function registerAuthRoutes(fastify: FastifyInstance): Promise<void
 
     const token = await issueProfileToken('customer', rows.id, rows.email);
     const profile = await buildCustomerProfile(rows.id);
-    return reply.send({ token, expiresIn: '7d', profile });
+    return reply.send({ token, expiresIn: '365d', profile });
   });
 
   fastify.post('/api/auth/vendor/login', async (request, reply) => {

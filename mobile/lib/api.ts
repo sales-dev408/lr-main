@@ -197,18 +197,15 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   return (await response.json()) as T;
 }
 
-export async function login(body: { email?: string; phone?: string; password: string }) {
+export async function login(body: { firstName: string; lastName: string }) {
   return apiRequest<AuthResponse<UserProfile>>('/auth/login', { method: 'POST', body: JSON.stringify(body) });
 }
 
 export async function register(body: {
+  firstName: string;
+  lastName: string;
   email?: string;
   phone?: string;
-  password: string;
-  fullName: string;
-  firstName?: string;
-  lastName?: string;
-  social?: string;
 }) {
   return apiRequest<AuthResponse<UserProfile>>('/auth/register', { method: 'POST', body: JSON.stringify(body) });
 }

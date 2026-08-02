@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { Linking, ScrollView, Text, View } from 'react-native';
 import { Link, useFocusEffect } from 'expo-router';
-import { AppButton, AppleTrademark, Banner, BrandHeader, Card, Screen, SectionTitle, Spinner } from '@/components/Ui';
+import { AppButton, Banner, BrandHeader, Card, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { getMyPass } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import type { CreatePassResponse } from '@/lib/types';
@@ -12,46 +12,35 @@ export default function PassesScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      if (!token) {
-        setPass(null);
-        setLoading(false);
-        return () => {
-          active = false;
-        };
-      }
-      setLoading(true);
-      setError(null);
-      getMyPass()
-        .then((data) => {
-          if (active) setPass(data);
-        })
-        .catch((err) => {
-          if (active) setError(err instanceof Error ? err.message : 'Unable to load your membership pass');
-        })
-        .finally(() => {
-          if (active) setLoading(false);
-        });
+  const load = useCallback(() => {
+    let active = true;
+    if (!token) {
+      setPass(null);
+      setLoading(false);
       return () => {
         active = false;
       };
-    }, [token]),
-  );
+    }
+    setLoading(true);
+    setError(null);
+    getMyPass()
+      .then((data) => {
+        if (active) setPass(data);
+      })
+      .catch((err) => {
+        if (active) setError(err instanceof Error ? err.message : 'Unable to load your membership pass');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [token]);
 
-  async function addToWallet() {
-    const url = pass?.walletUrl ?? pass?.passUrl;
-    if (!url) {
-      setError('Your wallet pass is still being generated. Please try again shortly.');
-      return;
-    }
-    try {
-      await Linking.openURL(url);
-    } catch {
-      setError('Unable to open Apple Wallet.');
-    }
-  }
+  useFocusEffect(load);
+
+  const walletUrl = pass?.walletUrl ?? pass?.passUrl;
 
   return (
     <Screen>
@@ -83,21 +72,28 @@ export default function PassesScreen() {
             <Text style={{ color: '#52617a' }}>
               Show this pass at any participating business. Staff scan the barcode and your member discount is applied.
             </Text>
-            <AppButton onPress={() => void addToWallet()}>Add to Apple Wallet</AppButton>
-            {pass.androidUrl ? (
-              <AppButton variant="secondary" onPress={() => void Linking.openURL(pass.androidUrl as string)}>
-                Add to Google Wallet
-              </AppButton>
-            ) : null}
-            <Link href="/vendors" asChild>
+
+            {walletUrl ? (
+              <AppButton onPress={() => void Linking.openURL(walletUrl)}>Add to Wallet</AppButton>
+            ) : (
+              <Link href="/pass/setup" asChild>
+                <AppButton variant="secondary">Set up wallet pass</AppButton>
+              </Link>
+            )}
+
+            <Link href="/(tabs)/vendors" asChild>
               <AppButton variant="secondary">See participating businesses</AppButton>
             </Link>
-            <AppleTrademark />
           </Card>
         ) : null}
 
         {token && !loading && !pass && !error ? (
-          <Banner tone="info">Your membership pass is being set up. Pull to refresh in a moment.</Banner>
+          <Card>
+            <SectionTitle title="Set up your card" subtitle="Get your all-in-one membership pass." />
+            <Link href="/pass/setup" asChild>
+              <AppButton>Set up membership pass</AppButton>
+            </Link>
+          </Card>
         ) : null}
       </ScrollView>
     </Screen>
