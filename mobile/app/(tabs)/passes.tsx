@@ -1,10 +1,14 @@
 import { useCallback, useState } from 'react';
-import { Linking, ScrollView, Text, View } from 'react-native';
+import { Image, Linking, ScrollView, Text, View } from 'react-native';
 import { Link, useFocusEffect } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { getMyPass } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import type { CreatePassResponse } from '@/lib/types';
+
+function barcodeUrl(text: string) {
+  return `https://quickchart.io/barcode?type=code128&text=${encodeURIComponent(text)}&width=320&height=120`;
+}
 
 export default function PassesScreen() {
   const { token } = useAuth();
@@ -63,14 +67,15 @@ export default function PassesScreen() {
         {token && pass ? (
           <Card>
             <SectionTitle title="Light Rail Membership" subtitle="One card, every participating business." />
-            <View style={{ backgroundColor: '#0B1F3A', borderRadius: 16, padding: 20, gap: 6 }}>
+            <View style={{ backgroundColor: '#0B1F3A', borderRadius: 16, padding: 20, gap: 6, alignItems: 'center' }}>
               <Text style={{ color: '#8FB2D9', fontSize: 12, letterSpacing: 1 }}>MEMBER BARCODE</Text>
-              <Text selectable style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>
+              <Image source={{ uri: barcodeUrl(pass.pass.barcodeValue) }} style={{ width: 320, height: 120, borderRadius: 8 }} resizeMode="contain" />
+              <Text selectable style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700', letterSpacing: 0.5 }}>
                 {pass.pass.barcodeValue}
               </Text>
             </View>
             <Text style={{ color: '#52617a' }}>
-              Show this pass at any participating business. Staff scan the barcode and your member discount is applied.
+              Show this barcode at any participating business. Staff scan it and your member discount is applied.
             </Text>
 
             {walletUrl ? (

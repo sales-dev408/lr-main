@@ -58,13 +58,13 @@ export default function DiscoverScreen() {
 
         {admin.isAdmin ? (
           <Card>
-            <SectionTitle title="Editing unlocked" subtitle={`Signed in as ${admin.profile?.email ?? 'admin'}`} />
+            <SectionTitle title="Admin tools" subtitle="Manage content and theme" />
             <AppButton onPress={() => router.push('/admin/content')}>Add content</AppButton>
             <AppButton variant="secondary" onPress={() => router.push('/admin/theme')}>
               Edit app theme
             </AppButton>
             <AppButton variant="ghost" onPress={() => void admin.lock().then(() => load())}>
-              Lock editing
+              Exit admin mode
             </AppButton>
           </Card>
         ) : null}
@@ -75,7 +75,7 @@ export default function DiscoverScreen() {
 
         {items.map((item) => (
           <Card key={item.id}>
-            <SectionTitle title={item.title} subtitle={item.kind} />
+            <SectionTitle title={item.title} />
             {!item.published ? <Pill tone="warning">Draft</Pill> : null}
             {item.kind === 'image' && item.url ? (
               <Image source={{ uri: item.url }} style={{ width: '100%', height: 190, borderRadius: 16, backgroundColor: '#dfe7f3' }} resizeMode="cover" />

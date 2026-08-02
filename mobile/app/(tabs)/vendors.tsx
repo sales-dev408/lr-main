@@ -7,10 +7,15 @@ import type { VendorListItem } from '@/lib/types';
 
 const CATEGORIES = ['All', 'Sports', 'Dining', 'Entertainment'] as const;
 
+function barcodeUrl(text: string) {
+  return `https://quickchart.io/barcode?type=code128&text=${encodeURIComponent(text)}&width=320&height=120`;
+}
+
 export default function VendorsScreen() {
   const [vendors, setVendors] = useState<VendorListItem[]>([]);
   const [category, setCategory] = useState<(typeof CATEGORIES)[number]>('All');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showBarcode, setShowBarcode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +56,11 @@ export default function VendorsScreen() {
     setRefreshing(false);
   }
 
+  function selectVendor(id: string) {
+    setSelectedId(id);
+    setShowBarcode(false);
+  }
+
   return (
     <Screen>
       <ScrollView
@@ -59,11 +69,8 @@ export default function VendorsScreen() {
       >
         <BrandHeader subtitle="Discounts along the line" />
         <Card>
-          <SectionTitle title="Participating businesses" subtitle="Your one membership card works at every business below." />
-          <Banner tone="info">
-            Show your membership pass barcode at checkout — the business applies that vendor&apos;s exclusive discount. No
-            separate pass per store.
-          </Banner>
+          <SectionTitle title="Participating businesses" subtitle="Your membership card works at every business below." />
+          <Banner tone="info">Tap a business, then View Discount to show the barcode the staff will scan.</Banner>
           <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
             {CATEGORIES.map((value) => (
               <AppButton key={value} variant={category === value ? 'primary' : 'secondary'} onPress={() => setCategory(value)}>
@@ -84,7 +91,7 @@ export default function VendorsScreen() {
               {vendors.map((vendor) => {
                 const active = vendor.id === selectedId;
                 return (
-                  <AppButton key={vendor.id} variant={active ? 'primary' : 'secondary'} onPress={() => setSelectedId(vendor.id)}>
+                  <AppButton key={vendor.id} variant={active ? 'primary' : 'secondary'} onPress={() => selectVendor(vendor.id)}>
                     {vendor.name} · {vendor.discount.label}
                   </AppButton>
                 );
@@ -105,13 +112,25 @@ export default function VendorsScreen() {
             <SectionTitle title={selected.name} subtitle={selected.category ?? undefined} />
             <Pill tone="success">{selected.discount.label}</Pill>
             {selected.address ? <Text style={{ color: '#52617a' }}>{selected.address}</Text> : null}
-            {selected.posSystem ? <Text style={{ color: '#52617a' }}>POS: {selected.posSystem}</Text> : null}
-            <Link href="/passes" asChild>
+
+            {selected.discountCode ? (
+              <>
+                <AppButton variant="secondary" onPress={() => setShowBarcode((prev) => !prev)}>
+                  {showBarcode ? 'Hide discount' : 'View discount'}
+                </AppButton>
+                {showBarcode ? (
+                  <View style={{ alignItems: 'center', gap: 8 }}>
+                    <Image source={{ uri: barcodeUrl(selected.discountCode) }} style={{ width: 320, height: 120, borderRadius: 8, backgroundColor: '#fff' }} resizeMode="contain" />
+                    <Text style={{ color: '#10223d', fontWeight: '700', letterSpacing: 1 }}>{selected.discountCode}</Text>
+                    <Text style={{ color: '#7c8a9d', fontSize: 12 }}>Staff scans this barcode to apply the discount.</Text>
+                  </View>
+                ) : null}
+              </>
+            ) : null}
+
+            <Link href="/(tabs)/passes" asChild>
               <AppButton>Open my membership pass</AppButton>
             </Link>
-            <Text style={{ color: '#7c8a9d', fontSize: 12 }}>
-              Show your membership pass barcode here and staff will apply the {selected.discount.label} member discount.
-            </Text>
           </Card>
         ) : null}
       </ScrollView>

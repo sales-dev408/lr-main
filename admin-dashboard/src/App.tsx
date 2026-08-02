@@ -8,6 +8,7 @@ import { LoginPage } from './pages/LoginPage';
 import { OverviewPage } from './pages/OverviewPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ThemePage } from './pages/ThemePage';
+import { TicketsPage } from './pages/TicketsPage';
 import { VendorsPage } from './pages/VendorsPage';
 
 export function App() {
@@ -26,6 +27,7 @@ export function App() {
         <Route path="/cards" element={<CardsPage />} />
         <Route path="/content" element={<ContentPage />} />
         <Route path="/theme" element={<ThemePage />} />
+        <Route path="/tickets" element={<TicketsPage />} />
         <Route path="/audit" element={<AuditPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>

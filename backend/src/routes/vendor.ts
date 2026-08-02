@@ -3,10 +3,60 @@ import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { dbQuery } from '../db/pool.js';
 import { getVendorAnalytics } from '../services/analytics.js';
-import { buildLookupDiscountView } from '../services/discounts.js';
+import { buildLookupDiscountView, humanDiscountLabel } from '../services/discounts.js';
 import { syncDiscountToVendorConnections } from '../services/pos.js';
 
 export async function registerVendorRoutes(fastify: FastifyInstance): Promise<void> {
+  // Public, customer-facing vendor directory for the mobile app.
+  fastify.get('/api/vendors', async (request) => {
+    const category = typeof request.query === 'object' && request.query && 'category' in request.query ? String((request.query as { category?: string }).category ?? '') : '';
+    const rows = await dbQuery<{
+      id: string;
+      name: string;
+      address: string | null;
+      location: string | null;
+      category: string | null;
+      pos_system: string | null;
+      icon_url: string | null;
+      logo_url: string | null;
+      card_id: string;
+      discount_type: 'fixed' | 'percent' | 'bogo';
+      discount_value: string;
+      discount_code: string | null;
+      card_icon: string | null;
+      card_logo: string | null;
+    }>(
+      `
+        SELECT v.id, v.name, v.address, v.location, v.category, v.pos_system, v.icon_url, v.logo_url,
+               c.id AS card_id, d.type AS discount_type, d.value AS discount_value, d.discount_code,
+               c.icon_url AS card_icon, c.logo_url AS card_logo
+        FROM vendors v
+        JOIN cards c ON c.is_membership = true AND c.status = 'active'
+        JOIN discounts d ON d.vendor_id = v.id AND d.card_id = c.id AND d.active = true
+        WHERE v.status = 'approved' AND ($1::text = '' OR v.category = $1)
+        ORDER BY v.name
+      `,
+      [category],
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      address: row.address ?? row.location,
+      category: row.category,
+      posSystem: row.pos_system,
+      iconUrl: row.icon_url ?? row.card_icon,
+      logoUrl: row.logo_url ?? row.card_logo,
+      discount: {
+        type: row.discount_type,
+        value: Number(row.discount_value),
+        label: humanDiscountLabel(row.discount_type, Number(row.discount_value)),
+      },
+      discountCode: row.discount_code,
+      cardId: row.card_id,
+      walletUrl: null,
+    }));
+  });
+
   fastify.get('/api/vendor/cards', { preHandler: fastify.requireRole(['vendor']) }, async (request) => {
     const vendorId = request.user!.sub;
     const query = await dbQuery<{

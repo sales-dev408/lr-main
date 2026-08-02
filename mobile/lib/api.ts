@@ -17,6 +17,7 @@ import type {
   PassDetail,
   RedeemResult,
   ThemeSettings,
+  Ticket,
   UserProfile,
   VendorListItem,
   WalletPlatform,
@@ -225,6 +226,7 @@ function normalizeVendor(input: Record<string, unknown>): VendorListItem {
       value: toNumber(discount.value),
       label: String(discount.label ?? ''),
     },
+    discountCode: (input.discountCode as string | null | undefined) ?? null,
     cardId: String(input.cardId ?? ''),
     walletUrl: input.walletUrl == null ? null : String(input.walletUrl),
   };
@@ -321,6 +323,20 @@ export async function redeem(body: {
   purchaseAmount?: number;
 }) {
   return apiRequest<RedeemResult>('/redeem', { method: 'POST', body: JSON.stringify(body) });
+}
+
+// ---- Event tickets ---------------------------------------------------------
+
+export async function listTickets() {
+  return apiRequest<Ticket[]>('/tickets');
+}
+
+export async function getTicket(id: string) {
+  return apiRequest<Ticket>(`/tickets/${encodeURIComponent(id)}`);
+}
+
+export async function useTicket(id: string) {
+  return apiRequest<Ticket>(`/tickets/${encodeURIComponent(id)}/use`, { method: 'POST' });
 }
 
 // ---- CMS content + theme --------------------------------------------------

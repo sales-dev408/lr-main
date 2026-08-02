@@ -1,9 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
-import { dbQuery } from '../db/pool.js';
+import { dbQuery, withDbClient, type PoolClient } from '../db/pool.js';
 import { getAdminAnalytics } from '../services/analytics.js';
-import { buildLookupDiscountView } from '../services/discounts.js';
+import { buildLookupDiscountView, generateDiscountCode, humanDiscountLabel } from '../services/discounts.js';
 import { generateTempPassword } from '../utils/ids.js';
 import { writeTransactionAudit } from '../services/audit.js';
 import { deleteDiscountFromVendorConnections, syncDiscountToVendorConnections } from '../services/pos.js';
@@ -22,11 +22,17 @@ const vendorSchema = z.object({
   name: z.string().min(1),
   location: z.string().optional(),
   city: z.string().optional(),
+  address: z.string().optional(),
   category: z.string().optional(),
-  posType: z.enum(['square', 'stripe', 'clover', 'toast', 'other']),
-  email: z.string().email(),
+  posType: z.enum(['square', 'stripe', 'clover', 'toast', 'other']).optional(),
+  posSystem: z.string().optional(),
+  email: z.string().email().optional(),
   password: z.string().min(8).optional(),
   status: z.enum(['pending', 'approved', 'rejected', 'suspended']).optional(),
+  discountType: z.enum(['fixed', 'percent', 'bogo']).optional(),
+  discountValue: z.number().optional(),
+  iconDataUrl: z.string().optional(),
+  logoDataUrl: z.string().optional(),
 });
 
 const discountSchema = z.object({
@@ -86,46 +92,100 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
 
   fastify.post('/api/admin/vendors', { preHandler: fastify.requireRole(['admin']) }, async (request, reply) => {
     const body = vendorSchema.parse(request.body);
-    const password = body.password ?? generateTempPassword();
-    const hash = await bcrypt.hash(password, 10);
-    const rows = await dbQuery<{ id: string }>(
-      `
-        INSERT INTO vendors (name, location, city, category, pos_type, email, password_hash, status)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        RETURNING id
-      `,
-      [body.name, body.location ?? null, body.city ?? null, body.category ?? null, body.posType, body.email, hash, body.status ?? 'pending'],
-    );
+    const result = await withDbClient(async (client: PoolClient) => {
+      const address = body.address ?? body.location;
+      const vendorRows = await client.query<{ id: string }>(
+        `
+          INSERT INTO vendors (name, location, address, city, category, pos_type, pos_system, email, password_hash, status, icon_url, logo_url)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          RETURNING id
+        `,
+        [
+          body.name,
+          address ?? null,
+          address ?? null,
+          body.city ?? null,
+          body.category ?? null,
+          body.posType ?? 'other',
+          body.posSystem ?? null,
+          body.email ?? null,
+          null,
+          body.status ?? 'approved',
+          body.iconDataUrl ?? null,
+          body.logoDataUrl ?? null,
+        ],
+      );
+      const vendorId = vendorRows.rows[0]!.id;
+
+      const membership = await client.query<{ id: string; name: string }>(
+        `SELECT id, name FROM cards WHERE is_membership = true LIMIT 1`,
+      );
+      if (!membership.rows[0]) {
+        throw new Error('Membership card not found. Run migrations.');
+      }
+      const { id: cardId, name: cardName } = membership.rows[0];
+
+      await client.query('INSERT INTO card_vendors (card_id, vendor_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [cardId, vendorId]);
+
+      const discountType = body.discountType ?? 'percent';
+      const discountValue = body.discountValue ?? 10;
+      const label = humanDiscountLabel(discountType, discountValue);
+      const discountCode = generateDiscountCode({ merchantId: body.name, type: discountType, value: discountValue });
+
+      const discountRows = await client.query<{ id: string }>(
+        `
+          INSERT INTO discounts (card_id, vendor_id, type, value, discount_code, description, active)
+          VALUES ($1, $2, $3, $4, $5, $6, true)
+          ON CONFLICT (card_id, vendor_id) DO UPDATE SET type = EXCLUDED.type, value = EXCLUDED.value, discount_code = COALESCE(discounts.discount_code, EXCLUDED.discount_code), description = EXCLUDED.description, active = true, updated_at = now()
+          RETURNING id
+        `,
+        [cardId, vendorId, discountType, discountValue, discountCode, `${label} member discount`],
+      );
+
+      return {
+        vendor: { id: vendorId, name: body.name, address: address ?? null, category: body.category ?? null, posSystem: body.posSystem ?? null },
+        discountCode,
+        discount: { id: discountRows.rows[0]!.id, type: discountType, value: discountValue, label },
+        membershipCard: { id: cardId, name: cardName },
+        posInstructions: `Ask the customer to show their ${cardName} pass, scan its barcode, then apply code ${discountCode} in your POS${body.posSystem ? ` (${body.posSystem})` : ''}. No NFC required.`,
+      };
+    });
+
     await writeTransactionAudit({
       actorType: 'admin',
       actorId: request.user?.sub ?? null,
       action: 'admin.vendor.create',
       entityType: 'vendor',
-      entityId: rows[0]!.id,
-      metadata: { name: body.name, email: body.email },
+      entityId: result.vendor.id,
+      metadata: { name: result.vendor.name, discountCode: result.discountCode },
       ip: request.ip,
     });
-    return reply.code(201).send({ id: rows[0]!.id, tempPassword: password });
+    return reply.code(201).send(result);
   });
 
   fastify.patch('/api/admin/vendors/:id', { preHandler: fastify.requireRole(['admin']) }, async (request) => {
     const id = (request.params as { id: string }).id;
     const body = vendorSchema.partial().parse(request.body);
+    const address = body.address ?? body.location;
     const rows = await dbQuery(
       `
         UPDATE vendors
         SET name = COALESCE($2, name),
             location = COALESCE($3, location),
+            address = COALESCE($3, address),
             city = COALESCE($4, city),
             category = COALESCE($5, category),
             pos_type = COALESCE($6, pos_type),
-            email = COALESCE($7, email),
-            status = COALESCE($8, status),
+            pos_system = COALESCE($7, pos_system),
+            email = COALESCE($8, email),
+            status = COALESCE($9, status),
+            icon_url = COALESCE($10, icon_url),
+            logo_url = COALESCE($11, logo_url),
             updated_at = now()
         WHERE id = $1
         RETURNING *
       `,
-      [id, body.name ?? null, body.location ?? null, body.city ?? null, body.category ?? null, body.posType ?? null, body.email ?? null, body.status ?? null],
+      [id, body.name ?? null, address ?? null, body.city ?? null, body.category ?? null, body.posType ?? null, body.posSystem ?? null, body.email ?? null, body.status ?? null, body.iconDataUrl ?? null, body.logoDataUrl ?? null],
     );
     return rows[0] ?? {};
   });
@@ -138,6 +198,27 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
   fastify.post('/api/admin/vendors/:id/reject', { preHandler: fastify.requireRole(['admin']) }, async (request) => {
     const id = (request.params as { id: string }).id;
     return dbQuery('UPDATE vendors SET status = \'rejected\', updated_at = now() WHERE id = $1 RETURNING *', [id]);
+  });
+
+  fastify.get('/api/admin/vendors/:id/pass', { preHandler: fastify.requireRole(['admin']) }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const rows = await dbQuery<{ card_id: string; card_name: string; discount_type: 'fixed' | 'percent' | 'bogo'; discount_value: string; discount_code: string | null; pos_system: string | null }>(
+      `SELECT c.id AS card_id, c.name AS card_name, d.type AS discount_type, d.value AS discount_value, d.discount_code, v.pos_system
+       FROM discounts d
+       JOIN cards c ON c.id = d.card_id AND c.is_membership = true
+       JOIN vendors v ON v.id = d.vendor_id
+       WHERE d.vendor_id = $1 ORDER BY d.created_at DESC LIMIT 1`,
+      [id],
+    );
+    const row = rows[0];
+    if (!row) return reply.code(404).send({ error: 'No discount for this vendor' });
+    const label = humanDiscountLabel(row.discount_type, Number(row.discount_value));
+    return {
+      discountCode: row.discount_code,
+      discount: { type: row.discount_type, value: Number(row.discount_value), label },
+      membershipCard: { id: row.card_id, name: row.card_name },
+      posInstructions: `Ask the customer to show their ${row.card_name} pass, scan its barcode, then apply code ${row.discount_code ?? '(none)'} in your POS${row.pos_system ? ` (${row.pos_system})` : ''}. No NFC required.`,
+    };
   });
 
   fastify.post('/api/admin/vendors/:id/reset-password', { preHandler: fastify.requireRole(['admin']) }, async (request) => {
