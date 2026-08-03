@@ -93,7 +93,7 @@ export default function ProfileScreen() {
             Terms of Use
           </AppButton>
           <AppButton variant="secondary" onPress={() => void Linking.openURL(PRIVACY_URL)}>
-            Privacy Policy
+            Privacy Policy - Light Rail Deals
           </AppButton>
           <AppButton variant="secondary" onPress={() => void Linking.openURL(EULA_URL)}>
             EULA

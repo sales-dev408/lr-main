@@ -31,7 +31,7 @@ export const APPLE_TRADEMARK_NOTICE =
 
 export const WEBSITE_URL = 'https://lightraildeals.com';
 export const TERMS_URL = 'https://www.lightraildeals.com/terms-of-use.html';
-export const PRIVACY_URL = 'https://www.lightraildeals.com/';
+export const PRIVACY_URL = 'https://www.lightraildeals.com/privacy-policy.html';
 export const EULA_URL = 'https://www.lightraildeals.com/eula.html';
 
 // Fallback theme used before the admin-published theme loads from the backend.

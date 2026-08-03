@@ -4,7 +4,7 @@ import { Link, useFocusEffect } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { getCard, getMyPass } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { qrCodeUrl } from '@/lib/qr';
+import { barcodeUrl } from '@/lib/qr';
 import type { CardDetail, CreatePassResponse } from '@/lib/types';
 
 export default function PassesScreen() {
@@ -50,7 +50,6 @@ export default function PassesScreen() {
 
   useFocusEffect(load);
 
-  const qrSize = card?.qr_size ?? 240;
   const primaryColor = card?.primary_color ?? '#0B1F3A';
   const secondaryColor = card?.secondary_color ?? '#8FB2D9';
 
@@ -80,14 +79,14 @@ export default function PassesScreen() {
             ) : null}
             <View style={{ backgroundColor: primaryColor, borderRadius: 16, padding: 20, gap: 6, alignItems: 'center', borderWidth: 2, borderColor: secondaryColor }}>
               {card?.icon_url ? <Image source={{ uri: card.icon_url }} style={{ width: 48, height: 48, borderRadius: 8, marginBottom: 6 }} /> : null}
-              <Text style={{ color: secondaryColor, fontSize: 12, letterSpacing: 1 }}>MEMBER QR CODE</Text>
-              <Image source={{ uri: qrCodeUrl(pass.pass.barcodeValue, qrSize) }} style={{ width: qrSize, height: qrSize, borderRadius: 8, backgroundColor: '#fff' }} resizeMode="contain" />
+              <Text style={{ color: secondaryColor, fontSize: 12, letterSpacing: 1 }}>MEMBER BARCODE</Text>
+              <Image source={{ uri: barcodeUrl(pass.pass.barcodeValue, 320, 120) }} style={{ width: 320, height: 120, borderRadius: 8, backgroundColor: '#fff' }} resizeMode="contain" />
               <Text selectable style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700', letterSpacing: 0.5 }}>
                 {pass.pass.barcodeValue}
               </Text>
             </View>
             <Text style={{ color: '#52617a' }}>
-              Scan a vendor&apos;s in-store QR code to confirm your discount, or show this code if a staff member asks for it.
+              Show this barcode if a staff member asks for it, or scan a vendor&apos;s in-store discount code to confirm your discount.
             </Text>
 
             <Link href="/scan" asChild>
