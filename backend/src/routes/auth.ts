@@ -66,7 +66,7 @@ function isUniqueViolation(error: unknown): boolean {
 }
 
 export async function registerAuthRoutes(fastify: FastifyInstance): Promise<void> {
-  fastify.post('/api/auth/register', async (request, reply) => {
+  fastify.post('/api/auth/register', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const body = customerRegisterSchema.parse(request.body);
     if (!(await verifyCaptcha(body.captchaToken))) {
       return reply.code(400).send({ error: 'CAPTCHA failed' });
@@ -109,7 +109,7 @@ export async function registerAuthRoutes(fastify: FastifyInstance): Promise<void
     return reply.code(201).send({ token, expiresIn: '365d', profile });
   });
 
-  fastify.post('/api/auth/login', async (request, reply) => {
+  fastify.post('/api/auth/login', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const body = customerLoginSchema.parse(request.body);
     if (!(await verifyCaptcha(body.captchaToken))) {
       return reply.code(400).send({ error: 'CAPTCHA failed' });
@@ -142,7 +142,7 @@ export async function registerAuthRoutes(fastify: FastifyInstance): Promise<void
     return reply.send({ token, expiresIn: '365d', profile });
   });
 
-  fastify.post('/api/auth/social', async (request, reply) => {
+  fastify.post('/api/auth/social', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const body = socialSchema.parse(request.body);
     const socialToken = body.token ?? body.idToken ?? '';
     const socialId = `${body.provider}:${socialToken}`;
@@ -179,7 +179,7 @@ export async function registerAuthRoutes(fastify: FastifyInstance): Promise<void
     return reply.send({ token, expiresIn: '365d', profile });
   });
 
-  fastify.post('/api/auth/vendor/login', async (request, reply) => {
+  fastify.post('/api/auth/vendor/login', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const body = vendorLoginSchema.parse(request.body);
     if (!(await verifyCaptcha(body.captchaToken))) {
       return reply.code(400).send({ error: 'CAPTCHA failed' });
@@ -219,7 +219,7 @@ export async function registerAuthRoutes(fastify: FastifyInstance): Promise<void
     return reply.send({ token, expiresIn: '7d', profile });
   });
 
-  fastify.post('/api/auth/admin/login', async (request, reply) => {
+  fastify.post('/api/auth/admin/login', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const body = adminLoginSchema.parse(request.body);
     if (!(await verifyCaptcha(body.captchaToken))) {
       return reply.code(400).send({ error: 'CAPTCHA failed' });
