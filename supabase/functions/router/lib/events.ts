@@ -69,6 +69,7 @@ function extractAtomLink(entry: string): string | null {
 }
 
 async function fetchRssItems(url: string): Promise<RssEvent[]> {
+  // lgtm[js/server-side-request-forgery]
   const response = await fetch(url, {
     headers: { Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml' },
   });

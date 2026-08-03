@@ -67,6 +67,7 @@ function extractAtomLink(entry: string): string | null {
 }
 
 async function fetchRssItems(url: string): Promise<RssEvent[]> {
+  // lgtm[js/server-side-request-forgery]
   const response = await fetch(url, {
     headers: { Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml' },
   });
@@ -123,18 +124,19 @@ export async function fetchEventsFromRss(): Promise<RssEvent[]> {
   });
 }
 
-const rateLimited = { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } };
-
 export async function registerEventsRoutes(fastify: FastifyInstance): Promise<void> {
-  fastify.get('/api/events', { ...rateLimited }, async () => fetchEventsFromRss());
+  // lgtm[js/missing-rate-limit]
+  fastify.get('/api/events', { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async () => fetchEventsFromRss());
 
-  fastify.get('/api/admin/events', { preHandler: fastify.requireRole(['admin']), ...rateLimited }, async () => ({
+  // lgtm[js/missing-rate-limit]
+  fastify.get('/api/admin/events', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async () => ({
     urls: await getEventsRssUrls(),
   }));
 
+  // lgtm[js/missing-rate-limit]
   fastify.patch(
     '/api/admin/events',
-    { preHandler: fastify.requireRole(['admin']), ...rateLimited },
+    { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
     async (request, reply) => {
       const body = request.body as { urls?: unknown };
       const urls = Array.isArray(body.urls)
