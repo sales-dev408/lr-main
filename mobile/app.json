@@ -48,6 +48,12 @@
         }
       ],
       [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to show nearby participating stores on the map."
+        }
+      ],
+      "react-native-maps"
         "expo-notifications",
         {
           "mode": "production"

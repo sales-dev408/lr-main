@@ -21,7 +21,7 @@ export interface AdminSettings {
 export type VendorCategory = 'Sports' | 'Dining' | 'Entertainment';
 
 export interface CreateVendorResult {
-  vendor: { id: string; name: string; address: string | null; category: string; email: string | null; phone: string | null };
+  vendor: { id: string; name: string; address: string | null; category: string; email: string | null; phone: string | null; latitude: number | null; longitude: number | null };
   discountCode: string;
   discount: { id: string; type: DiscountType; value: number; label: string };
   membershipCard: { id: string; name: string };
@@ -74,6 +74,8 @@ export interface VendorRecord {
   address: string | null;
   city: string | null;
   category: string | null;
+  latitude: number | null;
+  longitude: number | null;
   pos_type: PosType | null;
   pos_system: string | null;
   icon_url: string | null;

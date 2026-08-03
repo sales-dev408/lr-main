@@ -129,6 +129,8 @@ export interface VendorListItem {
   name: string;
   address: string | null;
   category: string | null;
+  latitude: number | null;
+  longitude: number | null;
   posSystem: string | null;
   iconUrl: string | null;
   logoUrl: string | null;

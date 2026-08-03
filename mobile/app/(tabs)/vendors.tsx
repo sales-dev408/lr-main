@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Image, RefreshControl, ScrollView, Text, View } from 'react-native';
-import { Link, useFocusEffect } from 'expo-router';
+import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { listVendors } from '@/lib/api';
 import type { VendorListItem } from '@/lib/types';
@@ -8,6 +8,7 @@ import type { VendorListItem } from '@/lib/types';
 const CATEGORIES = ['All', 'Sports', 'Dining', 'Entertainment'] as const;
 
 export default function VendorsScreen() {
+  const router = useRouter();
   const [vendors, setVendors] = useState<VendorListItem[]>([]);
   const [category, setCategory] = useState<(typeof CATEGORIES)[number]>('All');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -71,6 +72,14 @@ export default function VendorsScreen() {
           <Link href="/scan" asChild>
             <AppButton>Scan vendor QR code</AppButton>
           </Link>
+          <AppButton
+            variant="secondary"
+            onPress={() =>
+              router.push({ pathname: '/map', params: { category: category === 'All' ? undefined : category } } as unknown as Parameters<typeof router.push>[0])
+            }
+          >
+            View on map
+          </AppButton>
         </Card>
 
         {loading ? <Spinner /> : null}

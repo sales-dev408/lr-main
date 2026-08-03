@@ -16,6 +16,8 @@ export async function registerVendorRoutes(fastify: FastifyInstance): Promise<vo
       address: string | null;
       location: string | null;
       category: string | null;
+      latitude: number | null;
+      longitude: number | null;
       pos_system: string | null;
       icon_url: string | null;
       logo_url: string | null;
@@ -27,7 +29,7 @@ export async function registerVendorRoutes(fastify: FastifyInstance): Promise<vo
       card_logo: string | null;
     }>(
       `
-        SELECT v.id, v.name, v.address, v.location, v.category, v.pos_system, v.icon_url, v.logo_url,
+        SELECT v.id, v.name, v.address, v.location, v.category, v.latitude, v.longitude, v.pos_system, v.icon_url, v.logo_url,
                c.id AS card_id, d.type AS discount_type, d.value AS discount_value, d.discount_code,
                c.icon_url AS card_icon, c.logo_url AS card_logo
         FROM vendors v
@@ -43,6 +45,8 @@ export async function registerVendorRoutes(fastify: FastifyInstance): Promise<vo
       name: row.name,
       address: row.address ?? row.location,
       category: row.category,
+      latitude: row.latitude,
+      longitude: row.longitude,
       posSystem: row.pos_system,
       iconUrl: row.icon_url ?? row.card_icon,
       logoUrl: row.logo_url ?? row.card_logo,

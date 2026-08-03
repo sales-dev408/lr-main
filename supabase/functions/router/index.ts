@@ -129,6 +129,8 @@ const adminVendorCreateSchema = z.object({
   phone: z.string().optional(),
   discountType: z.enum(['fixed', 'percent', 'bogo']).default('percent'),
   discountValue: z.number().positive(),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
   iconDataUrl: z.string().optional(),
   logoDataUrl: z.string().optional(),
 });
@@ -139,6 +141,8 @@ const adminVendorUpdateSchema = z.object({
   category: z.enum(['Sports', 'Dining', 'Entertainment']).optional(),
   email: z.string().email().optional(),
   phone: z.string().optional(),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
   status: z.enum(['pending', 'approved', 'rejected', 'suspended']).optional(),
 });
 
@@ -542,6 +546,8 @@ Deno.serve(async (request) => {
         address: string | null;
         location: string | null;
         category: string | null;
+        latitude: number | null;
+        longitude: number | null;
         pos_system: string | null;
         icon_url: string | null;
         logo_url: string | null;
@@ -552,7 +558,7 @@ Deno.serve(async (request) => {
         card_icon: string | null;
         card_logo: string | null;
       }>(
-        `SELECT v.id, v.name, v.address, v.location, v.category, v.pos_system, v.icon_url, v.logo_url,
+        `SELECT v.id, v.name, v.address, v.location, v.category, v.latitude, v.longitude, v.pos_system, v.icon_url, v.logo_url,
                 c.id AS card_id, d.type AS discount_type, d.value AS discount_value, d.discount_code, c.icon_url AS card_icon, c.logo_url AS card_logo
          FROM vendors v
          JOIN cards c ON c.is_membership = true AND c.status = 'active'
@@ -566,6 +572,8 @@ Deno.serve(async (request) => {
         name: row.name,
         address: row.address ?? row.location,
         category: row.category,
+        latitude: row.latitude,
+        longitude: row.longitude,
         posSystem: row.pos_system,
         iconUrl: row.icon_url ?? row.card_icon,
         logoUrl: row.logo_url ?? row.card_logo,
@@ -756,6 +764,8 @@ Deno.serve(async (request) => {
         phone: body.phone ?? null,
         discountType: body.discountType,
         discountValue: body.discountValue,
+        latitude: body.latitude ?? null,
+        longitude: body.longitude ?? null,
         iconDataUrl: body.iconDataUrl ?? null,
         logoDataUrl: body.logoDataUrl ?? null,
       });
@@ -767,8 +777,8 @@ Deno.serve(async (request) => {
       const id = path.split('/').pop()!;
       const body = adminVendorUpdateSchema.parse(await readJsonBody(request, {}));
       const rows = await dbQuery(
-        `UPDATE vendors SET name = COALESCE($2, name), location = COALESCE($3, location), address = COALESCE($3, address), category = COALESCE($4, category), email = COALESCE($5, email), phone = COALESCE($6, phone), status = COALESCE($7, status), updated_at = now() WHERE id = $1 RETURNING *`,
-        [id, body.name ?? null, body.address ?? null, body.category ?? null, body.email ?? null, body.phone ?? null, body.status ?? null],
+        `UPDATE vendors SET name = COALESCE($2, name), location = COALESCE($3, location), address = COALESCE($3, address), category = COALESCE($4, category), email = COALESCE($5, email), phone = COALESCE($6, phone), status = COALESCE($7, status), latitude = COALESCE($8, latitude), longitude = COALESCE($9, longitude), updated_at = now() WHERE id = $1 RETURNING *`,
+        [id, body.name ?? null, body.address ?? null, body.category ?? null, body.email ?? null, body.phone ?? null, body.status ?? null, body.latitude ?? null, body.longitude ?? null],
       );
       return json(request, rows[0] ?? {});
     }
