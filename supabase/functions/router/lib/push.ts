@@ -47,13 +47,11 @@ export async function sendPushNotifications(
 ): Promise<void> {
   if (tokens.length === 0) return;
 
-  const messages: ExpoMessage[] = tokens.map((token) => ({
-    to: token,
-    title,
-    body,
-    data,
-    sound: 'default',
-  }));
+  const messages: ExpoMessage[] = tokens.map((token) => {
+    const message: ExpoMessage = { to: token, title, body, sound: 'default' };
+    if (data) message.data = data;
+    return message;
+  });
 
   for (const batch of chunk(messages, 100)) {
     const headers: Record<string, string> = {

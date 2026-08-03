@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import { SchedulableTriggerInputTypes } from 'expo-notifications';
 import Constants from 'expo-constants';
 import { registerPushToken } from './api';
 import type { CardSummary, RssEvent } from './types';
@@ -9,7 +10,8 @@ export async function initPushNotifications(): Promise<string | null> {
 
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
-      shouldShowAlert: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
       shouldPlaySound: true,
       shouldSetBadge: true,
     }),
@@ -72,7 +74,7 @@ export async function scheduleDealNotifications(cards: CardSummary[]): Promise<v
         body: `${card.name} expires ${new Date(card.expiration_date).toLocaleDateString()}. Use it before it's gone!`,
         data: { type: 'expiring_deal', cardId: card.id },
       },
-      trigger: { date: reminder },
+      trigger: { type: SchedulableTriggerInputTypes.DATE, date: reminder },
     });
   }
 }
@@ -100,7 +102,7 @@ export async function scheduleEventNotifications(events: RssEvent[], city: strin
         body: event.title,
         data: { type: 'local_event', link: event.link },
       },
-      trigger: { date: new Date(eventTime - 60 * 60 * 1000) },
+      trigger: { type: SchedulableTriggerInputTypes.DATE, date: new Date(eventTime - 60 * 60 * 1000) },
     });
   }
 }
