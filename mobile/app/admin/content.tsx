@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, FieldInput, Screen, SectionTitle } from '@/components/Ui';
 import { adminCreateContent, adminListContent, adminUpdateContent } from '@/lib/api';
 import { useAdmin } from '@/lib/admin';
@@ -78,6 +78,7 @@ export default function AdminContentScreen() {
 
   return (
     <Screen>
+      <Stack.Screen options={{ headerShown: true, title: id ? 'Edit content' : 'Add content' }} />
       <ScrollView contentContainerStyle={{ gap: 14, paddingBottom: 24 }}>
         <BrandHeader subtitle={id ? 'Edit content' : 'Add content'} />
         <Card>

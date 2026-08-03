@@ -20,9 +20,9 @@ export default function RootLayout() {
               <Stack.Screen name="admin/content" />
               <Stack.Screen name="admin/theme" />
               <Stack.Screen name="card/[id]" />
-              <Stack.Screen name="pass/[serial]" />
-              <Stack.Screen name="website" />
-              <Stack.Screen name="legal" />
+              <Stack.Screen name="tickets" />
+              <Stack.Screen name="scan" />
+              <Stack.Screen name="discount" />
             </Stack>
           </OnboardingProvider>
         </AppThemeProvider>

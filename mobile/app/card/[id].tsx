@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Image, ScrollView, Text, View } from 'react-native';
-import { Link, useLocalSearchParams } from 'expo-router';
+import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import { AppButton, Banner, Card, FieldInput, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { getCard } from '@/lib/api';
 import { useOnboarding } from '@/lib/onboarding';
@@ -68,6 +68,7 @@ export default function CardDetailScreen() {
 
   return (
     <Screen>
+      <Stack.Screen options={{ headerShown: true, title }} />
       <ScrollView contentContainerStyle={{ gap: 14, paddingBottom: 24 }}>
         {loading ? <Spinner /> : null}
         {error ? <Banner tone="error">{error}</Banner> : null}

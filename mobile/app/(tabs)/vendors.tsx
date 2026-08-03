@@ -3,7 +3,6 @@ import { Image, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { Link, useFocusEffect } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { listVendors } from '@/lib/api';
-import { qrCodeUrl } from '@/lib/qr';
 import type { VendorListItem } from '@/lib/types';
 
 const CATEGORIES = ['All', 'Sports', 'Dining', 'Entertainment'] as const;
@@ -12,7 +11,6 @@ export default function VendorsScreen() {
   const [vendors, setVendors] = useState<VendorListItem[]>([]);
   const [category, setCategory] = useState<(typeof CATEGORIES)[number]>('All');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [showBarcode, setShowBarcode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,18 +43,13 @@ export default function VendorsScreen() {
     }, [load]),
   );
 
-  const selected = useMemo(() => vendors.find((v) => v.id === selectedId) ?? null, [vendors, selectedId]);
-
   async function onRefresh() {
     setRefreshing(true);
     await load();
     setRefreshing(false);
   }
 
-  function selectVendor(id: string) {
-    setSelectedId(id);
-    setShowBarcode(false);
-  }
+  const selected = useMemo(() => vendors.find((v) => v.id === selectedId) ?? null, [vendors, selectedId]);
 
   return (
     <Screen>
@@ -67,7 +60,7 @@ export default function VendorsScreen() {
         <BrandHeader subtitle="Discounts along the line" />
         <Card>
           <SectionTitle title="Participating businesses" subtitle="Your membership card works at every business below." />
-          <Banner tone="info">Tap a business, then View QR to show the code the staff will scan.</Banner>
+          <Banner tone="info">Tap a business, then scan its in-store QR code to confirm your discount.</Banner>
           <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
             {CATEGORIES.map((value) => (
               <AppButton key={value} variant={category === value ? 'primary' : 'secondary'} onPress={() => setCategory(value)}>
@@ -75,6 +68,9 @@ export default function VendorsScreen() {
               </AppButton>
             ))}
           </View>
+          <Link href="/scan" asChild>
+            <AppButton>Scan vendor QR code</AppButton>
+          </Link>
         </Card>
 
         {loading ? <Spinner /> : null}
@@ -88,7 +84,7 @@ export default function VendorsScreen() {
               {vendors.map((vendor) => {
                 const active = vendor.id === selectedId;
                 return (
-                  <AppButton key={vendor.id} variant={active ? 'primary' : 'secondary'} onPress={() => selectVendor(vendor.id)}>
+                  <AppButton key={vendor.id} variant={active ? 'primary' : 'secondary'} onPress={() => setSelectedId(vendor.id)}>
                     {vendor.name} · {vendor.discount.label}
                   </AppButton>
                 );
@@ -110,23 +106,11 @@ export default function VendorsScreen() {
             <Pill tone="success">{selected.discount.label}</Pill>
             {selected.address ? <Text style={{ color: '#52617a' }}>{selected.address}</Text> : null}
 
-            {selected.discountCode ? (
-              <>
-                <AppButton variant="secondary" onPress={() => setShowBarcode((prev) => !prev)}>
-                  {showBarcode ? 'Hide QR code' : 'View QR code'}
-                </AppButton>
-                {showBarcode ? (
-                  <View style={{ alignItems: 'center', gap: 8 }}>
-                    <Image source={{ uri: qrCodeUrl(selected.discountCode, 240) }} style={{ width: 240, height: 240, borderRadius: 8, backgroundColor: '#fff' }} resizeMode="contain" />
-                    <Text style={{ color: '#10223d', fontWeight: '700', letterSpacing: 1 }}>{selected.discountCode}</Text>
-                    <Text style={{ color: '#7c8a9d', fontSize: 12 }}>Staff scans this QR code to apply the discount.</Text>
-                  </View>
-                ) : null}
-              </>
-            ) : null}
-
+            <Link href="/scan" asChild>
+              <AppButton>Scan this vendor&apos;s QR code</AppButton>
+            </Link>
             <Link href="/(tabs)/passes" asChild>
-              <AppButton>Open my membership pass</AppButton>
+              <AppButton variant="secondary">Open my membership pass</AppButton>
             </Link>
           </Card>
         ) : null}

@@ -13,6 +13,12 @@ export async function registerCardRoutes(fastify: FastifyInstance): Promise<void
       theme: string;
       description: string | null;
       image_url: string | null;
+      logo_url: string | null;
+      icon_url: string | null;
+      primary_color: string | null;
+      secondary_color: string | null;
+      qr_size: number | null;
+      layout: string | null;
       expiration_date: string | null;
       max_uses: number | null;
       status: string;

@@ -99,6 +99,12 @@ const cardSchema = z.object({
   theme: z.enum(['sports', 'entertainment', 'shops_restaurants']),
   description: z.string().optional(),
   imageUrl: z.string().url().optional(),
+  logoUrl: z.string().url().optional(),
+  iconUrl: z.string().url().optional(),
+  primaryColor: z.string().optional(),
+  secondaryColor: z.string().optional(),
+  qrSize: z.number().int().min(80).max(600).optional(),
+  layout: z.enum(['qr_top', 'qr_bottom', 'qr_left', 'qr_right']).optional(),
   expirationDate: z.string().datetime().optional(),
   maxUses: z.number().int().positive().optional(),
   status: z.enum(['draft', 'active', 'archived']).optional(),
@@ -802,30 +808,64 @@ Deno.serve(async (request) => {
       const auth = requireRole(request, ['admin']);
       if (auth instanceof Response) return auth;
       const id = path.split('/').slice(-2)[0]!;
-      const rows = await dbQuery<{ discount_id: string; name: string; type: 'fixed' | 'percent' | 'bogo'; value: string }>(
-        `SELECT d.id AS discount_id, v.name, d.type, d.value
-         FROM vendors v
-         JOIN discounts d ON d.vendor_id = v.id
-         JOIN cards c ON c.id = d.card_id AND c.is_membership = true
-         WHERE v.id = $1
-         LIMIT 1`,
-        [id],
-      );
-      if (rows.length === 0) return json(request, { error: 'Vendor membership discount not found' }, { status: 404 });
-      const row = rows[0]!;
-      const newCode = generateDiscountCode({ merchantId: row.name, type: row.type, value: Number(row.value) });
-      await dbQuery('UPDATE discounts SET discount_code = $2, updated_at = now() WHERE id = $1', [row.discount_id, newCode]);
-      return json(request, { discountCode: newCode, qrUrl: qrCodeUrl(newCode, 300) });
+      const result = await withDbClient(async (client) => {
+        const vendorRows = await client.query('SELECT id, name FROM vendors WHERE id = $1', [id]);
+        if (vendorRows.rows.length === 0) return null;
+        const vendor = vendorRows.rows[0] as { id: string; name: string };
+
+        const membershipRows = await client.query('SELECT id, name FROM cards WHERE is_membership = true LIMIT 1');
+        if (membershipRows.rows.length === 0) return null;
+        const cardId = (membershipRows.rows[0] as { id: string }).id;
+
+        const existing = await client.query(
+          'SELECT id, type, value FROM discounts WHERE vendor_id = $1 AND card_id = $2 LIMIT 1',
+          [id, cardId],
+        );
+
+        let discountId: string;
+        let type: 'fixed' | 'percent' | 'bogo';
+        let value: number;
+        if (existing.rows.length > 0) {
+          const row = existing.rows[0] as { id: string; type: 'fixed' | 'percent' | 'bogo'; value: string };
+          discountId = row.id;
+          type = row.type;
+          value = Number(row.value);
+        } else {
+          type = 'percent';
+          value = 10;
+          const label = humanDiscountLabel(type, value);
+          const discountCode = generateDiscountCode({ merchantId: vendor.name, type, value });
+          const inserted = await client.query(
+            'INSERT INTO discounts (card_id, vendor_id, type, value, discount_code, description, active) VALUES ($1, $2, $3, $4, $5, $6, true) RETURNING id',
+            [cardId, id, type, value, discountCode, `${label} member discount`],
+          );
+          discountId = (inserted.rows[0] as { id: string }).id;
+          await client.query('INSERT INTO card_vendors (card_id, vendor_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [cardId, id]);
+        }
+
+        const newCode = generateDiscountCode({ merchantId: vendor.name, type, value });
+        await client.query('UPDATE discounts SET discount_code = $2, updated_at = now() WHERE id = $1', [discountId, newCode]);
+        return { discountCode: newCode, qrUrl: qrCodeUrl(newCode, 300) };
+      });
+
+      if (!result) return json(request, { error: 'Vendor or membership card not found' }, { status: 404 });
+      return json(request, result);
     }
     if (path === '/api/admin/cards' && request.method === 'POST') {
       const auth = requireRole(request, ['admin']);
       if (auth instanceof Response) return auth;
       const body = cardSchema.parse(await readJsonBody(request, {}));
-      const rows = await dbQuery<{ id: string }>(`INSERT INTO cards (name, theme, description, image_url, expiration_date, max_uses, status) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`, [
+      const rows = await dbQuery<{ id: string }>(`INSERT INTO cards (name, theme, description, image_url, logo_url, icon_url, primary_color, secondary_color, qr_size, layout, expiration_date, max_uses, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`, [
         body.name,
         body.theme,
         body.description ?? null,
         body.imageUrl ?? null,
+        body.logoUrl ?? null,
+        body.iconUrl ?? null,
+        body.primaryColor ?? null,
+        body.secondaryColor ?? null,
+        body.qrSize ?? 240,
+        body.layout ?? 'qr_bottom',
         body.expirationDate ?? null,
         body.maxUses ?? null,
         body.status ?? 'draft',
@@ -838,8 +878,8 @@ Deno.serve(async (request) => {
       const id = path.split('/').pop()!;
       const body = cardSchema.partial().parse(await readJsonBody(request, {}));
       const rows = await dbQuery(
-        `UPDATE cards SET name = COALESCE($2, name), theme = COALESCE($3, theme), description = COALESCE($4, description), image_url = COALESCE($5, image_url), expiration_date = COALESCE($6, expiration_date), max_uses = COALESCE($7, max_uses), status = COALESCE($8, status), updated_at = now() WHERE id = $1 RETURNING *`,
-        [id, body.name ?? null, body.theme ?? null, body.description ?? null, body.imageUrl ?? null, body.expirationDate ?? null, body.maxUses ?? null, body.status ?? null],
+        `UPDATE cards SET name = COALESCE($2, name), theme = COALESCE($3, theme), description = COALESCE($4, description), image_url = COALESCE($5, image_url), logo_url = COALESCE($6, logo_url), icon_url = COALESCE($7, icon_url), primary_color = COALESCE($8, primary_color), secondary_color = COALESCE($9, secondary_color), qr_size = COALESCE($10, qr_size), layout = COALESCE($11, layout), expiration_date = COALESCE($12, expiration_date), max_uses = COALESCE($13, max_uses), status = COALESCE($14, status), updated_at = now() WHERE id = $1 RETURNING *`,
+        [id, body.name ?? null, body.theme ?? null, body.description ?? null, body.imageUrl ?? null, body.logoUrl ?? null, body.iconUrl ?? null, body.primaryColor ?? null, body.secondaryColor ?? null, body.qrSize ?? null, body.layout ?? null, body.expirationDate ?? null, body.maxUses ?? null, body.status ?? null],
       );
       return json(request, rows[0] ?? {});
     }
@@ -1048,6 +1088,30 @@ Deno.serve(async (request) => {
       const result = await resolvePassLookup(token, undefined, url.searchParams.get('city') ?? undefined);
       if (!result) return json(request, { error: 'Not found' }, { status: 404 });
       return json(request, result);
+    }
+    if (/^\/api\/discounts\/by-code\/[^/]+$/.test(path) && request.method === 'GET') {
+      const auth = requireRole(request, ['customer']);
+      if (auth instanceof Response) return auth;
+      const code = path.split('/').pop()!;
+      const rows = await dbQuery<{ vendor_name: string; card_name: string; type: 'fixed' | 'percent' | 'bogo'; value: string }>(
+        `SELECT v.name AS vendor_name, c.name AS card_name, d.type, d.value
+         FROM discounts d
+         JOIN vendors v ON v.id = d.vendor_id
+         JOIN cards c ON c.id = d.card_id
+         WHERE d.discount_code = $1 AND d.active = true AND c.is_membership = true
+         LIMIT 1`,
+        [code],
+      );
+      if (rows.length === 0) return json(request, { error: 'Discount not found' }, { status: 404 });
+      const row = rows[0]!;
+      return json(request, {
+        vendorName: row.vendor_name,
+        cardName: row.card_name,
+        discountCode: code,
+        type: row.type,
+        value: Number(row.value),
+        discountLabel: humanDiscountLabel(row.type, Number(row.value)),
+      });
     }
     if (/^\/api\/lookup\/card\/[^/]+$/.test(path) && request.method === 'GET') {
       const cardId = path.split('/').pop()!;

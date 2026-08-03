@@ -20,6 +20,12 @@ const blankCard = {
   theme: 'sports',
   description: '',
   imageUrl: '',
+  logoUrl: '',
+  iconUrl: '',
+  primaryColor: '',
+  secondaryColor: '',
+  qrSize: '240',
+  layout: 'qr_bottom',
   expirationDate: '',
   maxUses: '',
   status: 'draft',
@@ -75,6 +81,12 @@ export function CardsPage() {
       theme: selectedCard.theme,
       description: selectedCard.description ?? '',
       imageUrl: selectedCard.image_url ?? '',
+      logoUrl: selectedCard.logo_url ?? '',
+      iconUrl: selectedCard.icon_url ?? '',
+      primaryColor: selectedCard.primary_color ?? '',
+      secondaryColor: selectedCard.secondary_color ?? '',
+      qrSize: selectedCard.qr_size?.toString() ?? '240',
+      layout: selectedCard.layout ?? 'qr_bottom',
       expirationDate: selectedCard.expiration_date ? selectedCard.expiration_date.slice(0, 16) : '',
       maxUses: selectedCard.max_uses?.toString() ?? '',
       status: selectedCard.status,
@@ -117,6 +129,12 @@ export function CardsPage() {
         theme: cardForm.theme,
         description: cardForm.description || undefined,
         imageUrl: cardForm.imageUrl || undefined,
+        logoUrl: cardForm.logoUrl || undefined,
+        iconUrl: cardForm.iconUrl || undefined,
+        primaryColor: cardForm.primaryColor || undefined,
+        secondaryColor: cardForm.secondaryColor || undefined,
+        qrSize: cardForm.qrSize ? Number(cardForm.qrSize) : undefined,
+        layout: cardForm.layout || undefined,
         expirationDate: cardForm.expirationDate || undefined,
         maxUses: cardForm.maxUses ? Number(cardForm.maxUses) : undefined,
         status: cardForm.status,
@@ -227,6 +245,19 @@ export function CardsPage() {
             </Select>
             <Textarea placeholder="Description" value={cardForm.description} onChange={(e) => setCardForm((prev) => ({ ...prev, description: e.target.value }))} />
             <Input placeholder="Image URL" value={cardForm.imageUrl} onChange={(e) => setCardForm((prev) => ({ ...prev, imageUrl: e.target.value }))} />
+            <Input placeholder="Logo URL" value={cardForm.logoUrl} onChange={(e) => setCardForm((prev) => ({ ...prev, logoUrl: e.target.value }))} />
+            <Input placeholder="Icon URL" value={cardForm.iconUrl} onChange={(e) => setCardForm((prev) => ({ ...prev, iconUrl: e.target.value }))} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <Input type="color" value={cardForm.primaryColor || '#000000'} onChange={(e) => setCardForm((prev) => ({ ...prev, primaryColor: e.target.value }))} />
+              <Input type="color" value={cardForm.secondaryColor || '#000000'} onChange={(e) => setCardForm((prev) => ({ ...prev, secondaryColor: e.target.value }))} />
+            </div>
+            <Input placeholder="QR size (px)" type="number" value={cardForm.qrSize} onChange={(e) => setCardForm((prev) => ({ ...prev, qrSize: e.target.value }))} />
+            <Select value={cardForm.layout} onChange={(e) => setCardForm((prev) => ({ ...prev, layout: e.target.value }))}>
+              <option value="qr_top">QR at top</option>
+              <option value="qr_bottom">QR at bottom</option>
+              <option value="qr_left">QR at left</option>
+              <option value="qr_right">QR at right</option>
+            </Select>
             <Input type="datetime-local" value={cardForm.expirationDate} onChange={(e) => setCardForm((prev) => ({ ...prev, expirationDate: e.target.value }))} />
             <Input placeholder="Max uses" type="number" value={cardForm.maxUses} onChange={(e) => setCardForm((prev) => ({ ...prev, maxUses: e.target.value }))} />
             <Select value={cardForm.status} onChange={(e) => setCardForm((prev) => ({ ...prev, status: e.target.value }))}>
