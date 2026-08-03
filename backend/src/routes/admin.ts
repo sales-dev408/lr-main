@@ -40,6 +40,8 @@ const vendorSchema = z.object({
   status: z.enum(['pending', 'approved', 'rejected', 'suspended']).optional(),
   discountType: z.enum(['fixed', 'percent', 'bogo']).optional(),
   discountValue: z.number().optional(),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
   iconDataUrl: z.string().optional(),
   logoDataUrl: z.string().optional(),
 });
@@ -113,8 +115,8 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
       const address = body.address ?? body.location;
       const vendorRows = await client.query<{ id: string }>(
         `
-          INSERT INTO vendors (name, location, address, city, category, pos_type, pos_system, email, phone, password_hash, status, icon_url, logo_url)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+          INSERT INTO vendors (name, location, address, city, category, pos_type, pos_system, email, phone, password_hash, status, latitude, longitude, icon_url, logo_url)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
           RETURNING id
         `,
         [
@@ -129,6 +131,8 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
           body.phone ?? null,
           null,
           body.status ?? 'approved',
+          body.latitude ?? null,
+          body.longitude ?? null,
           body.iconDataUrl ?? null,
           body.logoDataUrl ?? null,
         ],
@@ -210,13 +214,15 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
             email = COALESCE($6, email),
             phone = COALESCE($7, phone),
             status = COALESCE($8, status),
-            icon_url = COALESCE($9, icon_url),
-            logo_url = COALESCE($10, logo_url),
+            latitude = COALESCE($9, latitude),
+            longitude = COALESCE($10, longitude),
+            icon_url = COALESCE($11, icon_url),
+            logo_url = COALESCE($12, logo_url),
             updated_at = now()
         WHERE id = $1
         RETURNING *
       `,
-      [id, body.name ?? null, address ?? null, body.city ?? null, body.category ?? null, body.email ?? null, body.phone ?? null, body.status ?? null, body.iconDataUrl ?? null, body.logoDataUrl ?? null],
+      [id, body.name ?? null, address ?? null, body.city ?? null, body.category ?? null, body.email ?? null, body.phone ?? null, body.status ?? null, body.latitude ?? null, body.longitude ?? null, body.iconDataUrl ?? null, body.logoDataUrl ?? null],
     );
     return rows[0] ?? {};
   });

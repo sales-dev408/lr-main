@@ -15,6 +15,8 @@ export interface CreateVendorInput {
   phone?: string | null;
   discountType: DiscountType;
   discountValue: number;
+  latitude?: number | null;
+  longitude?: number | null;
   iconDataUrl?: string | null;
   logoDataUrl?: string | null;
 }
@@ -59,9 +61,9 @@ export async function createVendorWithDiscount(input: CreateVendorInput): Promis
     await client.query('BEGIN');
     try {
       const vendorRows = await client.query<{ id: string }>(
-        `INSERT INTO vendors (name, location, address, city, category, pos_type, pos_system, email, phone, password_hash, status)
-         VALUES ($1, $2, $3, NULL, $4, NULL, NULL, $5, $6, NULL, 'approved') RETURNING id`,
-        [input.name, input.address ?? null, input.address ?? null, input.category, input.email ?? null, input.phone ?? null],
+        `INSERT INTO vendors (name, location, address, city, category, pos_type, pos_system, email, phone, password_hash, status, latitude, longitude)
+         VALUES ($1, $2, $3, NULL, $4, NULL, NULL, $5, $6, NULL, 'approved', $7, $8) RETURNING id`,
+        [input.name, input.address ?? null, input.address ?? null, input.category, input.email ?? null, input.phone ?? null, input.latitude ?? null, input.longitude ?? null],
       );
       const vendorId = vendorRows.rows[0]!.id;
 

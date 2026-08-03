@@ -229,6 +229,8 @@ function normalizeVendor(input: Record<string, unknown>): VendorListItem {
     name: String(input.name),
     address: (input.address as string | null | undefined) ?? null,
     category: (input.category as string | null | undefined) ?? null,
+    latitude: input.latitude == null ? null : Number(input.latitude),
+    longitude: input.longitude == null ? null : Number(input.longitude),
     posSystem: (input.posSystem as string | null | undefined) ?? null,
     iconUrl: (input.iconUrl as string | null | undefined) ?? null,
     logoUrl: (input.logoUrl as string | null | undefined) ?? null,

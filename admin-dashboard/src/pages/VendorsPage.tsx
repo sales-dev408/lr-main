@@ -14,6 +14,8 @@ const blankVendor = {
   email: '',
   phone: '',
   category: 'Dining' as VendorCategory,
+  latitude: '',
+  longitude: '',
   discountKind: 'percent' as 'percent' | 'fixed',
   discountValue: '',
   iconDataUrl: '',
@@ -168,6 +170,8 @@ export function VendorsPage() {
         category: form.category,
         email: form.email || undefined,
         phone: form.phone || undefined,
+        latitude: form.latitude ? Number(form.latitude) : undefined,
+        longitude: form.longitude ? Number(form.longitude) : undefined,
         discountType: form.discountKind,
         discountValue: value,
         ...(form.iconDataUrl ? { iconDataUrl: form.iconDataUrl } : {}),
@@ -193,6 +197,8 @@ export function VendorsPage() {
         category: (editing.category as VendorCategory | null) ?? undefined,
         email: editing.email ?? undefined,
         phone: editing.phone ?? undefined,
+        latitude: editing.latitude ?? undefined,
+        longitude: editing.longitude ?? undefined,
         status: editing.status,
       });
       setEditing(null);
@@ -271,6 +277,16 @@ export function VendorsPage() {
               Address
               <Input placeholder="Address" value={form.address} onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))} />
             </label>
+            <div className="inline-row">
+              <label>
+                Latitude
+                <Input type="number" step="any" placeholder="33.45" value={form.latitude} onChange={(e) => setForm((prev) => ({ ...prev, latitude: e.target.value }))} />
+              </label>
+              <label>
+                Longitude
+                <Input type="number" step="any" placeholder="-112.07" value={form.longitude} onChange={(e) => setForm((prev) => ({ ...prev, longitude: e.target.value }))} />
+              </label>
+            </div>
             <label>
               Category
               <Select value={form.category} onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value as VendorCategory }))}>
@@ -428,6 +444,16 @@ export function VendorsPage() {
               Address
               <Input value={editing.address ?? ''} onChange={(e) => setEditing({ ...editing, address: e.target.value })} />
             </label>
+            <div className="inline-row">
+              <label>
+                Latitude
+                <Input type="number" step="any" value={editing.latitude ?? ''} onChange={(e) => setEditing({ ...editing, latitude: e.target.value ? Number(e.target.value) : null })} />
+              </label>
+              <label>
+                Longitude
+                <Input type="number" step="any" value={editing.longitude ?? ''} onChange={(e) => setEditing({ ...editing, longitude: e.target.value ? Number(e.target.value) : null })} />
+              </label>
+            </div>
             <label>
               Category
               <Select value={editing.category ?? 'Dining'} onChange={(e) => setEditing({ ...editing, category: e.target.value })}>

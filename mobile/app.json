@@ -46,7 +46,14 @@
         {
           "cameraPermission": "Allow $(PRODUCT_NAME) to scan vendor QR codes for membership discounts."
         }
-      ]
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to show nearby participating stores on the map."
+        }
+      ],
+      "react-native-maps"
     ],
     "experiments": {
       "typedRoutes": true
