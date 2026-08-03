@@ -21,6 +21,7 @@ import {
   saveTheme,
   updateContentBlock,
 } from './lib/content.ts';
+import { savePushToken } from './lib/push.ts';
 
 // Shape the customer-facing membership pass payload (wallet + barcode links),
 // creating the pass idempotently. Returns null if pass generation fails.
@@ -72,6 +73,11 @@ const themeSchema = z.object({
   brand: z.string().min(1),
   primaryGradient: z.tuple([z.string().min(1), z.string().min(1)]),
   tabs: z.array(themeTabSchema).min(1),
+});
+
+const pushTokenSchema = z.object({
+  token: z.string().min(1),
+  city: z.string().optional(),
 });
 
 const customerLoginSchema = z.object({
@@ -1037,6 +1043,13 @@ Deno.serve(async (request) => {
         byVendor: vendorRows.map((row) => ({ vendorId: row.vendor_id, vendorName: row.vendor_name, redemptions: Number(row.redemptions) })),
         daily: recentRows.map((row) => ({ day: row.day, redemptions: Number(row.redemptions) })),
       });
+    }
+    if (path === '/api/me/push-token' && request.method === 'POST') {
+      const auth = requireRole(request, ['customer']);
+      if (auth instanceof Response) return auth;
+      const body = pushTokenSchema.parse(await readJsonBody(request, {}));
+      await savePushToken(auth.sub, body.token, body.city);
+      return json(request, { registered: true });
     }
 
     // Backwards-compatible create endpoint: always returns the member's single

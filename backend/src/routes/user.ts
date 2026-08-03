@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { dbQuery } from '../db/pool.js';
+import { savePushToken } from '../services/push.js';
 
 export async function registerUserRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get('/api/me/analytics', { preHandler: fastify.requireRole(['customer']) }, async (request) => {
@@ -42,5 +43,14 @@ export async function registerUserRoutes(fastify: FastifyInstance): Promise<void
       })),
       daily: recentRows.map((row) => ({ day: row.day, redemptions: Number(row.redemptions) })),
     };
+  });
+
+  fastify.post('/api/me/push-token', { preHandler: fastify.requireRole(['customer']) }, async (request, reply) => {
+    const body = request.body as { token?: string; city?: string | null };
+    if (!body.token) {
+      return reply.code(400).send({ error: 'Push token is required' });
+    }
+    await savePushToken(request.user!.sub, body.token, body.city);
+    return { registered: true };
   });
 }
