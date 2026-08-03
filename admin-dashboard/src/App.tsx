@@ -8,6 +8,7 @@ import { OverviewPage } from './pages/OverviewPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ThemePage } from './pages/ThemePage';
 import { TicketsPage } from './pages/TicketsPage';
+import { EventsPage } from './pages/EventsPage';
 import { VendorsPage } from './pages/VendorsPage';
 
 export function App() {
@@ -27,6 +28,7 @@ export function App() {
         <Route path="/content" element={<ContentPage />} />
         <Route path="/theme" element={<ThemePage />} />
         <Route path="/tickets" element={<TicketsPage />} />
+        <Route path="/events" element={<EventsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

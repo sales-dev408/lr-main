@@ -42,6 +42,7 @@ export const DEFAULT_THEME_SETTINGS: ThemeSettings = {
   tabs: [
     { key: 'vendors', label: 'Deals', color: '#2563eb', gradient: ['#3b82f6', '#1d4ed8'] },
     { key: 'index', label: 'Browse', color: '#dc2626', gradient: ['#ef4444', '#b91c1c'] },
+    { key: 'events', label: 'Events', color: '#9333ea', gradient: ['#a855f7', '#7e22ce'] },
     { key: 'discover', label: 'Discover', color: '#16a34a', gradient: ['#22c55e', '#15803d'] },
     { key: 'passes', label: 'My Pass', color: '#2563eb', gradient: ['#3b82f6', '#1d4ed8'] },
     { key: 'profile', label: 'Profile', color: '#16a34a', gradient: ['#22c55e', '#15803d'] },

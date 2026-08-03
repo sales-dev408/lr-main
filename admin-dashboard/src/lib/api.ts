@@ -400,6 +400,16 @@ export async function saveTheme(theme: ThemeSettings): Promise<ThemeSettings> {
   return apiRequest<ThemeSettings>('/admin/settings/theme', { method: 'PATCH', body: jsonBody(theme) });
 }
 
+// ---- Events RSS feeds ------------------------------------------------------
+
+export async function getEventsRssUrls(): Promise<{ urls: string[] }> {
+  return apiRequest<{ urls: string[] }>('/admin/events');
+}
+
+export async function saveEventsRssUrls(urls: string[]): Promise<{ urls: string[] }> {
+  return apiRequest<{ urls: string[] }>('/admin/events', { method: 'PATCH', body: jsonBody({ urls }) });
+}
+
 // Reads a File into a base64 data URL for upload via the content API.
 export function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
