@@ -366,6 +366,10 @@ export async function getEvents(): Promise<RssEvent[]> {
   return apiRequest<RssEvent[]>('/events');
 }
 
+export async function registerPushToken(token: string, city?: string | null) {
+  return apiRequest('/me/push-token', { method: 'POST', body: JSON.stringify({ token, city }) });
+}
+
 // ---- In-app admin editing -------------------------------------------------
 // The app presents the first/last-name inputs as the credential fields, but the
 // values are always validated server-side by the admin login endpoint.

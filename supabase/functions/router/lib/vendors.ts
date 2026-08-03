@@ -4,6 +4,7 @@ import { uploadImageDataUrl } from './storage.ts';
 import { config } from './config.ts';
 import { sendVendorWelcomeEmail } from './mailjet.ts';
 import { qrCodeUrl } from './quickchart.ts';
+import { getAllPushTokens, sendPushNotifications } from './push.ts';
 
 export type VendorCategory = 'Sports' | 'Dining' | 'Entertainment';
 
@@ -122,6 +123,15 @@ export async function createVendorWithDiscount(input: CreateVendorInput): Promis
           console.warn('[vendors] Failed to send welcome email:', err);
         }
       }
+
+      void getAllPushTokens().then((tokens) =>
+        sendPushNotifications(
+          tokens,
+          'New vendor joined',
+          `${input.name} is now offering ${config.brandName} discounts.`,
+          { type: 'new_vendor', vendorId: vendorId },
+        ),
+      );
 
       return result;
     } catch (error) {

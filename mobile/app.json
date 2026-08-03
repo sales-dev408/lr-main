@@ -54,6 +54,11 @@
         }
       ],
       "react-native-maps"
+        "expo-notifications",
+        {
+          "mode": "production"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
