@@ -27,13 +27,26 @@ export async function saveEventsRssUrls(urls: string[]): Promise<string[]> {
   return clean;
 }
 
-function escapeXml(text: string): string {
-  return text
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+};
+
+function decodeXmlEntities(text: string): string {
+  return text.replace(/&(?:#(x[\da-fA-F]+|\d+)|([a-zA-Z]+));/g, (match, numeric, named) => {
+    if (numeric) {
+      if (numeric.startsWith('x')) {
+        const code = parseInt(numeric.slice(1), 16);
+        return isNaN(code) ? match : String.fromCodePoint(code);
+      }
+      const code = parseInt(numeric, 10);
+      return isNaN(code) ? match : String.fromCodePoint(code);
+    }
+    return NAMED_ENTITIES[named as string] ?? match;
+  });
 }
 
 function stripHtml(html: string): string {
@@ -45,7 +58,7 @@ function stripHtml(html: string): string {
 
 function extractText(block: string, tag: string): string | null {
   const match = new RegExp(`<${tag}(?:\\s[^>]*)?>(.*?)</${tag}>`, 'is').exec(block);
-  return match ? escapeXml(stripHtml(match[1].trim())) || null : null;
+  return match ? decodeXmlEntities(stripHtml(match[1].trim())) || null : null;
 }
 
 function extractAtomLink(entry: string): string | null {
