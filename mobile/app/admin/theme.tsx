@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, FieldInput, Screen, SectionTitle } from '@/components/Ui';
 import { adminSaveTheme } from '@/lib/api';
 import { useAdmin } from '@/lib/admin';
@@ -48,6 +48,7 @@ export default function AdminThemeScreen() {
 
   return (
     <Screen>
+      <Stack.Screen options={{ headerShown: true, title: 'App theme' }} />
       <ScrollView contentContainerStyle={{ gap: 14, paddingBottom: 24 }}>
         <BrandHeader subtitle="App theme" />
         <Card>

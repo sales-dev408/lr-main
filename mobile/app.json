@@ -40,6 +40,12 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to scan vendor QR codes for membership discounts."
+        }
       ]
     ],
     "experiments": {

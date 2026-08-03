@@ -1,15 +1,17 @@
 import { useCallback, useState } from 'react';
 import { Image, RefreshControl, ScrollView, Text, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { listTickets } from '@/lib/api';
+import { qrCodeUrl } from '@/lib/qr';
 import type { Ticket } from '@/lib/types';
 
-function barcodeUrl(text: string) {
-  return `https://quickchart.io/barcode?type=code128&text=${encodeURIComponent(text)}&width=320&height=120`;
+function ticketQrUrl(text: string) {
+  return qrCodeUrl(text, 240);
 }
 
 export default function TicketsScreen() {
+  const router = useRouter();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -45,6 +47,7 @@ export default function TicketsScreen() {
 
   return (
     <Screen>
+      <Stack.Screen options={{ headerShown: true, title: 'My Tickets' }} />
       <ScrollView contentContainerStyle={{ gap: 14, paddingBottom: 24 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}>
         <BrandHeader subtitle="Your event tickets" />
 
@@ -56,15 +59,18 @@ export default function TicketsScreen() {
           <Card key={ticket.id}>
             <SectionTitle title={ticket.name} subtitle={ticket.status === 'active' ? `${ticket.remainingUses} of ${ticket.allowedUses} uses left` : 'Used'} />
             <View style={{ alignItems: 'center', gap: 8, paddingVertical: 8 }}>
-              <Image source={{ uri: barcodeUrl(ticket.barcode) }} style={{ width: 320, height: 120, borderRadius: 8, backgroundColor: '#fff' }} resizeMode="contain" />
+              <Image source={{ uri: ticketQrUrl(ticket.barcode) }} style={{ width: 240, height: 240, borderRadius: 8, backgroundColor: '#fff' }} resizeMode="contain" />
               <Text style={{ color: '#10223d', fontWeight: '700', letterSpacing: 1 }}>{ticket.barcode}</Text>
             </View>
-            <Banner tone="info">Show this barcode at the event entrance. Staff will scan it.</Banner>
+            <Banner tone="info">Show this QR code at the event entrance. Staff will scan it.</Banner>
           </Card>
         ))}
 
         <AppButton variant="secondary" onPress={() => void onRefresh()}>
           Refresh tickets
+        </AppButton>
+        <AppButton variant="ghost" onPress={() => router.push('/(tabs)')}>
+          Back to home
         </AppButton>
       </ScrollView>
     </Screen>

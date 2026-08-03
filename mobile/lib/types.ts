@@ -102,12 +102,20 @@ export interface ParticipatingBusiness {
   discount: CardDiscount | null;
 }
 
+export type CardLayout = 'qr_top' | 'qr_bottom' | 'qr_left' | 'qr_right';
+
 export interface CardSummary {
   id: string;
   name: string;
   theme: CardTheme;
   description: string | null;
   image_url: string | null;
+  logo_url: string | null;
+  icon_url: string | null;
+  primary_color: string | null;
+  secondary_color: string | null;
+  qr_size: number | null;
+  layout: CardLayout | null;
   expiration_date: string | null;
   max_uses: number | null;
   status: string;
@@ -249,6 +257,15 @@ export interface UserAnalytics {
   totalRedemptions: number;
   byVendor: { vendorId: string; vendorName: string; redemptions: number }[];
   daily: { day: string; redemptions: number }[];
+}
+
+export interface DiscountLookup {
+  vendorName: string;
+  cardName: string;
+  discountCode: string;
+  type: DiscountType;
+  value: number;
+  discountLabel: string;
 }
 
 export interface ErrorShape {

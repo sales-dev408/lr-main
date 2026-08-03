@@ -1,5 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { dbQuery } from '../db/pool.js';
+import { humanDiscountLabel } from '../services/discounts.js';
 import { resolveCardLookup, resolvePassLookup } from '../services/lookup.js';
 import { redeemDiscount } from '../services/redeem.js';
 
@@ -25,6 +27,33 @@ export async function registerLookupRoutes(fastify: FastifyInstance): Promise<vo
       return reply.code(404).send({ error: 'Not found' });
     }
     return result;
+  });
+
+  fastify.get('/api/discounts/by-code/:code', { preHandler: fastify.requireRole(['customer']) }, async (request, reply) => {
+    const code = (request.params as { code: string }).code;
+    const rows = await dbQuery<{ vendor_name: string; card_name: string; type: 'fixed' | 'percent' | 'bogo'; value: string }>(
+      `
+        SELECT v.name AS vendor_name, c.name AS card_name, d.type, d.value
+        FROM discounts d
+        JOIN vendors v ON v.id = d.vendor_id
+        JOIN cards c ON c.id = d.card_id
+        WHERE d.discount_code = $1 AND d.active = true AND c.is_membership = true
+        LIMIT 1
+      `,
+      [code],
+    );
+    if (rows.length === 0) {
+      return reply.code(404).send({ error: 'Discount not found' });
+    }
+    const row = rows[0]!;
+    return {
+      vendorName: row.vendor_name,
+      cardName: row.card_name,
+      discountCode: code,
+      type: row.type,
+      value: Number(row.value),
+      discountLabel: humanDiscountLabel(row.type, Number(row.value)),
+    };
   });
 
   fastify.get('/api/lookup/card/:cardId', async (request, reply) => {

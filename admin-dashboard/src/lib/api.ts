@@ -280,6 +280,12 @@ export async function createCard(body: {
   theme: string;
   description?: string;
   imageUrl?: string;
+  logoUrl?: string;
+  iconUrl?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  qrSize?: number;
+  layout?: string;
   expirationDate?: string;
   maxUses?: number;
   status?: string;

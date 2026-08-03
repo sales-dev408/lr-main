@@ -8,6 +8,7 @@ import type {
   CardDetail,
   ContentBlock,
   ContentKind,
+  DiscountLookup,
   DiscountType,
   CardSummary,
   CreatePassResponse,
@@ -95,12 +96,19 @@ function normalizeBusiness(input: Record<string, unknown>) {
 
 function normalizeCard(input: Record<string, unknown>): CardSummary {
   const businesses = Array.isArray(input.participatingBusinesses) ? input.participatingBusinesses.map((item) => normalizeBusiness(item as Record<string, unknown>)) : [];
+  const layout = String(input.layout ?? input.layout).trim();
   return {
     id: String(input.id),
     name: String(input.name),
     theme: normalizeTheme(input.theme),
     description: (input.description as string | null | undefined) ?? null,
     image_url: (input.image_url as string | null | undefined) ?? (input.imageUrl as string | null | undefined) ?? null,
+    logo_url: (input.logo_url as string | null | undefined) ?? (input.logoUrl as string | null | undefined) ?? null,
+    icon_url: (input.icon_url as string | null | undefined) ?? (input.iconUrl as string | null | undefined) ?? null,
+    primary_color: (input.primary_color as string | null | undefined) ?? (input.primaryColor as string | null | undefined) ?? null,
+    secondary_color: (input.secondary_color as string | null | undefined) ?? (input.secondaryColor as string | null | undefined) ?? null,
+    qr_size: (input.qr_size as number | null | undefined) ?? (input.qrSize as number | null | undefined) ?? null,
+    layout: layout === 'qr_top' || layout === 'qr_bottom' || layout === 'qr_left' || layout === 'qr_right' ? layout : 'qr_bottom',
     expiration_date: (input.expiration_date as string | null | undefined) ?? (input.expirationDate as string | null | undefined) ?? null,
     max_uses: (input.max_uses as number | null | undefined) ?? (input.maxUses as number | null | undefined) ?? null,
     status: String(input.status),
@@ -396,4 +404,8 @@ export async function adminSaveTheme(token: string, theme: ThemeSettings) {
 
 export async function getMyAnalytics(): Promise<UserAnalytics> {
   return apiRequest<UserAnalytics>('/me/analytics');
+}
+
+export async function lookupDiscountByCode(code: string): Promise<DiscountLookup> {
+  return apiRequest<DiscountLookup>(`/discounts/by-code/${encodeURIComponent(code)}`);
 }

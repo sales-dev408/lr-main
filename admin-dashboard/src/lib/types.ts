@@ -112,12 +112,20 @@ export interface TicketRecord {
   createdAt?: string;
 }
 
+export type CardLayout = 'qr_top' | 'qr_bottom' | 'qr_left' | 'qr_right';
+
 export interface CardSummary {
   id: string;
   name: string;
   theme: CardTheme;
   description: string | null;
   image_url: string | null;
+  logo_url: string | null;
+  icon_url: string | null;
+  primary_color: string | null;
+  secondary_color: string | null;
+  qr_size: number | null;
+  layout: CardLayout | null;
   expiration_date: string | null;
   max_uses: number | null;
   status: CardStatus;
@@ -193,6 +201,12 @@ export interface PublicCardsResponseItem {
   theme: CardTheme;
   description: string | null;
   image_url: string | null;
+  logo_url: string | null;
+  icon_url: string | null;
+  primary_color: string | null;
+  secondary_color: string | null;
+  qr_size: number | null;
+  layout: CardLayout | null;
   expiration_date: string | null;
   max_uses: number | null;
   status: CardStatus;
