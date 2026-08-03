@@ -3,6 +3,7 @@ import { Image, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { Link, useFocusEffect } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { listVendors } from '@/lib/api';
+import { barcodeUrl } from '@/lib/qr';
 import type { VendorListItem } from '@/lib/types';
 
 const CATEGORIES = ['All', 'Sports', 'Dining', 'Entertainment'] as const;
@@ -105,6 +106,14 @@ export default function VendorsScreen() {
             <SectionTitle title={selected.name} subtitle={selected.category ?? undefined} />
             <Pill tone="success">{selected.discount.label}</Pill>
             {selected.address ? <Text style={{ color: '#52617a' }}>{selected.address}</Text> : null}
+
+            {selected.discountCode ? (
+              <View style={{ alignItems: 'center', gap: 12 }}>
+                <Image source={{ uri: barcodeUrl(selected.discountCode) }} style={{ width: 320, height: 120, borderRadius: 8, backgroundColor: '#fff' }} resizeMode="contain" />
+                <Text style={{ color: '#10223d', fontWeight: '700', letterSpacing: 1 }}>{selected.discountCode}</Text>
+                <Text style={{ color: '#7c8a9d', fontSize: 12 }}>Staff scans this barcode to apply the discount.</Text>
+              </View>
+            ) : null}
 
             <Link href="/scan" asChild>
               <AppButton>Scan this vendor&apos;s QR code</AppButton>
