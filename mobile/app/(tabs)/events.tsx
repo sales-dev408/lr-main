@@ -4,11 +4,11 @@ import { Stack, useFocusEffect } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { getEvents } from '@/lib/api';
 import { scheduleEventNotifications } from '@/lib/notifications';
-import { useOnboarding } from '@/lib/onboarding';
+import { useAuth } from '@/lib/auth';
 import type { RssEvent } from '@/lib/types';
 
 export default function EventsScreen() {
-  const { selection } = useOnboarding();
+  const auth = useAuth();
   const [items, setItems] = useState<RssEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -19,11 +19,11 @@ export default function EventsScreen() {
     try {
       const data = await getEvents();
       setItems(data);
-      void scheduleEventNotifications(data, selection.city ?? '');
+      void scheduleEventNotifications(data, auth.profile?.city ?? '');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load events');
     }
-  }, [selection.city]);
+  }, [auth.profile]);
 
   useFocusEffect(
     useCallback(() => {

@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import { dbQuery } from '../db/pool.js';
 import { savePushToken } from '../services/push.js';
 
@@ -44,6 +45,51 @@ export async function registerUserRoutes(fastify: FastifyInstance): Promise<void
       daily: recentRows.map((row) => ({ day: row.day, redemptions: Number(row.redemptions) })),
     };
   });
+
+  fastify.get('/api/me', { preHandler: fastify.requireRole(['customer']) }, async (request) => {
+    const userId = request.user!.sub;
+    const rows = await dbQuery<{ id: string; email: string | null; phone: string | null; full_name: string; first_name: string | null; last_name: string | null; city: string | null; status: string }>(
+      `SELECT id, email::text AS email, phone, full_name, first_name, last_name, city, status FROM users WHERE id = $1 LIMIT 1`,
+      [userId],
+    );
+    const user = rows[0];
+    if (!user) return { error: 'User not found' };
+    return {
+      id: user.id,
+      email: user.email,
+      phone: user.phone,
+      fullName: user.full_name,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      city: user.city,
+      status: user.status,
+    };
+  });
+
+  fastify.patch(
+    '/api/me',
+    { preHandler: fastify.requireRole(['customer']), config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const body = z.object({ city: z.string().trim().min(1).optional() }).parse(request.body);
+      const userId = request.user!.sub;
+      const rows = await dbQuery<{ id: string; email: string | null; phone: string | null; full_name: string; first_name: string | null; last_name: string | null; city: string | null; status: string }>(
+        `UPDATE users SET city = COALESCE($2, city), updated_at = now() WHERE id = $1 RETURNING id, email::text AS email, phone, full_name, first_name, last_name, city, status`,
+        [userId, body.city ?? null],
+      );
+      const user = rows[0];
+      if (!user) return reply.code(404).send({ error: 'User not found' });
+      return {
+        id: user.id,
+        email: user.email,
+        phone: user.phone,
+        fullName: user.full_name,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        city: user.city,
+        status: user.status,
+      };
+    },
+  );
 
   fastify.post(
     '/api/me/push-token',

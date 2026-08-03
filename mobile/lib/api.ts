@@ -370,6 +370,14 @@ export async function registerPushToken(token: string, city?: string | null) {
   return apiRequest('/me/push-token', { method: 'POST', body: JSON.stringify({ token, city }) });
 }
 
+export async function getMe(): Promise<UserProfile> {
+  return apiRequest<UserProfile>('/me');
+}
+
+export async function updateMe(body: { city: string | null }): Promise<UserProfile> {
+  return apiRequest<UserProfile>('/me', { method: 'PATCH', body: JSON.stringify(body) });
+}
+
 // ---- In-app admin editing -------------------------------------------------
 // The app presents the first/last-name inputs as the credential fields, but the
 // values are always validated server-side by the admin login endpoint.

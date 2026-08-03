@@ -12,6 +12,7 @@ const customerRegisterSchema = z.object({
   lastName: z.string().trim().min(1),
   email: z.string().email().optional(),
   phone: z.string().min(7).optional(),
+  city: z.string().optional(),
   captchaToken: z.string().optional(),
 });
 
@@ -46,7 +47,7 @@ const adminLoginSchema = z.object({
 async function buildCustomerProfile(userId: string): Promise<UserProfile | null> {
   const rows = await dbQuery<UserProfile>(
     `SELECT id, email::text AS email, phone, full_name AS "fullName",
-            first_name AS "firstName", last_name AS "lastName", status
+            first_name AS "firstName", last_name AS "lastName", city, status
      FROM users WHERE id = $1 LIMIT 1`,
     [userId],
   );
@@ -84,11 +85,11 @@ export async function registerAuthRoutes(fastify: FastifyInstance): Promise<void
         try {
           const result = await client.query<{ id: string }>(
             `
-              INSERT INTO users (email, phone, password_hash, full_name, first_name, last_name)
-              VALUES ($1, $2, $3, $4, $5, $6)
+              INSERT INTO users (email, phone, password_hash, full_name, first_name, last_name, city)
+              VALUES ($1, $2, $3, $4, $5, $6, $7)
               RETURNING id
             `,
-            [body.email ?? null, phone ?? null, null, fullName, body.firstName, body.lastName],
+            [body.email ?? null, phone ?? null, null, fullName, body.firstName, body.lastName, body.city ?? null],
           );
           await client.query('COMMIT');
           return result.rows;

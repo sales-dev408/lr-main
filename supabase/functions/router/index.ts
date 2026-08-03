@@ -49,6 +49,7 @@ const customerRegisterSchema = z.object({
   lastName: z.string().trim().min(1),
   email: z.string().email().optional(),
   phone: z.string().min(7).optional(),
+  city: z.string().optional(),
 });
 
 const contentCreateSchema = z.object({
@@ -249,10 +250,11 @@ async function buildCustomerProfile(userId: string) {
     fullName: string;
     firstName: string | null;
     lastName: string | null;
+    city: string | null;
     status: string;
   }>(
     `SELECT id, email::text AS email, phone, full_name AS "fullName",
-            first_name AS "firstName", last_name AS "lastName", status
+            first_name AS "firstName", last_name AS "lastName", city, status
      FROM users WHERE id = $1 LIMIT 1`,
     [userId],
   );
@@ -424,8 +426,8 @@ Deno.serve(async (request) => {
           await client.query('BEGIN');
           try {
             const result = await client.query<{ id: string }>(
-              `INSERT INTO users (email, phone, password_hash, full_name, first_name, last_name) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-              [body.email ?? null, phone ?? null, null, fullName, body.firstName, body.lastName],
+              `INSERT INTO users (email, phone, password_hash, full_name, first_name, last_name, city) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+              [body.email ?? null, phone ?? null, null, fullName, body.firstName, body.lastName, body.city ?? null],
             );
             await client.query('COMMIT');
             return result.rows;
@@ -1075,6 +1077,47 @@ Deno.serve(async (request) => {
         totalRedemptions: Number(totalRows[0]?.redemptions ?? '0'),
         byVendor: vendorRows.map((row) => ({ vendorId: row.vendor_id, vendorName: row.vendor_name, redemptions: Number(row.redemptions) })),
         daily: recentRows.map((row) => ({ day: row.day, redemptions: Number(row.redemptions) })),
+      });
+    }
+    if (path === '/api/me' && request.method === 'GET') {
+      const auth = requireRole(request, ['customer']);
+      if (auth instanceof Response) return auth;
+      const rows = await dbQuery<{ id: string; email: string | null; phone: string | null; full_name: string; first_name: string | null; last_name: string | null; city: string | null; status: string }>(
+        `SELECT id, email::text AS email, phone, full_name, first_name, last_name, city, status FROM users WHERE id = $1 LIMIT 1`,
+        [auth.sub],
+      );
+      const user = rows[0];
+      if (!user) return json(request, { error: 'User not found' }, { status: 404 });
+      return json(request, {
+        id: user.id,
+        email: user.email,
+        phone: user.phone,
+        fullName: user.full_name,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        city: user.city,
+        status: user.status,
+      });
+    }
+    if (path === '/api/me' && request.method === 'PATCH') {
+      const auth = requireRole(request, ['customer']);
+      if (auth instanceof Response) return auth;
+      const body = z.object({ city: z.string().trim().min(1).optional() }).parse(await readJsonBody(request, {}));
+      const rows = await dbQuery<{ id: string; email: string | null; phone: string | null; full_name: string; first_name: string | null; last_name: string | null; city: string | null; status: string }>(
+        `UPDATE users SET city = COALESCE($2, city), updated_at = now() WHERE id = $1 RETURNING id, email::text AS email, phone, full_name, first_name, last_name, city, status`,
+        [auth.sub, body.city ?? null],
+      );
+      const user = rows[0];
+      if (!user) return json(request, { error: 'User not found' }, { status: 404 });
+      return json(request, {
+        id: user.id,
+        email: user.email,
+        phone: user.phone,
+        fullName: user.full_name,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        city: user.city,
+        status: user.status,
       });
     }
     if (path === '/api/me/push-token' && request.method === 'POST') {

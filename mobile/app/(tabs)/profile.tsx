@@ -1,5 +1,6 @@
 import { Linking, ScrollView, Text, View } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { Picker } from '@react-native-picker/picker';
 import { useCallback, useState } from 'react';
 import { AppButton, Banner, BrandHeader, Card, Screen, SectionTitle } from '@/components/Ui';
 import { useAuth } from '@/lib/auth';
@@ -7,11 +8,44 @@ import { getMyAnalytics } from '@/lib/api';
 import { PRIVACY_URL, TERMS_URL, EULA_URL, WEBSITE_URL } from '@/lib/theme';
 import type { UserAnalytics } from '@/lib/types';
 
+const CITIES = [
+  'Phoenix',
+  'Tempe',
+  'Mesa',
+  'Scottsdale',
+  'Chandler',
+  'Gilbert',
+  'Glendale',
+  'Peoria',
+  'Surprise',
+  'Goodyear',
+  'Avondale',
+  'Tolleson',
+  'Laveen',
+  'Paradise Valley',
+  'Fountain Hills',
+  'Cave Creek',
+  'Carefree',
+  'Queen Creek',
+  'San Tan Valley',
+  'Apache Junction',
+  'Gold Canyon',
+  'Florence',
+  'Casa Grande',
+  'Maricopa',
+  'Yuma',
+  'Flagstaff',
+  'Prescott',
+  'Sedona',
+  'Tucson',
+];
+
 export default function ProfileScreen() {
   const router = useRouter();
   const auth = useAuth();
   const [analytics, setAnalytics] = useState<UserAnalytics | null>(null);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+  const [city, setCity] = useState(auth.profile?.city ?? '');
 
   const loadAnalytics = useCallback(async () => {
     try {
@@ -30,6 +64,11 @@ export default function ProfileScreen() {
     }, [auth.token, loadAnalytics]),
   );
 
+  async function handleCityChange(next: string) {
+    setCity(next);
+    await auth.updateProfile({ city: next });
+  }
+
   return (
     <Screen>
       <ScrollView contentContainerStyle={{ gap: 14, paddingBottom: 24 }}>
@@ -41,6 +80,25 @@ export default function ProfileScreen() {
             <>
               <Text style={{ fontWeight: '700', color: '#10223d', fontSize: 18 }}>{auth.profile.fullName}</Text>
               <Text style={{ color: '#52617a' }}>{auth.profile.email ?? auth.profile.phone ?? 'No email or phone on file'}</Text>
+              <View style={{ marginTop: 12, gap: 6 }}>
+                <Text style={{ color: '#10223d', fontWeight: '600' }} accessibilityLabel="City label">
+                  City
+                </Text>
+                <View style={{ borderWidth: 1, borderColor: '#dbe4f0', borderRadius: 12, overflow: 'hidden' }}>
+                  <Picker
+                    selectedValue={city}
+                    onValueChange={(itemValue) => void handleCityChange(itemValue)}
+                    accessibilityLabel="Select your city"
+                    accessibilityRole="combobox"
+                  >
+                    <Picker.Item label="Select a city" value="" />
+                    {CITIES.map((name) => (
+                      <Picker.Item key={name} label={name} value={name} />
+                    ))}
+                  </Picker>
+                </View>
+                <Text style={{ color: '#52617a', fontSize: 12 }}>Local events and deals are matched to this city.</Text>
+              </View>
             </>
           ) : (
             <Banner tone="info">No customer profile is signed in.</Banner>

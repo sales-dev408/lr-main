@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { login as loginRequest, register as registerRequest } from './api';
+import { login as loginRequest, register as registerRequest, updateMe } from './api';
 import { initPushNotifications } from './notifications';
 import { getItem, removeItem, setItem } from './storage';
 import type { AuthResponse, UserProfile } from './types';
@@ -11,7 +11,8 @@ type AuthContextValue = {
   token: string | null;
   profile: UserProfile | null;
   signIn: (body: { firstName: string; lastName: string }) => Promise<void>;
-  registerAccount: (body: { firstName: string; lastName: string; email?: string; phone?: string }) => Promise<void>;
+  registerAccount: (body: { firstName: string; lastName: string; email?: string; phone?: string; city?: string }) => Promise<void>;
+  updateProfile: (profile: Partial<UserProfile>) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -54,6 +55,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void initPushNotifications();
   }
 
+  const updateProfile = useCallback(
+    async (update: Partial<UserProfile>) => {
+      const next = { ...(profile ?? ({} as UserProfile)), ...update } as UserProfile;
+      setProfile(next);
+      if (token) {
+        await setItem(AUTH_KEY, JSON.stringify({ token, profile: next }));
+      }
+      if ('city' in update) {
+        const refreshed = await updateMe({ city: update.city ?? null });
+        setProfile(refreshed);
+        if (token) {
+          await setItem(AUTH_KEY, JSON.stringify({ token, profile: refreshed }));
+        }
+        void initPushNotifications();
+      }
+    },
+    [profile, token],
+  );
+
   const value = useMemo<AuthContextValue>(
     () => ({
       loading,
@@ -67,13 +87,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const auth = await registerRequest(body);
         await persist(auth);
       },
+      updateProfile: async (update) => {
+        await updateProfile(update);
+      },
       logout: async () => {
         setToken(null);
         setProfile(null);
         await removeItem(AUTH_KEY);
       },
     }),
-    [loading, profile, token],
+    [loading, profile, token, updateProfile],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
