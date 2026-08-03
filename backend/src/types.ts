@@ -23,6 +23,7 @@ export interface UserProfile {
   fullName: string;
   firstName: string | null;
   lastName: string | null;
+  city: string | null;
   status: UserStatus;
 }
 
