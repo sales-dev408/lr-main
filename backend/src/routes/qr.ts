@@ -1,8 +1,8 @@
 import type { FastifyInstance } from 'fastify';
-import QRCode from 'qrcode';
 import { Buffer } from 'node:buffer';
 import { config } from '../config.js';
 import { dbQuery } from '../db/pool.js';
+import { qrCodeUrl } from '../services/quickchart.js';
 
 function onboardingCode(vendorId: string, cardId: string): string {
   return Buffer.from(JSON.stringify({ vendorId, cardId }), 'utf8').toString('base64url');
@@ -61,13 +61,12 @@ export async function registerQrRoutes(fastify: FastifyInstance): Promise<void> 
     }
     const code = onboardingCode(query.vendorId, query.cardId);
     const deepLink = `lrcard://onboard?code=${encodeURIComponent(code)}`;
-    const image = await QRCode.toBuffer(`${deepLink}\nhttps://example.invalid/onboard?code=${encodeURIComponent(code)}`, { type: 'png' });
-    reply.type('image/png').send(image);
+    const text = `${deepLink}\nhttps://lightraildeals.com/onboard?code=${encodeURIComponent(code)}`;
+    return reply.redirect(qrCodeUrl(text, 300));
   });
 
   fastify.get('/api/qr/lookup/:lookupToken.png', async (request, reply) => {
     const lookupToken = (request.params as { lookupToken: string }).lookupToken;
-    const image = await QRCode.toBuffer(lookupToken, { type: 'png' });
-    reply.type('image/png').send(image);
+    return reply.redirect(qrCodeUrl(lookupToken, 300));
   });
 }

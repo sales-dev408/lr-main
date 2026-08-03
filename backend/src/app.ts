@@ -3,6 +3,7 @@ import authPlugin from './plugins/auth.js';
 import securityPlugin from './plugins/security.js';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerAuthRoutes } from './routes/auth.js';
+import { registerUserRoutes } from './routes/user.js';
 import { registerCardRoutes } from './routes/cards.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerVendorRoutes } from './routes/vendor.js';
@@ -23,6 +24,7 @@ export async function buildApp() {
 
   await registerHealthRoutes(app);
   await registerAuthRoutes(app);
+  await registerUserRoutes(app);
   await registerCardRoutes(app);
   await registerAdminRoutes(app);
   await registerVendorRoutes(app);

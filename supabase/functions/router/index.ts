@@ -1,6 +1,5 @@
 import { z } from 'npm:zod';
 import bcrypt from 'npm:bcryptjs';
-import QRCode from 'npm:qrcode';
 import { config } from './lib/config.ts';
 import { authenticate, requireRole } from './lib/auth.ts';
 import { dbQuery, withDbClient } from './lib/db.ts';
@@ -11,7 +10,8 @@ import { redeemDiscount } from './lib/redeem.ts';
 import { buildMemberPassUrl } from './lib/wallet.ts';
 import { createVendorWithDiscount } from './lib/vendors.ts';
 import { ensureMembershipPass, membershipWalletUrl } from './lib/membership.ts';
-import { humanDiscountLabel } from './lib/codes.ts';
+import { generateDiscountCode, humanDiscountLabel } from './lib/codes.ts';
+import { qrCodeUrl } from './lib/quickchart.ts';
 import { normalizePhone } from './lib/phone.ts';
 import {
   createContentBlock,
@@ -798,6 +798,25 @@ Deno.serve(async (request) => {
       const id = path.split('/').slice(-2)[0]!;
       return json(request, await dbQuery('SELECT * FROM transactions WHERE entity_type = \'vendor\' AND entity_id = $1 ORDER BY created_at DESC', [id]));
     }
+    if (/^\/api\/admin\/vendors\/[^/]+\/qr$/.test(path) && request.method === 'POST') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const id = path.split('/').slice(-2)[0]!;
+      const rows = await dbQuery<{ discount_id: string; name: string; type: 'fixed' | 'percent' | 'bogo'; value: string }>(
+        `SELECT d.id AS discount_id, v.name, d.type, d.value
+         FROM vendors v
+         JOIN discounts d ON d.vendor_id = v.id
+         JOIN cards c ON c.id = d.card_id AND c.is_membership = true
+         WHERE v.id = $1
+         LIMIT 1`,
+        [id],
+      );
+      if (rows.length === 0) return json(request, { error: 'Vendor membership discount not found' }, { status: 404 });
+      const row = rows[0]!;
+      const newCode = generateDiscountCode({ merchantId: row.name, type: row.type, value: Number(row.value) });
+      await dbQuery('UPDATE discounts SET discount_code = $2, updated_at = now() WHERE id = $1', [row.discount_id, newCode]);
+      return json(request, { discountCode: newCode, qrUrl: qrCodeUrl(newCode, 300) });
+    }
     if (path === '/api/admin/cards' && request.method === 'POST') {
       const auth = requireRole(request, ['admin']);
       if (auth instanceof Response) return auth;
@@ -952,6 +971,33 @@ Deno.serve(async (request) => {
         downloadUrl: `/api/passes/${pass.serial_number}`,
       });
     }
+    if (path === '/api/me/analytics' && request.method === 'GET') {
+      const auth = requireRole(request, ['customer']);
+      if (auth instanceof Response) return auth;
+      const totalRows = await dbQuery<{ redemptions: string }>('SELECT COUNT(*)::text AS redemptions FROM redemptions WHERE user_id = $1', [auth.sub]);
+      const vendorRows = await dbQuery<{ vendor_id: string; vendor_name: string; redemptions: string }>(
+        `SELECT v.id AS vendor_id, v.name AS vendor_name, COUNT(r.id)::text AS redemptions
+         FROM redemptions r
+         JOIN vendors v ON v.id = r.vendor_id
+         WHERE r.user_id = $1
+         GROUP BY v.id, v.name
+         ORDER BY COUNT(r.id) DESC`,
+        [auth.sub],
+      );
+      const recentRows = await dbQuery<{ day: string; redemptions: string }>(
+        `SELECT to_char(date_trunc('day', redeemed_at), 'YYYY-MM-DD') AS day, COUNT(*)::text AS redemptions
+         FROM redemptions
+         WHERE user_id = $1 AND redeemed_at >= now() - interval '30 days'
+         GROUP BY 1
+         ORDER BY 1 DESC`,
+        [auth.sub],
+      );
+      return json(request, {
+        totalRedemptions: Number(totalRows[0]?.redemptions ?? '0'),
+        byVendor: vendorRows.map((row) => ({ vendorId: row.vendor_id, vendorName: row.vendor_name, redemptions: Number(row.redemptions) })),
+        daily: recentRows.map((row) => ({ day: row.day, redemptions: Number(row.redemptions) })),
+      });
+    }
 
     // Backwards-compatible create endpoint: always returns the member's single
     // membership pass (idempotent). Any supplied cardId is ignored.
@@ -1044,13 +1090,12 @@ Deno.serve(async (request) => {
       if (!vendorId || !cardId) return json(request, { error: 'vendorId and cardId are required' }, { status: 400 });
       const code = encodeBase64UrlJson({ vendorId, cardId });
       const deepLink = `lrcard://onboard?code=${encodeURIComponent(code)}`;
-      const image = await QRCode.toBuffer(`${deepLink}\nhttps://example.invalid/onboard?code=${encodeURIComponent(code)}`, { type: 'png' });
-      return new Response(image, { headers: { 'Content-Type': 'image/png', 'Access-Control-Allow-Origin': corsOrigin(request) } });
+      const text = `${deepLink}\nhttps://lightraildeals.com/onboard?code=${encodeURIComponent(code)}`;
+      return Response.redirect(qrCodeUrl(text, 300), 302);
     }
     if (/^\/api\/qr\/lookup\/[^/]+\.png$/.test(path) && request.method === 'GET') {
       const lookupToken = path.split('/').pop()!.replace(/\.png$/, '');
-      const image = await QRCode.toBuffer(lookupToken, { type: 'png' });
-      return new Response(image, { headers: { 'Content-Type': 'image/png', 'Access-Control-Allow-Origin': corsOrigin(request) } });
+      return Response.redirect(qrCodeUrl(lookupToken, 300), 302);
     }
 
     return notFound(request);

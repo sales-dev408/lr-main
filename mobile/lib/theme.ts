@@ -30,6 +30,9 @@ export const APPLE_TRADEMARK_NOTICE =
   'Apple, the Apple logo, and Apple Wallet are trademarks of Apple Inc., registered in the U.S. and other countries.';
 
 export const WEBSITE_URL = 'https://lightraildeals.com';
+export const TERMS_URL = 'https://www.lightraildeals.com/terms-of-use.html';
+export const PRIVACY_URL = 'https://www.lightraildeals.com/';
+export const EULA_URL = 'https://www.lightraildeals.com/eula.html';
 
 // Fallback theme used before the admin-published theme loads from the backend.
 // Keys match the tab route names so the bottom bar can look up each tab's style.

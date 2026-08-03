@@ -18,6 +18,7 @@ import type {
   RedeemResult,
   ThemeSettings,
   Ticket,
+  UserAnalytics,
   UserProfile,
   VendorListItem,
   WalletPlatform,
@@ -391,4 +392,8 @@ export async function adminDeleteContent(token: string, id: string) {
 
 export async function adminSaveTheme(token: string, theme: ThemeSettings) {
   return apiRequest<ThemeSettings>('/admin/settings/theme', { method: 'PATCH', headers: adminHeaders(token), body: JSON.stringify(theme) });
+}
+
+export async function getMyAnalytics(): Promise<UserAnalytics> {
+  return apiRequest<UserAnalytics>('/me/analytics');
 }

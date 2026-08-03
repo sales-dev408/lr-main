@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
-import { createAdminVendor, getVendorPass, listAdminVendors, updateAdminVendor } from '../lib/api';
+import { createAdminVendor, getVendorPass, listAdminVendors, regenerateVendorQr, updateAdminVendor } from '../lib/api';
 import type { CreateVendorResult, VendorCategory, VendorPassResult, VendorRecord } from '../lib/types';
 import { Button, EmptyState, ErrorBanner, Modal, PageCard, Select, Input, Badge, SuccessBanner } from '../components/Ui';
 import { useAuth } from '../lib/auth';
 import { parseVendorFields, scanImageToText } from '../lib/ocr';
+import { qrCodeUrl } from '../lib/qr';
 
 const CATEGORIES: VendorCategory[] = ['Sports', 'Dining', 'Entertainment'];
 
@@ -40,6 +41,7 @@ export function VendorsPage() {
   const [creating, setCreating] = useState(false);
   const [result, setResult] = useState<CreateVendorResult | null>(null);
   const [passView, setPassView] = useState<{ vendor: VendorRecord; pass: VendorPassResult } | null>(null);
+  const [qrResult, setQrResult] = useState<{ vendor: VendorRecord; discountCode: string; qrUrl: string } | null>(null);
   const [scanning, setScanning] = useState(false);
   const [scanNote, setScanNote] = useState<string | null>(null);
 
@@ -209,6 +211,17 @@ export function VendorsPage() {
     }
   }
 
+  async function handleRegenerateQr(vendor: VendorRecord) {
+    if (readOnly) return;
+    try {
+      const { discountCode, qrUrl } = await regenerateVendorQr(vendor.id);
+      setQrResult({ vendor, discountCode, qrUrl });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to regenerate QR code');
+    }
+  }
+
   return (
     <div className="stack">
       <div className="page-heading">
@@ -324,6 +337,9 @@ export function VendorsPage() {
                   <Button variant="secondary" disabled={readOnly} onClick={() => setEditing(vendor)}>
                     Edit
                   </Button>
+                  <Button variant="secondary" disabled={readOnly} onClick={() => handleRegenerateQr(vendor)}>
+                    Regenerate QR
+                  </Button>
                   <Button variant="secondary" onClick={() => handleViewPass(vendor)}>
                     View discount
                   </Button>
@@ -347,12 +363,16 @@ export function VendorsPage() {
               <pre className="code-block">{result.discountCode}</pre>
             </div>
             <div>
+              <p className="muted">Printable in-store QR code</p>
+              <img src={qrCodeUrl(result.discountCode, 240)} alt="Vendor QR code" style={{ width: 240, height: 240, borderRadius: 12 }} />
+            </div>
+            <div>
               <p className="muted">Merchant POS activation instructions</p>
               <pre className="code-block">{result.posInstructions}</pre>
             </div>
             <p className="muted">
-              Members carry one all-in-one membership pass. This vendor&apos;s discount is applied when their membership
-              barcode is scanned at checkout — no per-vendor pass is generated.
+              Members carry one all-in-one membership pass. This vendor&apos;s discount is applied when a member scans this
+              QR code in the app — no per-vendor pass is generated.
             </p>
           </div>
         ) : null}
@@ -376,6 +396,22 @@ export function VendorsPage() {
             <div>
               <p className="muted">POS instructions</p>
               <pre className="code-block">{passView.pass.posInstructions}</pre>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
+
+      <Modal open={Boolean(qrResult)} title={`QR code: ${qrResult?.vendor.name ?? ''}`} onClose={() => setQrResult(null)}>
+        {qrResult ? (
+          <div className="stack">
+            <SuccessBanner message="A new QR code and discount code have been generated for this vendor." />
+            <div>
+              <p className="muted">New POS discount code</p>
+              <pre className="code-block">{qrResult.discountCode}</pre>
+            </div>
+            <div>
+              <p className="muted">Printable QR code</p>
+              <img src={qrResult.qrUrl} alt="Vendor QR code" style={{ width: 240, height: 240, borderRadius: 12 }} />
             </div>
           </div>
         ) : null}
