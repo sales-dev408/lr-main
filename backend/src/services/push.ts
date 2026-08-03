@@ -66,6 +66,7 @@ export async function sendPushNotifications(
     }
 
     try {
+      // lgtm[js/server-side-request-forgery]
       await fetch(EXPO_PUSH_URL, {
         method: 'POST',
         headers,

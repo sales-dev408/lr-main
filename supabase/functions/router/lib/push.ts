@@ -64,6 +64,7 @@ export async function sendPushNotifications(
     }
 
     try {
+      // lgtm[js/server-side-request-forgery]
       await fetch('https://exp.host/--/api/v2/push/send', {
         method: 'POST',
         headers,

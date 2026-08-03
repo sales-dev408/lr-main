@@ -45,12 +45,16 @@ export async function registerUserRoutes(fastify: FastifyInstance): Promise<void
     };
   });
 
-  fastify.post('/api/me/push-token', { preHandler: fastify.requireRole(['customer']) }, async (request, reply) => {
-    const body = request.body as { token?: string; city?: string | null };
-    if (!body.token) {
-      return reply.code(400).send({ error: 'Push token is required' });
-    }
-    await savePushToken(request.user!.sub, body.token, body.city);
-    return { registered: true };
-  });
+  fastify.post(
+    '/api/me/push-token',
+    { preHandler: fastify.requireRole(['customer']), config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const body = request.body as { token?: string; city?: string | null };
+      if (!body.token) {
+        return reply.code(400).send({ error: 'Push token is required' });
+      }
+      await savePushToken(request.user!.sub, body.token, body.city);
+      return { registered: true };
+    },
+  );
 }
