@@ -1,7 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppLayout } from './components/Layout';
 import { RequireAuth } from './components/RequireAuth';
-import { AuditPage } from './pages/AuditPage';
 import { CardsPage } from './pages/CardsPage';
 import { ContentPage } from './pages/ContentPage';
 import { LoginPage } from './pages/LoginPage';
@@ -28,7 +27,6 @@ export function App() {
         <Route path="/content" element={<ContentPage />} />
         <Route path="/theme" element={<ThemePage />} />
         <Route path="/tickets" element={<TicketsPage />} />
-        <Route path="/audit" element={<AuditPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

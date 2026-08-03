@@ -8,7 +8,8 @@ export interface CreateVendorInput {
   name: string;
   address?: string | null;
   category: VendorCategory;
-  posSystem?: string | null;
+  email?: string | null;
+  phone?: string | null;
   discountType: DiscountType;
   discountValue: number;
   iconDataUrl?: string | null;
@@ -16,17 +17,16 @@ export interface CreateVendorInput {
 }
 
 export interface CreateVendorResult {
-  vendor: { id: string; name: string; address: string | null; category: string; posSystem: string | null };
+  vendor: { id: string; name: string; address: string | null; category: string; email: string | null; phone: string | null };
   discountCode: string;
   discount: { id: string; type: DiscountType; value: number; label: string };
   membershipCard: { id: string; name: string };
   posInstructions: string;
 }
 
-function posInstructions(code: string, label: string, posSystem: string | null): string {
-  const system = posSystem ? ` (${posSystem})` : '';
+function posInstructions(code: string, label: string): string {
   return [
-    `Activate the "${label}" member discount in your point-of-sale system${system}:`,
+    `Activate the "${label}" member discount in your point-of-sale system:`,
     '1. Ask the customer to show their Light Rail membership pass and scan its barcode (or check the participating-business list in the app).',
     `2. Apply this discount using code ${code}.`,
     '3. No NFC or special hardware is required — any barcode scanner or manual keypad works.',
@@ -56,9 +56,9 @@ export async function createVendorWithDiscount(input: CreateVendorInput): Promis
     await client.query('BEGIN');
     try {
       const vendorRows = await client.query<{ id: string }>(
-        `INSERT INTO vendors (name, location, address, city, category, pos_type, pos_system, email, password_hash, status)
-         VALUES ($1, $2, $3, NULL, $4, 'other', $5, NULL, NULL, 'approved') RETURNING id`,
-        [input.name, input.address ?? null, input.address ?? null, input.category, input.posSystem ?? null],
+        `INSERT INTO vendors (name, location, address, city, category, pos_type, pos_system, email, phone, password_hash, status)
+         VALUES ($1, $2, $3, NULL, $4, NULL, NULL, $5, $6, NULL, 'approved') RETURNING id`,
+        [input.name, input.address ?? null, input.address ?? null, input.category, input.email ?? null, input.phone ?? null],
       );
       const vendorId = vendorRows.rows[0]!.id;
 
@@ -97,11 +97,11 @@ export async function createVendorWithDiscount(input: CreateVendorInput): Promis
       await client.query('COMMIT');
 
       return {
-        vendor: { id: vendorId, name: input.name, address: input.address ?? null, category: input.category, posSystem: input.posSystem ?? null },
+        vendor: { id: vendorId, name: input.name, address: input.address ?? null, category: input.category, email: input.email ?? null, phone: input.phone ?? null },
         discountCode,
         discount: { id: discountId, type: input.discountType, value: input.discountValue, label },
         membershipCard: { id: membership.id, name: membership.name },
-        posInstructions: posInstructions(discountCode, label, input.posSystem ?? null),
+        posInstructions: posInstructions(discountCode, label),
       };
     } catch (error) {
       await client.query('ROLLBACK');

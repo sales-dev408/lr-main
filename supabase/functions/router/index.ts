@@ -108,7 +108,8 @@ const adminVendorCreateSchema = z.object({
   name: z.string().min(1),
   address: z.string().optional(),
   category: z.enum(['Sports', 'Dining', 'Entertainment']),
-  posSystem: z.string().optional(),
+  email: z.string().email().optional(),
+  phone: z.string().optional(),
   discountType: z.enum(['fixed', 'percent', 'bogo']).default('percent'),
   discountValue: z.number().positive(),
   iconDataUrl: z.string().optional(),
@@ -119,7 +120,8 @@ const adminVendorUpdateSchema = z.object({
   name: z.string().min(1).optional(),
   address: z.string().optional(),
   category: z.enum(['Sports', 'Dining', 'Entertainment']).optional(),
-  posSystem: z.string().optional(),
+  email: z.string().email().optional(),
+  phone: z.string().optional(),
   status: z.enum(['pending', 'approved', 'rejected', 'suspended']).optional(),
 });
 
@@ -161,6 +163,12 @@ function corsOrigin(request: Request): string {
   if (!origin) return '*';
   if (config.allowedOrigins.length === 0) return '*';
   return config.allowedOrigins.includes(origin) ? origin : config.allowedOrigins[0]!;
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  const code = (error as { code?: unknown })?.code;
+  const message = String((error as { message?: unknown })?.message ?? '');
+  return code === '23505' || message.includes('unique constraint');
 }
 
 function json(request: Request, body: unknown, init: ResponseInit = {}): Response {
@@ -389,20 +397,28 @@ Deno.serve(async (request) => {
       const phone = normalizePhone(body.phone);
       if (body.phone && !phone) return json(request, { error: 'Invalid phone number' }, { status: 400 });
       const fullName = `${body.firstName} ${body.lastName}`.trim();
-      const rows = await withDbClient(async (client) => {
-        await client.query('BEGIN');
-        try {
-          const result = await client.query<{ id: string }>(
-            `INSERT INTO users (email, phone, password_hash, full_name, first_name, last_name) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-            [body.email ?? null, phone ?? null, null, fullName, body.firstName, body.lastName],
-          );
-          await client.query('COMMIT');
-          return result.rows;
-        } catch (error) {
-          await client.query('ROLLBACK');
-          throw error;
+      let rows: Array<{ id: string }>;
+      try {
+        rows = await withDbClient(async (client) => {
+          await client.query('BEGIN');
+          try {
+            const result = await client.query<{ id: string }>(
+              `INSERT INTO users (email, phone, password_hash, full_name, first_name, last_name) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+              [body.email ?? null, phone ?? null, null, fullName, body.firstName, body.lastName],
+            );
+            await client.query('COMMIT');
+            return result.rows;
+          } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+          }
+        });
+      } catch (error) {
+        if (isUniqueViolation(error)) {
+          return json(request, { error: 'An account with this email or phone number already exists. Please sign in with your first and last name.' }, { status: 409 });
         }
-      });
+        throw error;
+      }
       const profile = await buildCustomerProfile(rows[0]!.id);
       const token = await issueToken('customer', rows[0]!.id, profile?.email ?? body.email ?? null);
       // Auto-generate the member's all-in-one membership pass right after signup.
@@ -705,7 +721,7 @@ Deno.serve(async (request) => {
       const auth = requireRole(request, ['admin']);
       if (auth instanceof Response) return auth;
       const q = queryObject(url);
-      return json(request, await dbQuery(`SELECT * FROM vendors WHERE ($1::text IS NULL OR status = $1) AND ($2::text IS NULL OR city = $2) AND ($3::text IS NULL OR category = $3) ORDER BY created_at DESC`, [
+      return json(request, await dbQuery(`SELECT v.*, d.type AS discount_type, d.value AS discount_value, d.discount_code FROM vendors v LEFT JOIN LATERAL (SELECT d.type, d.value, d.discount_code FROM discounts d JOIN cards c ON c.id = d.card_id AND c.is_membership = true WHERE d.vendor_id = v.id ORDER BY d.created_at DESC LIMIT 1) d ON true WHERE ($1::text IS NULL OR v.status = $1) AND ($2::text IS NULL OR v.city = $2) AND ($3::text IS NULL OR v.category = $3) ORDER BY v.created_at DESC`, [
         q.status ?? null,
         q.city ?? null,
         q.category ?? null,
@@ -719,7 +735,8 @@ Deno.serve(async (request) => {
         name: body.name,
         address: body.address ?? null,
         category: body.category,
-        posSystem: body.posSystem ?? null,
+        email: body.email ?? null,
+        phone: body.phone ?? null,
         discountType: body.discountType,
         discountValue: body.discountValue,
         iconDataUrl: body.iconDataUrl ?? null,
@@ -733,8 +750,8 @@ Deno.serve(async (request) => {
       const id = path.split('/').pop()!;
       const body = adminVendorUpdateSchema.parse(await readJsonBody(request, {}));
       const rows = await dbQuery(
-        `UPDATE vendors SET name = COALESCE($2, name), location = COALESCE($3, location), address = COALESCE($3, address), category = COALESCE($4, category), pos_system = COALESCE($5, pos_system), status = COALESCE($6, status), updated_at = now() WHERE id = $1 RETURNING *`,
-        [id, body.name ?? null, body.address ?? null, body.category ?? null, body.posSystem ?? null, body.status ?? null],
+        `UPDATE vendors SET name = COALESCE($2, name), location = COALESCE($3, location), address = COALESCE($3, address), category = COALESCE($4, category), email = COALESCE($5, email), phone = COALESCE($6, phone), status = COALESCE($7, status), updated_at = now() WHERE id = $1 RETURNING *`,
+        [id, body.name ?? null, body.address ?? null, body.category ?? null, body.email ?? null, body.phone ?? null, body.status ?? null],
       );
       return json(request, rows[0] ?? {});
     }

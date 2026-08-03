@@ -12,7 +12,6 @@ const NAV_ITEMS: Array<{ to: string; label: string; end?: boolean; icon: string 
   { to: '/tickets', label: 'Tickets', icon: '🎫' },
   { to: '/content', label: 'Content', icon: '✎' },
   { to: '/theme', label: 'Theme', icon: '✿' },
-  { to: '/audit', label: 'Audit', icon: '☰' },
   { to: '/settings', label: 'Settings', icon: '⚙' },
 ];
 

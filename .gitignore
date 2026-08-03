@@ -6,3 +6,4 @@ coverage
 .expo
 *.tsbuildinfo
 local-postgres/
+supabase/.temp/

@@ -10,8 +10,9 @@ const CATEGORIES: VendorCategory[] = ['Sports', 'Dining', 'Entertainment'];
 const blankVendor = {
   name: '',
   address: '',
+  email: '',
+  phone: '',
   category: 'Dining' as VendorCategory,
-  posSystem: '',
   discountKind: 'percent' as 'percent' | 'fixed',
   discountValue: '',
   iconDataUrl: '',
@@ -64,6 +65,48 @@ export function VendorsPage() {
 
   const sorted = useMemo(() => vendors.slice().sort((a, b) => a.name.localeCompare(b.name)), [vendors]);
 
+  function formatDiscount(type: VendorRecord['discount_type'], value: VendorRecord['discount_value']): string {
+    if (!type || value === undefined || value === null) return '';
+    const num = typeof value === 'string' ? Number(value) : value;
+    if (type === 'percent') return `${num}% off`;
+    if (type === 'fixed') return `$${num.toFixed(2)} off`;
+    if (type === 'bogo') return 'Buy one, get one';
+    return String(value);
+  }
+
+  function csvEscape(value: unknown): string {
+    const str = value === null || value === undefined ? '' : String(value);
+    const escaped = str.replace(/"/g, '""');
+    if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+      return `"${escaped}"`;
+    }
+    return escaped;
+  }
+
+  function downloadVendorsCsv(items: VendorRecord[]) {
+    const headers = ['Business Name', 'Email', 'Phone', 'Address', 'Category', 'Status', 'Discount', 'Discount Code'];
+    const rows = items.map((v) => [
+      v.name,
+      v.email ?? '',
+      v.phone ?? '',
+      v.address ?? v.location ?? '',
+      v.category ?? '',
+      v.status,
+      formatDiscount(v.discount_type, v.discount_value),
+      v.discount_code ?? '',
+    ]);
+    const csv = [headers.map(csvEscape).join(','), ...rows.map((row) => row.map(csvEscape).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `vendors-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
   async function handleFile(event: ChangeEvent<HTMLInputElement>, key: 'iconDataUrl' | 'logoDataUrl') {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -95,7 +138,6 @@ export function VendorsPage() {
         ...(fields.name ? { name: fields.name } : {}),
         ...(fields.address ? { address: fields.address } : {}),
         ...(fields.category ? { category: fields.category } : {}),
-        ...(fields.posSystem ? { posSystem: fields.posSystem } : {}),
         ...(fields.discountKind ? { discountKind: fields.discountKind } : {}),
         ...(fields.discountValue ? { discountValue: fields.discountValue } : {}),
       }));
@@ -122,7 +164,8 @@ export function VendorsPage() {
         name: form.name,
         address: form.address || undefined,
         category: form.category,
-        posSystem: form.posSystem || undefined,
+        email: form.email || undefined,
+        phone: form.phone || undefined,
         discountType: form.discountKind,
         discountValue: value,
         ...(form.iconDataUrl ? { iconDataUrl: form.iconDataUrl } : {}),
@@ -146,7 +189,8 @@ export function VendorsPage() {
         name: editing.name,
         address: editing.address ?? undefined,
         category: (editing.category as VendorCategory | null) ?? undefined,
-        posSystem: editing.pos_system ?? undefined,
+        email: editing.email ?? undefined,
+        phone: editing.phone ?? undefined,
         status: editing.status,
       });
       setEditing(null);
@@ -225,8 +269,12 @@ export function VendorsPage() {
               </Select>
             </label>
             <label>
-              POS system name
-              <Input placeholder="e.g. Square, Toast" value={form.posSystem} onChange={(e) => setForm((prev) => ({ ...prev, posSystem: e.target.value }))} />
+              Email address
+              <Input type="email" placeholder="vendor@example.com" value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} />
+            </label>
+            <label>
+              Phone number
+              <Input type="tel" placeholder="(602) 555-1234" value={form.phone} onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))} />
             </label>
             <label>
               Discount amount
@@ -253,6 +301,11 @@ export function VendorsPage() {
         </PageCard>
 
         <PageCard title="Vendors list">
+          <div className="row-actions" style={{ justifyContent: 'flex-end', paddingBottom: 12 }}>
+            <Button variant="secondary" onClick={() => downloadVendorsCsv(sorted)} disabled={sorted.length === 0}>
+              Export CSV
+            </Button>
+          </div>
           {loading ? <div className="muted">Loading…</div> : null}
           {sorted.length === 0 ? <EmptyState title="No vendors" description="Use the create form to add vendors." /> : null}
           <div className="vendor-list">
@@ -262,7 +315,8 @@ export function VendorsPage() {
                   <strong>{vendor.name}</strong>
                   <p className="muted">
                     {(vendor.address ?? vendor.location) ?? '—'} · {vendor.category ?? '—'}
-                    {vendor.pos_system ? ` · ${vendor.pos_system}` : ''}
+                    {vendor.email ? ` · ${vendor.email}` : ''}
+                    {vendor.phone ? ` · ${vendor.phone}` : ''}
                   </p>
                   <Badge tone={vendor.status === 'approved' ? 'success' : vendor.status === 'rejected' ? 'danger' : 'warning'}>{vendor.status}</Badge>
                 </div>
@@ -349,8 +403,12 @@ export function VendorsPage() {
               </Select>
             </label>
             <label>
-              POS system name
-              <Input value={editing.pos_system ?? ''} onChange={(e) => setEditing({ ...editing, pos_system: e.target.value })} />
+              Email
+              <Input type="email" value={editing.email ?? ''} onChange={(e) => setEditing({ ...editing, email: e.target.value })} />
+            </label>
+            <label>
+              Phone
+              <Input type="tel" value={editing.phone ?? ''} onChange={(e) => setEditing({ ...editing, phone: e.target.value })} />
             </label>
             <label>
               Status
