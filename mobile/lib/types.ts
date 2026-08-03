@@ -268,6 +268,15 @@ export interface DiscountLookup {
   discountLabel: string;
 }
 
+export interface RssEvent {
+  id: string;
+  title: string;
+  description: string | null;
+  link: string | null;
+  pubDate: string | null;
+  sourceName: string | null;
+}
+
 export interface ErrorShape {
   error?: string | { code?: string; message?: string };
 }

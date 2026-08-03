@@ -15,6 +15,7 @@ type GradientTabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['t
 const TAB_GLYPHS: Record<string, string> = {
   vendors: '◆',
   index: '▲',
+  events: '★',
   discover: '✦',
   passes: '❖',
   profile: '●',

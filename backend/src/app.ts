@@ -12,6 +12,7 @@ import { registerLookupRoutes } from './routes/lookup.js';
 import { registerQrRoutes } from './routes/qr.js';
 import { registerPosRoutes } from './routes/pos.js';
 import { registerTicketRoutes } from './routes/tickets.js';
+import { registerEventsRoutes } from './routes/events.js';
 
 export async function buildApp() {
   const app = fastify({
@@ -33,6 +34,7 @@ export async function buildApp() {
   await registerQrRoutes(app);
   await registerPosRoutes(app);
   await registerTicketRoutes(app);
+  await registerEventsRoutes(app);
 
   return app;
 }

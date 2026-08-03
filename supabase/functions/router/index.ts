@@ -21,6 +21,7 @@ import {
   saveTheme,
   updateContentBlock,
 } from './lib/content.ts';
+import { fetchEventsFromRss, getEventsRssUrls, saveEventsRssUrls } from './lib/events.ts';
 
 // Shape the customer-facing membership pass payload (wallet + barcode links),
 // creating the pass idempotently. Returns null if pass generation fails.
@@ -72,6 +73,10 @@ const themeSchema = z.object({
   brand: z.string().min(1),
   primaryGradient: z.tuple([z.string().min(1), z.string().min(1)]),
   tabs: z.array(themeTabSchema).min(1),
+});
+
+const eventsRssSchema = z.object({
+  urls: z.array(z.string().url()).max(10),
 });
 
 const customerLoginSchema = z.object({
@@ -975,6 +980,24 @@ Deno.serve(async (request) => {
       if (auth instanceof Response) return auth;
       const body = themeSchema.parse(await readJsonBody(request, {}));
       return json(request, await saveTheme(body));
+    }
+
+    // ---- Events RSS feed ----------------------------------------------------
+    // Public: parsed RSS feed items shown on the Events tab.
+    if (path === '/api/events' && request.method === 'GET') {
+      return json(request, await fetchEventsFromRss());
+    }
+    // Admin: manage the RSS feed URLs that power the Events tab.
+    if (path === '/api/admin/events' && request.method === 'GET') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      return json(request, { urls: await getEventsRssUrls() });
+    }
+    if (path === '/api/admin/events' && request.method === 'PATCH') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const body = eventsRssSchema.parse(await readJsonBody(request, {}));
+      return json(request, { urls: await saveEventsRssUrls(body.urls) });
     }
 
     // Resolves a membership pass to its wallet download. 302-redirects to the
