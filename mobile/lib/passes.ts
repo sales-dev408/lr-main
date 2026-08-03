@@ -1,4 +1,5 @@
 import { getItem, setItem } from './storage';
+import { qrCodeUrl } from './qr';
 import type { StoredPass } from './types';
 
 const PASSES_KEY = 'lr.mobile.passes';
@@ -26,5 +27,5 @@ export async function upsertStoredPasses(passes: StoredPass[]): Promise<void> {
 }
 
 export function lookupQrUrl(lookupToken: string): string {
-  return `${process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:4000/api'}/qr/lookup/${encodeURIComponent(lookupToken)}.png`;
+  return qrCodeUrl(lookupToken, 300);
 }

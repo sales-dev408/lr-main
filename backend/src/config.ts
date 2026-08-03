@@ -43,6 +43,10 @@ const envSchema = z.object({
   PLAY_STORE_URL: z.string().url().default('https://play.google.com/store'),
   ALLOWED_ORIGINS: z.string().trim().default(''),
   BLOCKED_IPS: z.string().trim().default(''),
+  MAILJET_API_KEY: z.string().trim().default(''),
+  MAILJET_SECRET_API_KEY: z.string().trim().default(''),
+  MAILJET_FROM_EMAIL: z.string().email().default('noreply@lightraildeals.com'),
+  MAILJET_FROM_NAME: z.string().trim().default('Light Rail Deals'),
 });
 
 const parsed = envSchema.parse(process.env);
@@ -87,6 +91,10 @@ export const config = {
   playStoreUrl: parsed.PLAY_STORE_URL,
   allowedOrigins: parsed.ALLOWED_ORIGINS.split(',').map((item) => item.trim()).filter(Boolean),
   blockedIps: parsed.BLOCKED_IPS.split(',').map((item) => item.trim()).filter(Boolean),
+  mailjetApiKey: parsed.MAILJET_API_KEY,
+  mailjetSecretApiKey: parsed.MAILJET_SECRET_API_KEY,
+  mailjetFromEmail: parsed.MAILJET_FROM_EMAIL,
+  mailjetFromName: parsed.MAILJET_FROM_NAME,
 } as const;
 
 export type AppConfig = typeof config;

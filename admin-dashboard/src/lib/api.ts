@@ -257,6 +257,10 @@ export async function getVendorPass(id: string): Promise<VendorPassResult> {
   return apiRequest(`/admin/vendors/${id}/pass`);
 }
 
+export async function regenerateVendorQr(id: string): Promise<{ discountCode: string; qrUrl: string }> {
+  return apiRequest(`/admin/vendors/${id}/qr`, { method: 'POST' });
+}
+
 export async function getVendorActivity(id: string): Promise<VendorActivityRecord[]> {
   return apiRequest(`/admin/vendors/${id}/activity`);
 }

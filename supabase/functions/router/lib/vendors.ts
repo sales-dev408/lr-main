@@ -1,6 +1,9 @@
 import { withDbClient, type PoolClient } from './db.ts';
 import { generateDiscountCode, humanDiscountLabel, type DiscountType } from './codes.ts';
 import { uploadImageDataUrl } from './storage.ts';
+import { config } from './config.ts';
+import { sendVendorWelcomeEmail } from './mailjet.ts';
+import { qrCodeUrl } from './quickchart.ts';
 
 export type VendorCategory = 'Sports' | 'Dining' | 'Entertainment';
 
@@ -96,13 +99,29 @@ export async function createVendorWithDiscount(input: CreateVendorInput): Promis
 
       await client.query('COMMIT');
 
-      return {
+      const result = {
         vendor: { id: vendorId, name: input.name, address: input.address ?? null, category: input.category, email: input.email ?? null, phone: input.phone ?? null },
         discountCode,
         discount: { id: discountId, type: input.discountType, value: input.discountValue, label },
         membershipCard: { id: membership.id, name: membership.name },
         posInstructions: posInstructions(discountCode, label),
       };
+
+      if (input.email) {
+        try {
+          await sendVendorWelcomeEmail({
+            to: input.email,
+            vendorName: input.name,
+            qrCodeUrl: qrCodeUrl(discountCode, 300),
+            discountLabel: label,
+            setupUrl: config.vendorPortalUrl,
+          });
+        } catch (err) {
+          console.warn('[vendors] Failed to send welcome email:', err);
+        }
+      }
+
+      return result;
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;

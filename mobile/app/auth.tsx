@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ScrollView, Text } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { AppButton, Banner, Card, FieldInput, Screen, SectionTitle } from '@/components/Ui';
 import { useAuth } from '@/lib/auth';
@@ -70,16 +70,27 @@ export default function AuthScreen() {
               <FieldInput value={phone} onChangeText={setPhone} placeholder="Phone" autoCapitalize="none" keyboardType="phone-pad" textContentType="telephoneNumber" />
             </>
           ) : null}
-          <AppButton onPress={() => void submit()}>{loading ? 'Working…' : submitLabel}</AppButton>
-          <AppButton variant="secondary" onPress={() => setMode(mode === 'login' ? 'register' : 'login')}>
-            Switch to {mode === 'login' ? 'register' : 'sign in'}
-          </AppButton>
+          <View style={{ gap: 12, alignItems: 'center', width: '100%' }}>
+            <AppButton
+              onPress={() => void submit()}
+              style={{ minWidth: 280, width: '100%', maxWidth: 360, paddingVertical: 16 }}
+            >
+              {loading ? 'Working…' : submitLabel}
+            </AppButton>
+            <AppButton
+              variant="secondary"
+              onPress={() => setMode(mode === 'login' ? 'register' : 'login')}
+              style={{ minWidth: 280, width: '100%', maxWidth: 360, paddingVertical: 16 }}
+            >
+              Switch to {mode === 'login' ? 'register' : 'sign in'}
+            </AppButton>
+          </View>
         </Card>
 
         <Card>
           <SectionTitle title="What happens next" subtitle="One membership pass unlocks every participating business." />
           <Text style={{ color: '#52617a' }}>
-            After signing up we generate your personal membership pass. Show its barcode at any participating business and they apply their member discount at the
+            After signing up we generate your personal membership pass. Show its QR code at any participating business and they apply their member discount at the
             register. Your phone number is stored securely and only used to contact you about your account.
           </Text>
         </Card>

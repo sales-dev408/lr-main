@@ -39,7 +39,7 @@ export function SectionTitle({ title, subtitle }: { title: string; subtitle?: st
   );
 }
 
-export function AppButton({ children, variant = 'primary', ...props }: PressableProps & { children: ReactNode; variant?: 'primary' | 'secondary' | 'ghost' | 'danger' }) {
+export function AppButton({ children, variant = 'primary', style, ...props }: PressableProps & { children: ReactNode; variant?: 'primary' | 'secondary' | 'ghost' | 'danger'; style?: ViewProps['style'] }) {
   return (
     <Pressable
       style={({ pressed }) => [
@@ -49,6 +49,7 @@ export function AppButton({ children, variant = 'primary', ...props }: Pressable
         variant === 'ghost' && styles.button_ghost,
         variant === 'danger' && styles.button_danger,
         pressed && styles.buttonPressed,
+        style,
       ]}
       {...props}
     >

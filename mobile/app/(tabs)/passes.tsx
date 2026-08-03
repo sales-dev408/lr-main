@@ -1,14 +1,11 @@
 import { useCallback, useState } from 'react';
-import { Image, Linking, ScrollView, Text, View } from 'react-native';
+import { Image, ScrollView, Text, View } from 'react-native';
 import { Link, useFocusEffect } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { getMyPass } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { qrCodeUrl } from '@/lib/qr';
 import type { CreatePassResponse } from '@/lib/types';
-
-function barcodeUrl(text: string) {
-  return `https://quickchart.io/barcode?type=code128&text=${encodeURIComponent(text)}&width=320&height=120`;
-}
 
 export default function PassesScreen() {
   const { token } = useAuth();
@@ -44,8 +41,6 @@ export default function PassesScreen() {
 
   useFocusEffect(load);
 
-  const walletUrl = pass?.walletUrl ?? pass?.passUrl;
-
   return (
     <Screen>
       <ScrollView contentContainerStyle={{ gap: 14, paddingBottom: 24 }}>
@@ -68,23 +63,15 @@ export default function PassesScreen() {
           <Card>
             <SectionTitle title="Light Rail Membership" subtitle="One card, every participating business." />
             <View style={{ backgroundColor: '#0B1F3A', borderRadius: 16, padding: 20, gap: 6, alignItems: 'center' }}>
-              <Text style={{ color: '#8FB2D9', fontSize: 12, letterSpacing: 1 }}>MEMBER BARCODE</Text>
-              <Image source={{ uri: barcodeUrl(pass.pass.barcodeValue) }} style={{ width: 320, height: 120, borderRadius: 8 }} resizeMode="contain" />
+              <Text style={{ color: '#8FB2D9', fontSize: 12, letterSpacing: 1 }}>MEMBER QR CODE</Text>
+              <Image source={{ uri: qrCodeUrl(pass.pass.barcodeValue, 240) }} style={{ width: 240, height: 240, borderRadius: 8, backgroundColor: '#fff' }} resizeMode="contain" />
               <Text selectable style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700', letterSpacing: 0.5 }}>
                 {pass.pass.barcodeValue}
               </Text>
             </View>
             <Text style={{ color: '#52617a' }}>
-              Show this barcode at any participating business. Staff scan it and your member discount is applied.
+              Show this QR code at any participating business. Staff scan it and your member discount is applied.
             </Text>
-
-            {walletUrl ? (
-              <AppButton onPress={() => void Linking.openURL(walletUrl)}>Add to Wallet</AppButton>
-            ) : (
-              <Link href="/pass/setup" asChild>
-                <AppButton variant="secondary">Set up wallet pass</AppButton>
-              </Link>
-            )}
 
             <Link href="/(tabs)/vendors" asChild>
               <AppButton variant="secondary">See participating businesses</AppButton>
@@ -95,9 +82,9 @@ export default function PassesScreen() {
         {token && !loading && !pass && !error ? (
           <Card>
             <SectionTitle title="Set up your card" subtitle="Get your all-in-one membership pass." />
-            <Link href="/pass/setup" asChild>
-              <AppButton>Set up membership pass</AppButton>
-            </Link>
+            <AppButton onPress={() => void getMyPass().then(setPass).catch((err) => setError(err instanceof Error ? err.message : 'Unable to load pass'))}>
+              Load membership pass
+            </AppButton>
           </Card>
         ) : null}
       </ScrollView>

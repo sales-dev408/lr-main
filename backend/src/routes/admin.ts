@@ -6,6 +6,8 @@ import { getAdminAnalytics } from '../services/analytics.js';
 import { buildLookupDiscountView, generateDiscountCode, humanDiscountLabel } from '../services/discounts.js';
 import { generateTempPassword } from '../utils/ids.js';
 import { writeTransactionAudit } from '../services/audit.js';
+import { sendVendorWelcomeEmail } from '../services/mailjet.js';
+import { qrCodeUrl } from '../services/quickchart.js';
 import { deleteDiscountFromVendorConnections, syncDiscountToVendorConnections } from '../services/pos.js';
 
 const cardSchema = z.object({
@@ -161,13 +163,27 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
       };
     });
 
+    if (body.email) {
+      try {
+        await sendVendorWelcomeEmail({
+          to: body.email,
+          vendorName: body.name,
+          qrCodeUrl: qrCodeUrl(result.discountCode, 300),
+          discountLabel: result.discount.label,
+          setupUrl: 'https://lightraildeals.com',
+        });
+      } catch (err) {
+        fastify.log.warn({ err, vendorId: result.vendor.id }, 'Failed to send vendor welcome email');
+      }
+    }
+
     await writeTransactionAudit({
       actorType: 'admin',
       actorId: request.user?.sub ?? null,
       action: 'admin.vendor.create',
       entityType: 'vendor',
       entityId: result.vendor.id,
-      metadata: { name: result.vendor.name, discountCode: result.discountCode },
+      metadata: { name: result.vendor.name, discountCode: result.discountCode, emailed: Boolean(body.email) },
       ip: request.ip,
     });
     return reply.code(201).send(result);
@@ -236,6 +252,28 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
     const hash = await bcrypt.hash(tempPassword, 10);
     await dbQuery('UPDATE vendors SET password_hash = $2, updated_at = now() WHERE id = $1', [id, hash]);
     return { tempPassword };
+  });
+
+  fastify.post('/api/admin/vendors/:id/qr', { preHandler: fastify.requireRole(['admin']) }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const rows = await dbQuery<{ discount_id: string; name: string; type: 'fixed' | 'percent' | 'bogo'; value: string }>(
+      `
+        SELECT d.id AS discount_id, v.name, d.type, d.value
+        FROM vendors v
+        JOIN discounts d ON d.vendor_id = v.id
+        JOIN cards c ON c.id = d.card_id AND c.is_membership = true
+        WHERE v.id = $1
+        LIMIT 1
+      `,
+      [id],
+    );
+    if (rows.length === 0) {
+      return reply.code(404).send({ error: 'Vendor membership discount not found' });
+    }
+    const row = rows[0]!;
+    const newCode = generateDiscountCode({ merchantId: row.name, type: row.type, value: Number(row.value) });
+    await dbQuery('UPDATE discounts SET discount_code = $2, updated_at = now() WHERE id = $1', [row.discount_id, newCode]);
+    return { discountCode: newCode, qrUrl: qrCodeUrl(newCode, 300) };
   });
 
   fastify.get('/api/admin/vendors/:id/activity', { preHandler: fastify.requireRole(['admin']) }, async (request) => {

@@ -245,6 +245,12 @@ export interface Ticket {
   createdAt?: string;
 }
 
+export interface UserAnalytics {
+  totalRedemptions: number;
+  byVendor: { vendorId: string; vendorName: string; redemptions: number }[];
+  daily: { day: string; redemptions: number }[];
+}
+
 export interface ErrorShape {
   error?: string | { code?: string; message?: string };
 }

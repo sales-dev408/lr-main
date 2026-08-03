@@ -3,13 +3,10 @@ import { Image, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { Link, useFocusEffect } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { listVendors } from '@/lib/api';
+import { qrCodeUrl } from '@/lib/qr';
 import type { VendorListItem } from '@/lib/types';
 
 const CATEGORIES = ['All', 'Sports', 'Dining', 'Entertainment'] as const;
-
-function barcodeUrl(text: string) {
-  return `https://quickchart.io/barcode?type=code128&text=${encodeURIComponent(text)}&width=320&height=120`;
-}
 
 export default function VendorsScreen() {
   const [vendors, setVendors] = useState<VendorListItem[]>([]);
@@ -70,7 +67,7 @@ export default function VendorsScreen() {
         <BrandHeader subtitle="Discounts along the line" />
         <Card>
           <SectionTitle title="Participating businesses" subtitle="Your membership card works at every business below." />
-          <Banner tone="info">Tap a business, then View Discount to show the barcode the staff will scan.</Banner>
+          <Banner tone="info">Tap a business, then View QR to show the code the staff will scan.</Banner>
           <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
             {CATEGORIES.map((value) => (
               <AppButton key={value} variant={category === value ? 'primary' : 'secondary'} onPress={() => setCategory(value)}>
@@ -116,13 +113,13 @@ export default function VendorsScreen() {
             {selected.discountCode ? (
               <>
                 <AppButton variant="secondary" onPress={() => setShowBarcode((prev) => !prev)}>
-                  {showBarcode ? 'Hide discount' : 'View discount'}
+                  {showBarcode ? 'Hide QR code' : 'View QR code'}
                 </AppButton>
                 {showBarcode ? (
                   <View style={{ alignItems: 'center', gap: 8 }}>
-                    <Image source={{ uri: barcodeUrl(selected.discountCode) }} style={{ width: 320, height: 120, borderRadius: 8, backgroundColor: '#fff' }} resizeMode="contain" />
+                    <Image source={{ uri: qrCodeUrl(selected.discountCode, 240) }} style={{ width: 240, height: 240, borderRadius: 8, backgroundColor: '#fff' }} resizeMode="contain" />
                     <Text style={{ color: '#10223d', fontWeight: '700', letterSpacing: 1 }}>{selected.discountCode}</Text>
-                    <Text style={{ color: '#7c8a9d', fontSize: 12 }}>Staff scans this barcode to apply the discount.</Text>
+                    <Text style={{ color: '#7c8a9d', fontSize: 12 }}>Staff scans this QR code to apply the discount.</Text>
                   </View>
                 ) : null}
               </>
