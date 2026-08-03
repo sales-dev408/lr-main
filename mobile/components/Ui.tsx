@@ -91,7 +91,7 @@ export function Spinner() {
 
 // react-native-web deprecates the iOS-only shadow* props; use CSS box-shadow on web.
 const cardShadow = (Platform.OS === 'web'
-  ? { boxShadow: '0 8px 24px rgba(11, 31, 42, 0.08)', elevation: 8 }
+  ? { boxShadow: '0 20px 50px rgba(15, 23, 42, 0.10)', elevation: 10 }
   : theme.shadow) as Record<string, unknown>;
 
 const styles = StyleSheet.create({
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   brandTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '800',
     color: theme.ink,
     letterSpacing: 0.2,
@@ -131,17 +131,17 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: theme.panel,
     borderRadius: theme.radius,
-    padding: 16,
+    padding: 18,
     borderWidth: 1,
     borderColor: theme.border,
-    gap: 12,
+    gap: 14,
     ...cardShadow,
   },
   sectionHeader: {
     gap: 4,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
     color: theme.ink,
   },
@@ -150,9 +150,9 @@ const styles = StyleSheet.create({
     color: theme.muted,
   },
   button: {
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    borderRadius: 16,
+    paddingVertical: 13,
+    paddingHorizontal: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -160,21 +160,21 @@ const styles = StyleSheet.create({
   button_secondary: { backgroundColor: theme.brandSoft },
   button_ghost: { backgroundColor: 'transparent', borderWidth: 1, borderColor: theme.border },
   button_danger: { backgroundColor: theme.danger },
-  buttonPressed: { opacity: 0.86 },
+  buttonPressed: { opacity: 0.88, transform: [{ scale: 0.98 }] },
   buttonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   buttonTextDark: { color: theme.ink },
   input: {
     backgroundColor: theme.panel,
     borderWidth: 1,
     borderColor: theme.border,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    borderRadius: 16,
+    paddingHorizontal: 15,
+    paddingVertical: 13,
     color: theme.ink,
   },
   banner: {
-    borderRadius: 14,
-    padding: 12,
+    borderRadius: 16,
+    padding: 13,
   },
   banner_info: { backgroundColor: theme.brandSoft },
   banner_error: { backgroundColor: '#fde8e8' },
@@ -184,15 +184,15 @@ const styles = StyleSheet.create({
   },
   pill: {
     borderRadius: 999,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
     alignSelf: 'flex-start',
   },
   pill_neutral: { backgroundColor: '#eef3f9' },
   pill_success: { backgroundColor: '#def7e9' },
   pill_warning: { backgroundColor: '#fff1d9' },
   pillText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     color: theme.ink,
   },

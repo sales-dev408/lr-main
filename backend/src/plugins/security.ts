@@ -21,6 +21,8 @@ async function securityPlugin(fastify: FastifyInstance): Promise<void> {
     timeWindow: '1 minute',
   });
 
+  // Security checks only; rate limiting is enforced globally by @fastify/rate-limit registered above.
+  // lgtm[js/missing-rate-limit]
   fastify.addHook('preHandler', async (request, reply) => {
     const ua = request.headers['user-agent'];
     if (config.blockedIps.includes(request.ip)) {

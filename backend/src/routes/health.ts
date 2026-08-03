@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { getPool } from '../db/pool.js';
 
 export async function registerHealthRoutes(fastify: FastifyInstance): Promise<void> {
-  fastify.get('/api/health', async () => {
+  fastify.get('/api/health', { config: { rateLimit: { max: 100, timeWindow: '1 minute' } } }, async () => {
     const pool = getPool();
     let db = false;
 
@@ -18,7 +18,7 @@ export async function registerHealthRoutes(fastify: FastifyInstance): Promise<vo
     return { status: 'ok', db };
   });
 
-  fastify.get('/', async () => ({
+  fastify.get('/', { config: { rateLimit: { max: 100, timeWindow: '1 minute' } } }, async () => ({
     name: 'Master Gift/Discount Card System Backend',
     version: '0.1.0',
   }));
