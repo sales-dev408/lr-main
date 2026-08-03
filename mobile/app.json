@@ -46,6 +46,12 @@
         {
           "cameraPermission": "Allow $(PRODUCT_NAME) to scan vendor QR codes for membership discounts."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "mode": "production"
+        }
       ]
     ],
     "experiments": {
