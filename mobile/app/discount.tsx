@@ -3,7 +3,7 @@ import { Image, ScrollView, Text, View } from 'react-native';
 import { Link, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { AppButton, Banner, Card, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { getMyPass, lookupDiscountByCode } from '@/lib/api';
-import { lookupQrUrl } from '@/lib/passes';
+import { lookupBarcodeUrl } from '@/lib/passes';
 import { useAuth } from '@/lib/auth';
 import type { CreatePassResponse, DiscountLookup } from '@/lib/types';
 import { theme } from '@/lib/theme';
@@ -28,7 +28,7 @@ export default function DiscountScreen() {
     useCallback(() => {
       if (!code) {
         setLoading(false);
-        setError('No QR code scanned.');
+        setError('No code scanned.');
         return () => {};
       }
       let active = true;
@@ -79,14 +79,14 @@ export default function DiscountScreen() {
 
             {pass ? (
               <Card>
-                <SectionTitle title="Your membership pass" subtitle="Show this QR code if staff asks for it." />
+                <SectionTitle title="Your membership pass" subtitle="Show this barcode if staff asks for it." />
                 <View style={{ alignItems: 'center', gap: 8 }}>
-                  <Image source={{ uri: lookupQrUrl(pass.pass.lookupToken) }} style={{ width: 240, height: 240, borderRadius: 12, backgroundColor: '#fff' }} resizeMode="contain" />
+                  <Image source={{ uri: lookupBarcodeUrl(pass.pass.lookupToken) }} style={{ width: 320, height: 120, borderRadius: 8, backgroundColor: '#fff' }} resizeMode="contain" />
                   <Text selectable style={{ color: theme.ink, fontWeight: '700', letterSpacing: 1 }}>{pass.pass.lookupToken}</Text>
                 </View>
               </Card>
             ) : (
-              <Banner tone="info">Sign in to view your membership pass QR code.</Banner>
+              <Banner tone="info">Sign in to view your membership pass barcode.</Banner>
             )}
 
             <Link href="/(tabs)/passes" asChild>
