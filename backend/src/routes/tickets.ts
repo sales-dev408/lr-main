@@ -19,7 +19,7 @@ const ticketUpdateSchema = z.object({
 
 export async function registerTicketRoutes(fastify: FastifyInstance): Promise<void> {
   // Public customer-facing list (scoped to a user when authenticated).
-  fastify.get('/api/tickets', async (request) => {
+  fastify.get('/api/tickets', { config: { rateLimit: { max: 100, timeWindow: '1 minute' } } }, async (request) => {
     const userId = request.user?.role === 'customer' ? request.user.sub : null;
     const rows = await dbQuery(
       `
@@ -42,7 +42,7 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
     }));
   });
 
-  fastify.get('/api/tickets/:id', async (request, reply) => {
+  fastify.get('/api/tickets/:id', { config: { rateLimit: { max: 100, timeWindow: '1 minute' } } }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const rows = await dbQuery(
       'SELECT id, name, barcode, allowed_uses, used_uses, status, created_at FROM tickets WHERE id = $1 LIMIT 1',
@@ -63,7 +63,7 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
   });
 
   // Use a ticket (event staff/self-serve endpoint).
-  fastify.post('/api/tickets/:id/use', async (request, reply) => {
+  fastify.post('/api/tickets/:id/use', { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     return dbQuery(
       `
@@ -91,7 +91,7 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
   });
 
   // Admin CRUD.
-  fastify.get('/api/admin/tickets', { preHandler: fastify.requireRole(['admin']) }, async () => {
+  fastify.get('/api/admin/tickets', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async () => {
     const rows = await dbQuery(
       'SELECT id, name, barcode, allowed_uses, used_uses, status, user_id, created_at FROM tickets ORDER BY created_at DESC',
       [],
@@ -109,7 +109,7 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
     }));
   });
 
-  fastify.post('/api/admin/tickets', { preHandler: fastify.requireRole(['admin']) }, async (request, reply) => {
+  fastify.post('/api/admin/tickets', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (request, reply) => {
     const body = ticketCreateSchema.parse(request.body);
     const rows = await dbQuery<{ id: string }>(
       'INSERT INTO tickets (barcode, name, allowed_uses, user_id) VALUES ($1, $2, $3, $4) RETURNING id',
@@ -118,7 +118,7 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
     return reply.code(201).send({ id: rows[0]!.id });
   });
 
-  fastify.patch('/api/admin/tickets/:id', { preHandler: fastify.requireRole(['admin']) }, async (request) => {
+  fastify.patch('/api/admin/tickets/:id', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (request) => {
     const id = (request.params as { id: string }).id;
     const body = ticketUpdateSchema.parse(request.body);
     const rows = await dbQuery(
@@ -138,7 +138,7 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
     return rows[0] ?? {};
   });
 
-  fastify.delete('/api/admin/tickets/:id', { preHandler: fastify.requireRole(['admin']) }, async (request) => {
+  fastify.delete('/api/admin/tickets/:id', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (request) => {
     const id = (request.params as { id: string }).id;
     return dbQuery('DELETE FROM tickets WHERE id = $1 RETURNING id', [id]);
   });
