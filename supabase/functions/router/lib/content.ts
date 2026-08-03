@@ -120,6 +120,7 @@ export const DEFAULT_THEME: ThemeSettings = {
   tabs: [
     { key: 'vendors', label: 'Deals', color: '#2563eb', gradient: ['#3b82f6', '#1d4ed8'] },
     { key: 'index', label: 'Browse', color: '#dc2626', gradient: ['#ef4444', '#b91c1c'] },
+    { key: 'events', label: 'Events', color: '#9333ea', gradient: ['#a855f7', '#7e22ce'] },
     { key: 'discover', label: 'Discover', color: '#16a34a', gradient: ['#22c55e', '#15803d'] },
     { key: 'passes', label: 'My Pass', color: '#2563eb', gradient: ['#3b82f6', '#1d4ed8'] },
     { key: 'profile', label: 'Profile', color: '#16a34a', gradient: ['#22c55e', '#15803d'] },
@@ -135,12 +136,20 @@ export async function getSetting<T>(key: string, fallback: T): Promise<T> {
   }
 }
 
+function mergeTabs(storedTabs: ThemeTab[] | undefined): ThemeTab[] {
+  const defaultsByKey = new Map(DEFAULT_THEME.tabs.map((tab) => [tab.key, tab]));
+  const stored = Array.isArray(storedTabs) ? storedTabs : [];
+  const storedByKey = new Map(stored.map((tab) => [tab.key, tab]));
+  // Preserve order of defaults while overlaying any stored customisations.
+  return DEFAULT_THEME.tabs.map((tab) => storedByKey.get(tab.key) ?? tab);
+}
+
 export async function getTheme(): Promise<ThemeSettings> {
   const stored = await getSetting<Partial<ThemeSettings>>('theme', DEFAULT_THEME);
   return {
     brand: stored.brand ?? DEFAULT_THEME.brand,
     primaryGradient: stored.primaryGradient ?? DEFAULT_THEME.primaryGradient,
-    tabs: Array.isArray(stored.tabs) && stored.tabs.length > 0 ? stored.tabs : DEFAULT_THEME.tabs,
+    tabs: mergeTabs(stored.tabs),
   };
 }
 

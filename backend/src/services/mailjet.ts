@@ -69,7 +69,7 @@ export async function sendVendorWelcomeEmail(input: VendorWelcomeEmailInput): Pr
             <td style="background:#f8fafc;padding:24px;text-align:center;color:#7c8a9d;font-size:12px;">
               <a href="https://lightraildeals.com" style="color:#7c8a9d;text-decoration:none;">Light Rail Deals</a>
               &nbsp;·&nbsp;
-              <a href="https://www.lightraildeals.com/privacy.html" style="color:#7c8a9d;text-decoration:none;">Privacy Policy</a>
+              <a href="https://www.lightraildeals.com/privacy-policy.html" style="color:#7c8a9d;text-decoration:none;">Privacy Policy - Light Rail Deals</a>
               &nbsp;·&nbsp;
               <a href="https://www.lightraildeals.com/terms-of-use.html" style="color:#7c8a9d;text-decoration:none;">Terms of Use</a>
               &nbsp;·&nbsp;

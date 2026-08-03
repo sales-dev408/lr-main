@@ -17,6 +17,7 @@ import type {
   OnboardingResponse,
   PassDetail,
   RedeemResult,
+  RssEvent,
   ThemeSettings,
   Ticket,
   UserAnalytics,
@@ -357,6 +358,10 @@ export async function getAppTheme() {
 
 export async function listPublishedContent() {
   return apiRequest<ContentBlock[]>('/content');
+}
+
+export async function getEvents(): Promise<RssEvent[]> {
+  return apiRequest<RssEvent[]>('/events');
 }
 
 export async function registerPushToken(token: string, city?: string | null) {

@@ -3,11 +3,11 @@ import { Image, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { listTickets } from '@/lib/api';
-import { qrCodeUrl } from '@/lib/qr';
+import { barcodeUrl } from '@/lib/qr';
 import type { Ticket } from '@/lib/types';
 
-function ticketQrUrl(text: string) {
-  return qrCodeUrl(text, 240);
+function ticketBarcodeUrl(text: string) {
+  return barcodeUrl(text, 320, 120);
 }
 
 export default function TicketsScreen() {
@@ -59,10 +59,10 @@ export default function TicketsScreen() {
           <Card key={ticket.id}>
             <SectionTitle title={ticket.name} subtitle={ticket.status === 'active' ? `${ticket.remainingUses} of ${ticket.allowedUses} uses left` : 'Used'} />
             <View style={{ alignItems: 'center', gap: 8, paddingVertical: 8 }}>
-              <Image source={{ uri: ticketQrUrl(ticket.barcode) }} style={{ width: 240, height: 240, borderRadius: 8, backgroundColor: '#fff' }} resizeMode="contain" />
+              <Image source={{ uri: ticketBarcodeUrl(ticket.barcode) }} style={{ width: 320, height: 120, borderRadius: 8, backgroundColor: '#fff' }} resizeMode="contain" />
               <Text style={{ color: '#10223d', fontWeight: '700', letterSpacing: 1 }}>{ticket.barcode}</Text>
             </View>
-            <Banner tone="info">Show this QR code at the event entrance. Staff will scan it.</Banner>
+            <Banner tone="info">Show this barcode at the event entrance. Staff will scan it.</Banner>
           </Card>
         ))}
 

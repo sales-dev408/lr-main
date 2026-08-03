@@ -1,5 +1,5 @@
 import { getItem, setItem } from './storage';
-import { qrCodeUrl } from './qr';
+import { barcodeUrl } from './qr';
 import type { StoredPass } from './types';
 
 const PASSES_KEY = 'lr.mobile.passes';
@@ -26,6 +26,6 @@ export async function upsertStoredPasses(passes: StoredPass[]): Promise<void> {
   await setItem(PASSES_KEY, JSON.stringify(passes));
 }
 
-export function lookupQrUrl(lookupToken: string): string {
-  return qrCodeUrl(lookupToken, 300);
+export function lookupBarcodeUrl(lookupToken: string): string {
+  return barcodeUrl(lookupToken, 320, 120);
 }
