@@ -3,9 +3,12 @@ import { Linking, RefreshControl, ScrollView, Text } from 'react-native';
 import { Stack, useFocusEffect } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { getEvents } from '@/lib/api';
+import { scheduleEventNotifications } from '@/lib/notifications';
+import { useOnboarding } from '@/lib/onboarding';
 import type { RssEvent } from '@/lib/types';
 
 export default function EventsScreen() {
+  const { selection } = useOnboarding();
   const [items, setItems] = useState<RssEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -14,11 +17,13 @@ export default function EventsScreen() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      setItems(await getEvents());
+      const data = await getEvents();
+      setItems(data);
+      void scheduleEventNotifications(data, selection.city ?? '');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load events');
     }
-  }, []);
+  }, [selection.city]);
 
   useFocusEffect(
     useCallback(() => {

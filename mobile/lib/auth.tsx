@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { login as loginRequest, register as registerRequest } from './api';
+import { initPushNotifications } from './notifications';
 import { getItem, removeItem, setItem } from './storage';
 import type { AuthResponse, UserProfile } from './types';
 
@@ -33,6 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const parsed = JSON.parse(raw) as AuthResponse<UserProfile>;
           setToken(parsed.token);
           setProfile(parsed.profile);
+          void initPushNotifications();
         } catch {
           await removeItem(AUTH_KEY);
         }
@@ -49,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(auth.token);
     setProfile(auth.profile);
     await setItem(AUTH_KEY, JSON.stringify(auth));
+    void initPushNotifications();
   }
 
   const value = useMemo<AuthContextValue>(

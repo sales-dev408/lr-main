@@ -3,6 +3,7 @@ import { Image, ScrollView, Text, View } from 'react-native';
 import { Link, useFocusEffect } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, FieldInput, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { listCards } from '@/lib/api';
+import { scheduleDealNotifications } from '@/lib/notifications';
 import { useOnboarding } from '@/lib/onboarding';
 import type { CardSummary, CardTheme } from '@/lib/types';
 
@@ -29,6 +30,7 @@ export default function BrowseScreen() {
       listCards({ theme, city: city.trim() || undefined })
         .then((data) => {
           if (active) setCards(data);
+          void scheduleDealNotifications(data);
         })
         .catch((err) => {
           if (active) setError(err instanceof Error ? err.message : 'Unable to load cards');

@@ -7,6 +7,7 @@ import { buildLookupDiscountView, generateDiscountCode, humanDiscountLabel } fro
 import { generateTempPassword } from '../utils/ids.js';
 import { writeTransactionAudit } from '../services/audit.js';
 import { sendVendorWelcomeEmail } from '../services/mailjet.js';
+import { getAllPushTokens, sendPushNotifications } from '../services/push.js';
 import { qrCodeUrl } from '../services/quickchart.js';
 import { deleteDiscountFromVendorConnections, syncDiscountToVendorConnections } from '../services/pos.js';
 
@@ -192,6 +193,16 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
       metadata: { name: result.vendor.name, discountCode: result.discountCode, emailed: Boolean(body.email) },
       ip: request.ip,
     });
+
+    void getAllPushTokens().then((tokens) =>
+      sendPushNotifications(
+        tokens,
+        'New vendor joined',
+        `${result.vendor.name} is now offering Light Rail Deals discounts.`,
+        { type: 'new_vendor', vendorId: result.vendor.id },
+      ),
+    );
+
     return reply.code(201).send(result);
   });
 
