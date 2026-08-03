@@ -59,6 +59,12 @@ async function issueProfileToken(role: 'customer' | 'vendor' | 'admin', id: stri
   return signJwt({ sub: id, role, email: email ?? null }, expiresIn);
 }
 
+function isUniqueViolation(error: unknown): boolean {
+  const code = (error as { code?: unknown })?.code;
+  const message = String((error as { message?: unknown })?.message ?? '');
+  return code === '23505' || message.includes('unique constraint');
+}
+
 export async function registerAuthRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.post('/api/auth/register', async (request, reply) => {
     const body = customerRegisterSchema.parse(request.body);
@@ -71,24 +77,32 @@ export async function registerAuthRoutes(fastify: FastifyInstance): Promise<void
       return reply.code(400).send({ error: 'Invalid phone number' });
     }
     const fullName = `${body.firstName} ${body.lastName}`.trim();
-    const rows = await withDbClient(async (client) => {
-      await client.query('BEGIN');
-      try {
-        const result = await client.query<{ id: string }>(
-          `
-            INSERT INTO users (email, phone, password_hash, full_name, first_name, last_name)
-            VALUES ($1, $2, $3, $4, $5, $6)
-            RETURNING id
-          `,
-          [body.email ?? null, phone ?? null, null, fullName, body.firstName, body.lastName],
-        );
-        await client.query('COMMIT');
-        return result.rows;
-      } catch (error) {
-        await client.query('ROLLBACK');
-        throw error;
+    let rows: Array<{ id: string }>;
+    try {
+      rows = await withDbClient(async (client) => {
+        await client.query('BEGIN');
+        try {
+          const result = await client.query<{ id: string }>(
+            `
+              INSERT INTO users (email, phone, password_hash, full_name, first_name, last_name)
+              VALUES ($1, $2, $3, $4, $5, $6)
+              RETURNING id
+            `,
+            [body.email ?? null, phone ?? null, null, fullName, body.firstName, body.lastName],
+          );
+          await client.query('COMMIT');
+          return result.rows;
+        } catch (error) {
+          await client.query('ROLLBACK');
+          throw error;
+        }
+      });
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        return reply.code(409).send({ error: 'An account with this email or phone number already exists. Please sign in with your first and last name.' });
       }
-    });
+      throw error;
+    }
 
     const profile = await buildCustomerProfile(rows[0]!.id);
     const token = await issueProfileToken('customer', rows[0]!.id, profile?.email ?? body.email ?? null);

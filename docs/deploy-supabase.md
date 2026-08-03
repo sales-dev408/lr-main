@@ -36,6 +36,7 @@ existing database, also apply the newer migrations:
 - `backend/src/db/migrations/004_membership_card.sql`
 - `backend/src/db/migrations/005_cms_onboarding_theme.sql`
 - `backend/src/db/migrations/006_event_tickets.sql`
+- `backend/src/db/migrations/007_vendor_contact_phone.sql`
 
 ## 3) Move the backend contract to a Supabase Edge Function
 

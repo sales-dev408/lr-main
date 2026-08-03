@@ -27,6 +27,7 @@ const vendorSchema = z.object({
   posType: z.enum(['square', 'stripe', 'clover', 'toast', 'other']).optional(),
   posSystem: z.string().optional(),
   email: z.string().email().optional(),
+  phone: z.string().optional(),
   password: z.string().min(8).optional(),
   status: z.enum(['pending', 'approved', 'rejected', 'suspended']).optional(),
   discountType: z.enum(['fixed', 'percent', 'bogo']).optional(),
@@ -78,12 +79,20 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
     const query = request.query as { status?: string; city?: string; category?: string };
     const rows = await dbQuery(
       `
-        SELECT *
-        FROM vendors
-        WHERE ($1::text IS NULL OR status = $1)
-          AND ($2::text IS NULL OR city = $2)
-          AND ($3::text IS NULL OR category = $3)
-        ORDER BY created_at DESC
+        SELECT v.*, d.type AS discount_type, d.value AS discount_value, d.discount_code
+        FROM vendors v
+        LEFT JOIN LATERAL (
+          SELECT d.type, d.value, d.discount_code
+          FROM discounts d
+          JOIN cards c ON c.id = d.card_id AND c.is_membership = true
+          WHERE d.vendor_id = v.id
+          ORDER BY d.created_at DESC
+          LIMIT 1
+        ) d ON true
+        WHERE ($1::text IS NULL OR v.status = $1)
+          AND ($2::text IS NULL OR v.city = $2)
+          AND ($3::text IS NULL OR v.category = $3)
+        ORDER BY v.created_at DESC
       `,
       [query.status ?? null, query.city ?? null, query.category ?? null],
     );
@@ -96,8 +105,8 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
       const address = body.address ?? body.location;
       const vendorRows = await client.query<{ id: string }>(
         `
-          INSERT INTO vendors (name, location, address, city, category, pos_type, pos_system, email, password_hash, status, icon_url, logo_url)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          INSERT INTO vendors (name, location, address, city, category, pos_type, pos_system, email, phone, password_hash, status, icon_url, logo_url)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
           RETURNING id
         `,
         [
@@ -106,9 +115,10 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
           address ?? null,
           body.city ?? null,
           body.category ?? null,
-          body.posType ?? 'other',
-          body.posSystem ?? null,
+          null,
+          null,
           body.email ?? null,
+          body.phone ?? null,
           null,
           body.status ?? 'approved',
           body.iconDataUrl ?? null,
@@ -143,11 +153,11 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
       );
 
       return {
-        vendor: { id: vendorId, name: body.name, address: address ?? null, category: body.category ?? null, posSystem: body.posSystem ?? null },
+        vendor: { id: vendorId, name: body.name, address: address ?? null, category: body.category ?? null },
         discountCode,
         discount: { id: discountRows.rows[0]!.id, type: discountType, value: discountValue, label },
         membershipCard: { id: cardId, name: cardName },
-        posInstructions: `Ask the customer to show their ${cardName} pass, scan its barcode, then apply code ${discountCode} in your POS${body.posSystem ? ` (${body.posSystem})` : ''}. No NFC required.`,
+        posInstructions: `Ask the customer to show their ${cardName} pass, scan its barcode, then apply code ${discountCode} in your POS. No NFC required.`,
       };
     });
 
@@ -175,17 +185,16 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
             address = COALESCE($3, address),
             city = COALESCE($4, city),
             category = COALESCE($5, category),
-            pos_type = COALESCE($6, pos_type),
-            pos_system = COALESCE($7, pos_system),
-            email = COALESCE($8, email),
-            status = COALESCE($9, status),
-            icon_url = COALESCE($10, icon_url),
-            logo_url = COALESCE($11, logo_url),
+            email = COALESCE($6, email),
+            phone = COALESCE($7, phone),
+            status = COALESCE($8, status),
+            icon_url = COALESCE($9, icon_url),
+            logo_url = COALESCE($10, logo_url),
             updated_at = now()
         WHERE id = $1
         RETURNING *
       `,
-      [id, body.name ?? null, address ?? null, body.city ?? null, body.category ?? null, body.posType ?? null, body.posSystem ?? null, body.email ?? null, body.status ?? null, body.iconDataUrl ?? null, body.logoDataUrl ?? null],
+      [id, body.name ?? null, address ?? null, body.city ?? null, body.category ?? null, body.email ?? null, body.phone ?? null, body.status ?? null, body.iconDataUrl ?? null, body.logoDataUrl ?? null],
     );
     return rows[0] ?? {};
   });
