@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Image, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { Link, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { AppButton, Banner, Card, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
@@ -26,13 +26,11 @@ export default function DiscountScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const hasConfirmed = useRef(false);
   useFocusEffect(
     useCallback(() => {
-      if (!code) {
-        setLoading(false);
-        setError('No code scanned.');
-        return () => {};
-      }
+      if (!code || hasConfirmed.current) return;
+      hasConfirmed.current = true;
       let active = true;
       setLoading(true);
       setError(null);
