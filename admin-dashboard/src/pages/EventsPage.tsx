@@ -33,7 +33,7 @@ export function EventsPage() {
     try {
       const { urls: existing, events } = await getEventsRssUrls();
       setUrls(existing.join('\n'));
-      setCustomEvents(events);
+      setCustomEvents(events ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load event feeds');
     } finally {
@@ -71,7 +71,7 @@ export function EventsPage() {
     setToast(null);
     setPreview(null);
     try {
-      const events = await fetchPublicEvents();
+      const events = (await fetchPublicEvents()) ?? [];
       setPreview({
         count: events.length,
         items: events.slice(0, 5).map((e) => ({ title: e.title, sourceName: e.sourceName ?? 'Unknown source' })),

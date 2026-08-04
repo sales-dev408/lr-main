@@ -1,6 +1,7 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Badge, Button, DataTable, EmptyState, ErrorBanner, Input, Modal, PageCard, Select, Spinner } from '../components/Ui';
 import { createAdminTicket, deleteAdminTicket, listAdminTickets, updateAdminTicket } from '../lib/api';
+import { barcodeImageUrl } from '../lib/qr';
 import { scanImageToText } from '../lib/ocr';
 import type { TicketRecord } from '../lib/types';
 
@@ -48,6 +49,7 @@ export function TicketsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<TicketRecord | null>(null);
+  const [previewing, setPreviewing] = useState<TicketRecord | null>(null);
 
   const [name, setName] = useState('Event Ticket');
   const [barcode, setBarcode] = useState('');
@@ -216,6 +218,7 @@ export function TicketsPage() {
                     <td>
                       <div className="row-actions">
                         <Button variant="secondary" onClick={() => setEditing(ticket)}>Edit</Button>
+                        <Button variant="secondary" onClick={() => setPreviewing(ticket)}>Preview</Button>
                         <Button variant="danger" onClick={() => void handleDelete(ticket.id)}>Delete</Button>
                       </div>
                     </td>
@@ -226,6 +229,20 @@ export function TicketsPage() {
           </DataTable>
         ) : null}
       </PageCard>
+
+      <Modal open={previewing !== null} title="Ticket preview" onClose={() => setPreviewing(null)}>
+        {previewing ? (
+          <div className="form" style={{ textAlign: 'center' }}>
+            <h3>{previewing.name}</h3>
+            <p className="muted">{previewing.barcodeFormat ?? 'Code 128'} · {previewing.barcode}</p>
+            <img
+              src={barcodeImageUrl(previewing.barcode, previewing.barcodeFormat ?? 'Code 128', 260, 120)}
+              alt="Barcode preview"
+              style={{ maxWidth: '100%', height: 'auto', border: '1px solid var(--border)', borderRadius: 8 }}
+            />
+          </div>
+        ) : null}
+      </Modal>
 
       <Modal open={editing !== null} title="Edit ticket" onClose={() => setEditing(null)}>
         {editing ? (
