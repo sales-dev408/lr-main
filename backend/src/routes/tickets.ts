@@ -8,6 +8,7 @@ const ticketCreateSchema = z.object({
   name: z.string().min(1).default('Event Ticket'),
   allowedUses: z.coerce.number().int().positive().default(1),
   drawingDeadline: z.coerce.date().optional(),
+  drawingDate: z.string().optional(),
   userId: z.string().uuid().optional(),
 });
 
@@ -20,6 +21,7 @@ const ticketUpdateSchema = z.object({
   status: z.enum(['active', 'used', 'disabled']).optional(),
   drawingDeadline: z.coerce.date().optional().nullable(),
   drawingStatus: z.enum(['open', 'drawn', 'closed']).optional(),
+  drawingDate: z.string().optional().nullable(),
   userId: z.string().uuid().optional().nullable(),
 });
 
@@ -187,13 +189,32 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
       [],
     );
     return rows.map(toTicketRow);
+      'SELECT id, name, barcode, barcode_format, allowed_uses, used_uses, status, drawing_date, user_id, created_at FROM tickets ORDER BY created_at DESC',
+      [],
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      barcode: row.barcode,
+      barcodeFormat: row.barcode_format,
+      allowedUses: row.allowed_uses,
+      usedUses: row.used_uses,
+      remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
+      status: row.status,
+      drawingDate: row.drawing_date,
+      userId: row.user_id,
+      createdAt: row.created_at,
+    }));
   });
 
   fastify.post('/api/admin/tickets', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (request, reply) => {
     const body = ticketCreateSchema.parse(request.body);
+    const drawingDate = body.drawingDate?.trim() || null;
     const rows = await dbQuery<{ id: string }>(
       'INSERT INTO tickets (barcode, barcode_format, name, allowed_uses, drawing_deadline, user_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
       [body.barcode, body.barcodeFormat ?? null, body.name, body.allowedUses, body.drawingDeadline ?? null, body.userId ?? null],
+      'INSERT INTO tickets (barcode, barcode_format, name, allowed_uses, drawing_date, user_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
+      [body.barcode, body.barcodeFormat ?? null, body.name, body.allowedUses, drawingDate, body.userId ?? null],
     );
     return reply.code(201).send({ id: rows[0]!.id });
   });
@@ -201,6 +222,7 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
   fastify.patch('/api/admin/tickets/:id', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (request) => {
     const id = (request.params as { id: string }).id;
     const body = ticketUpdateSchema.parse(request.body);
+    const drawingDate = body.drawingDate === undefined ? null : (body.drawingDate?.trim() || null);
     const rows = await dbQuery(
       `
         UPDATE tickets
@@ -213,6 +235,8 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
             drawing_deadline = COALESCE($8, drawing_deadline),
             drawing_status = COALESCE($9, drawing_status),
             user_id = COALESCE($10, user_id),
+            drawing_date = CASE WHEN $8 = '' OR $8 IS NULL THEN NULL ELSE $8::date END,
+            user_id = COALESCE($9, user_id),
             updated_at = now()
         WHERE id = $1
         RETURNING id, name, barcode, barcode_format, allowed_uses, used_uses, status, drawing_deadline, drawing_status, user_id, created_at
@@ -229,6 +253,7 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
         body.drawingStatus ?? null,
         body.userId === undefined ? null : body.userId,
       ],
+      [id, body.name ?? null, body.barcode ?? null, body.barcodeFormat ?? null, body.allowedUses ?? null, body.usedUses ?? null, body.status ?? null, drawingDate, body.userId === undefined ? null : body.userId],
     );
     return toTicketRow(rows[0] ?? {});
   });

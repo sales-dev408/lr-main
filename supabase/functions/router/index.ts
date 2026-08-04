@@ -178,6 +178,7 @@ const ticketCreateSchema = z.object({
   name: z.string().min(1).default('Event Ticket'),
   allowedUses: z.number().int().positive().default(1),
   drawingDeadline: z.coerce.date().optional(),
+  drawingDate: z.string().optional(),
   userId: z.string().uuid().optional(),
 });
 
@@ -190,6 +191,7 @@ const ticketUpdateSchema = z.object({
   status: z.enum(['active', 'used', 'disabled']).optional(),
   drawingDeadline: z.coerce.date().optional().nullable(),
   drawingStatus: z.enum(['open', 'drawn', 'closed']).optional(),
+  drawingDate: z.string().optional().nullable(),
   userId: z.string().uuid().optional().nullable(),
 });
 
@@ -798,7 +800,7 @@ Deno.serve(async (request) => {
     if (path === '/api/admin/tickets' && request.method === 'GET') {
       const auth = requireRole(request, ['admin']);
       if (auth instanceof Response) return auth;
-      const rows = await dbQuery('SELECT id, name, barcode, barcode_format, allowed_uses, used_uses, status, drawing_deadline, drawing_status, user_id, created_at FROM tickets ORDER BY created_at DESC', []);
+      const rows = await dbQuery('SELECT id, name, barcode, barcode_format, allowed_uses, used_uses, status, drawing_date, user_id, created_at FROM tickets ORDER BY created_at DESC', []);
       return json(request, rows.map((row) => ({
         id: row.id,
         name: row.name,
@@ -808,8 +810,7 @@ Deno.serve(async (request) => {
         usedUses: row.used_uses,
         remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
         status: row.status,
-        drawingDeadline: row.drawing_deadline,
-        drawingStatus: row.drawing_status,
+        drawingDate: row.drawing_date,
         userId: row.user_id,
         createdAt: row.created_at,
       })));
@@ -819,7 +820,8 @@ Deno.serve(async (request) => {
       const auth = requireRole(request, ['admin']);
       if (auth instanceof Response) return auth;
       const body = ticketCreateSchema.parse(await readJsonBody(request, {}));
-      const rows = await dbQuery<{ id: string }>('INSERT INTO tickets (barcode, barcode_format, name, allowed_uses, drawing_deadline, user_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id', [body.barcode, body.barcodeFormat ?? null, body.name, body.allowedUses, body.drawingDeadline ?? null, body.userId ?? null]);
+      const drawingDate = body.drawingDate?.trim() || null;
+      const rows = await dbQuery<{ id: string }>('INSERT INTO tickets (barcode, barcode_format, name, allowed_uses, drawing_date, user_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id', [body.barcode, body.barcodeFormat ?? null, body.name, body.allowedUses, drawingDate, body.userId ?? null]);
       return json(request, { id: rows[0]!.id }, { status: 201 });
     }
 
@@ -828,6 +830,7 @@ Deno.serve(async (request) => {
       if (auth instanceof Response) return auth;
       const id = path.split('/').pop()!;
       const body = ticketUpdateSchema.parse(await readJsonBody(request, {}));
+      const drawingDate = body.drawingDate === undefined ? null : (body.drawingDate?.trim() || null);
       const rows = await dbQuery(
         `UPDATE tickets
          SET name = COALESCE($2, name),
@@ -836,13 +839,12 @@ Deno.serve(async (request) => {
              allowed_uses = COALESCE($5, allowed_uses),
              used_uses = COALESCE($6, used_uses),
              status = COALESCE($7, status),
-             drawing_deadline = COALESCE($8, drawing_deadline),
-             drawing_status = COALESCE($9, drawing_status),
-             user_id = COALESCE($10, user_id),
+             drawing_date = CASE WHEN $8 = '' OR $8 IS NULL THEN NULL ELSE $8::date END,
+             user_id = COALESCE($9, user_id),
              updated_at = now()
          WHERE id = $1
          RETURNING *`,
-        [id, body.name ?? null, body.barcode ?? null, body.barcodeFormat ?? null, body.allowedUses ?? null, body.usedUses ?? null, body.status ?? null, body.drawingDeadline === undefined ? null : body.drawingDeadline, body.drawingStatus ?? null, body.userId === undefined ? null : body.userId],
+        [id, body.name ?? null, body.barcode ?? null, body.barcodeFormat ?? null, body.allowedUses ?? null, body.usedUses ?? null, body.status ?? null, drawingDate, body.userId === undefined ? null : body.userId],
       );
       return json(request, rows[0] ?? {});
     }
