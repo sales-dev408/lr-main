@@ -251,6 +251,9 @@ export async function createAdminVendor(body: {
   longitude?: number;
   discountType: 'fixed' | 'percent' | 'bogo';
   discountValue: number;
+  discountStartsAt?: string | null;
+  discountEndsAt?: string | null;
+  boosted?: boolean;
   iconDataUrl?: string;
   logoDataUrl?: string;
 }): Promise<CreateVendorResult> {
@@ -259,7 +262,21 @@ export async function createAdminVendor(body: {
 
 export async function updateAdminVendor(
   id: string,
-  body: { name?: string; address?: string; category?: 'Sports' | 'Dining' | 'Entertainment'; email?: string; phone?: string; latitude?: number; longitude?: number; status?: string },
+  body: {
+    name?: string;
+    address?: string;
+    category?: 'Sports' | 'Dining' | 'Entertainment';
+    email?: string;
+    phone?: string;
+    latitude?: number;
+    longitude?: number;
+    status?: string;
+    discountType?: 'fixed' | 'percent' | 'bogo';
+    discountValue?: number;
+    discountStartsAt?: string | null;
+    discountEndsAt?: string | null;
+    boosted?: boolean;
+  },
 ): Promise<VendorRecord> {
   return apiRequest(`/admin/vendors/${id}`, { method: 'PATCH', body: jsonBody(body) });
 }

@@ -7,6 +7,21 @@ import type { VendorListItem } from '@/lib/types';
 
 const CATEGORIES = ['All', 'Sports', 'Dining', 'Entertainment'] as const;
 
+function formatTimeRemaining(endsAt: string | null): string | null {
+  if (!endsAt) return null;
+  const end = new Date(endsAt).getTime();
+  const now = Date.now();
+  const diff = end - now;
+  if (diff <= 0) return 'Ended';
+  const hours = Math.floor(diff / 3600000);
+  const minutes = Math.floor((diff % 3600000) / 60000);
+  if (hours > 24) {
+    const days = Math.floor(hours / 24);
+    return `${days}d ${hours % 24}h left`;
+  }
+  return `${hours}h ${minutes}m left`;
+}
+
 export default function VendorsScreen() {
   const router = useRouter();
   const [vendors, setVendors] = useState<VendorListItem[]>([]);
@@ -92,9 +107,10 @@ export default function VendorsScreen() {
             <View style={{ gap: 8 }}>
               {vendors.map((vendor) => {
                 const active = vendor.id === selectedId;
+                const remaining = formatTimeRemaining(vendor.endsAt);
                 return (
                   <AppButton key={vendor.id} variant={active ? 'primary' : 'secondary'} onPress={() => setSelectedId(vendor.id)}>
-                    {vendor.name} · {vendor.discount.label}
+                    {vendor.boosted ? 'Flash: ' : ''}{vendor.name} · {vendor.discount.label}{remaining ? ` · ${remaining}` : ''}
                   </AppButton>
                 );
               })}
@@ -112,7 +128,11 @@ export default function VendorsScreen() {
               />
             ) : null}
             <SectionTitle title={selected.name} subtitle={selected.category ?? undefined} />
-            <Pill tone="success">{selected.discount.label}</Pill>
+            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+              <Pill tone="success">{selected.discount.label}</Pill>
+              {selected.boosted ? <Pill tone="warning">Flash deal</Pill> : null}
+              {formatTimeRemaining(selected.endsAt) ? <Pill tone="neutral">{formatTimeRemaining(selected.endsAt)}</Pill> : null}
+            </View>
             {selected.address ? <Text style={{ color: '#52617a' }}>{selected.address}</Text> : null}
 
             <Link href="/scan" asChild>

@@ -41,6 +41,9 @@ const vendorSchema = z.object({
   status: z.enum(['pending', 'approved', 'rejected', 'suspended']).optional(),
   discountType: z.enum(['fixed', 'percent', 'bogo']).optional(),
   discountValue: z.number().optional(),
+  discountStartsAt: z.string().datetime().optional().nullable(),
+  discountEndsAt: z.string().datetime().optional().nullable(),
+  boosted: z.boolean().optional(),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
   iconDataUrl: z.string().optional(),
@@ -90,10 +93,11 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
     const query = request.query as { status?: string; city?: string; category?: string };
     const rows = await dbQuery(
       `
-        SELECT v.*, d.type AS discount_type, d.value AS discount_value, d.discount_code
+        SELECT v.*, d.type AS discount_type, d.value AS discount_value, d.discount_code,
+               d.starts_at AS discount_starts_at, d.ends_at AS discount_ends_at, d.boosted AS discount_boosted
         FROM vendors v
         LEFT JOIN LATERAL (
-          SELECT d.type, d.value, d.discount_code
+          SELECT d.type, d.value, d.discount_code, d.starts_at, d.ends_at, d.boosted
           FROM discounts d
           JOIN cards c ON c.id = d.card_id AND c.is_membership = true
           WHERE d.vendor_id = v.id
@@ -157,12 +161,12 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
 
       const discountRows = await client.query<{ id: string }>(
         `
-          INSERT INTO discounts (card_id, vendor_id, type, value, discount_code, description, active)
-          VALUES ($1, $2, $3, $4, $5, $6, true)
-          ON CONFLICT (card_id, vendor_id) DO UPDATE SET type = EXCLUDED.type, value = EXCLUDED.value, discount_code = COALESCE(discounts.discount_code, EXCLUDED.discount_code), description = EXCLUDED.description, active = true, updated_at = now()
+          INSERT INTO discounts (card_id, vendor_id, type, value, discount_code, description, active, starts_at, ends_at, boosted)
+          VALUES ($1, $2, $3, $4, $5, $6, true, $7, $8, $9)
+          ON CONFLICT (card_id, vendor_id) DO UPDATE SET type = EXCLUDED.type, value = EXCLUDED.value, discount_code = COALESCE(discounts.discount_code, EXCLUDED.discount_code), description = EXCLUDED.description, active = true, starts_at = EXCLUDED.starts_at, ends_at = EXCLUDED.ends_at, boosted = EXCLUDED.boosted, updated_at = now()
           RETURNING id
         `,
-        [cardId, vendorId, discountType, discountValue, discountCode, `${label} member discount`],
+        [cardId, vendorId, discountType, discountValue, discountCode, `${label} member discount`, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? false],
       );
 
       return {
@@ -235,6 +239,23 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
       `,
       [id, body.name ?? null, address ?? null, body.city ?? null, body.category ?? null, body.email ?? null, body.phone ?? null, body.status ?? null, body.latitude ?? null, body.longitude ?? null, body.iconDataUrl ?? null, body.logoDataUrl ?? null],
     );
+
+    if (body.discountType !== undefined || body.discountValue !== undefined || body.discountStartsAt !== undefined || body.discountEndsAt !== undefined || body.boosted !== undefined) {
+      await dbQuery(
+        `
+          UPDATE discounts
+          SET type = COALESCE($2, type),
+              value = COALESCE($3, value),
+              starts_at = COALESCE($4, starts_at),
+              ends_at = COALESCE($5, ends_at),
+              boosted = COALESCE($6, boosted),
+              updated_at = now()
+          WHERE vendor_id = $1 AND card_id = (SELECT id FROM cards WHERE is_membership = true LIMIT 1)
+        `,
+        [id, body.discountType ?? null, body.discountValue ?? null, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? null],
+      );
+    }
+
     return rows[0] ?? {};
   });
 

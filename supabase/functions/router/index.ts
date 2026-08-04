@@ -130,6 +130,9 @@ const adminVendorCreateSchema = z.object({
   phone: z.string().optional(),
   discountType: z.enum(['fixed', 'percent', 'bogo']).default('percent'),
   discountValue: z.number().positive(),
+  discountStartsAt: z.string().datetime().optional().nullable(),
+  discountEndsAt: z.string().datetime().optional().nullable(),
+  boosted: z.boolean().optional(),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
   iconDataUrl: z.string().optional(),
@@ -142,6 +145,11 @@ const adminVendorUpdateSchema = z.object({
   category: z.enum(['Sports', 'Dining', 'Entertainment']).optional(),
   email: z.string().email().optional(),
   phone: z.string().optional(),
+  discountType: z.enum(['fixed', 'percent', 'bogo']).optional(),
+  discountValue: z.number().positive().optional(),
+  discountStartsAt: z.string().datetime().optional().nullable(),
+  discountEndsAt: z.string().datetime().optional().nullable(),
+  boosted: z.boolean().optional(),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
   status: z.enum(['pending', 'approved', 'rejected', 'suspended']).optional(),
@@ -557,16 +565,23 @@ Deno.serve(async (request) => {
         discount_type: 'fixed' | 'percent' | 'bogo';
         discount_value: string;
         discount_code: string | null;
+        starts_at: string | null;
+        ends_at: string | null;
+        boosted: boolean;
         card_icon: string | null;
         card_logo: string | null;
       }>(
         `SELECT v.id, v.name, v.address, v.location, v.category, v.latitude, v.longitude, v.pos_system, v.icon_url, v.logo_url,
-                c.id AS card_id, d.type AS discount_type, d.value AS discount_value, d.discount_code, c.icon_url AS card_icon, c.logo_url AS card_logo
+                c.id AS card_id, d.type AS discount_type, d.value AS discount_value, d.discount_code,
+                d.starts_at, d.ends_at, d.boosted, c.icon_url AS card_icon, c.logo_url AS card_logo
          FROM vendors v
          JOIN cards c ON c.is_membership = true AND c.status = 'active'
          JOIN discounts d ON d.vendor_id = v.id AND d.card_id = c.id AND d.active = true
-         WHERE v.status = 'approved' AND ($1::uuid IS NULL OR v.id = $1::uuid)
-         ORDER BY v.name`,
+         WHERE v.status = 'approved'
+           AND ($1::uuid IS NULL OR v.id = $1::uuid)
+           AND (d.starts_at IS NULL OR d.starts_at <= now())
+           AND (d.ends_at IS NULL OR d.ends_at >= now())
+         ORDER BY CASE WHEN d.boosted THEN 0 ELSE 1 END, v.name`,
         [vendorId],
       );
       const items = rows.map((row) => ({
@@ -585,6 +600,9 @@ Deno.serve(async (request) => {
           label: humanDiscountLabel(row.discount_type, Number(row.discount_value)),
         },
         discountCode: row.discount_code,
+        boosted: row.boosted,
+        startsAt: row.starts_at,
+        endsAt: row.ends_at,
         cardId: row.card_id,
         walletUrl: null,
       }));
@@ -748,7 +766,7 @@ Deno.serve(async (request) => {
       const auth = requireRole(request, ['admin']);
       if (auth instanceof Response) return auth;
       const q = queryObject(url);
-      return json(request, await dbQuery(`SELECT v.*, d.type AS discount_type, d.value AS discount_value, d.discount_code FROM vendors v LEFT JOIN LATERAL (SELECT d.type, d.value, d.discount_code FROM discounts d JOIN cards c ON c.id = d.card_id AND c.is_membership = true WHERE d.vendor_id = v.id ORDER BY d.created_at DESC LIMIT 1) d ON true WHERE ($1::text IS NULL OR v.status = $1) AND ($2::text IS NULL OR v.city = $2) AND ($3::text IS NULL OR v.category = $3) ORDER BY v.created_at DESC`, [
+      return json(request, await dbQuery(`SELECT v.*, d.type AS discount_type, d.value AS discount_value, d.discount_code, d.starts_at AS discount_starts_at, d.ends_at AS discount_ends_at, d.boosted AS discount_boosted FROM vendors v LEFT JOIN LATERAL (SELECT d.type, d.value, d.discount_code, d.starts_at, d.ends_at, d.boosted FROM discounts d JOIN cards c ON c.id = d.card_id AND c.is_membership = true WHERE d.vendor_id = v.id ORDER BY d.created_at DESC LIMIT 1) d ON true WHERE ($1::text IS NULL OR v.status = $1) AND ($2::text IS NULL OR v.city = $2) AND ($3::text IS NULL OR v.category = $3) ORDER BY v.created_at DESC`, [
         q.status ?? null,
         q.city ?? null,
         q.category ?? null,
@@ -766,6 +784,9 @@ Deno.serve(async (request) => {
         phone: body.phone ?? null,
         discountType: body.discountType,
         discountValue: body.discountValue,
+        discountStartsAt: body.discountStartsAt ?? null,
+        discountEndsAt: body.discountEndsAt ?? null,
+        boosted: body.boosted ?? false,
         latitude: body.latitude ?? null,
         longitude: body.longitude ?? null,
         iconDataUrl: body.iconDataUrl ?? null,
@@ -782,6 +803,12 @@ Deno.serve(async (request) => {
         `UPDATE vendors SET name = COALESCE($2, name), location = COALESCE($3, location), address = COALESCE($3, address), category = COALESCE($4, category), email = COALESCE($5, email), phone = COALESCE($6, phone), status = COALESCE($7, status), latitude = COALESCE($8, latitude), longitude = COALESCE($9, longitude), updated_at = now() WHERE id = $1 RETURNING *`,
         [id, body.name ?? null, body.address ?? null, body.category ?? null, body.email ?? null, body.phone ?? null, body.status ?? null, body.latitude ?? null, body.longitude ?? null],
       );
+      if (body.discountType !== undefined || body.discountValue !== undefined || body.discountStartsAt !== undefined || body.discountEndsAt !== undefined || body.boosted !== undefined) {
+        await dbQuery(
+          `UPDATE discounts SET type = COALESCE($2, type), value = COALESCE($3, value), starts_at = COALESCE($4, starts_at), ends_at = COALESCE($5, ends_at), boosted = COALESCE($6, boosted), updated_at = now() WHERE vendor_id = $1 AND card_id = (SELECT id FROM cards WHERE is_membership = true LIMIT 1)`,
+          [id, body.discountType ?? null, body.discountValue ?? null, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? null],
+        );
+      }
       return json(request, rows[0] ?? {});
     }
     // Returns a vendor's exclusive discount on the shared membership card. There

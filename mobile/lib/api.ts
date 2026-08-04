@@ -240,6 +240,9 @@ function normalizeVendor(input: Record<string, unknown>): VendorListItem {
       label: String(discount.label ?? ''),
     },
     discountCode: (input.discountCode as string | null | undefined) ?? null,
+    boosted: Boolean(input.boosted),
+    startsAt: (input.startsAt as string | null | undefined) ?? null,
+    endsAt: (input.endsAt as string | null | undefined) ?? null,
     cardId: String(input.cardId ?? ''),
     walletUrl: input.walletUrl == null ? null : String(input.walletUrl),
   };
