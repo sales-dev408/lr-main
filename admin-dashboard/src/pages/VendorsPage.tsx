@@ -18,6 +18,9 @@ const blankVendor = {
   longitude: '',
   discountKind: 'percent' as 'percent' | 'fixed',
   discountValue: '',
+  discountStartsAt: '',
+  discountEndsAt: '',
+  boosted: false,
   iconDataUrl: '',
   logoDataUrl: '',
 };
@@ -69,6 +72,13 @@ export function VendorsPage() {
 
   const sorted = useMemo(() => vendors.slice().sort((a, b) => a.name.localeCompare(b.name)), [vendors]);
 
+  function formatFlashWindow(starts: VendorRecord['discount_starts_at'], ends: VendorRecord['discount_ends_at']): string | null {
+    if (!starts && !ends) return null;
+    const start = starts ? new Date(starts).toLocaleString() : 'now';
+    const end = ends ? new Date(ends).toLocaleString() : 'ongoing';
+    return `Flash deal: ${start} → ${end}`;
+  }
+
   function formatDiscount(type: VendorRecord['discount_type'], value: VendorRecord['discount_value']): string {
     if (!type || value === undefined || value === null) return '';
     const num = typeof value === 'string' ? Number(value) : value;
@@ -78,7 +88,15 @@ export function VendorsPage() {
     return String(value);
   }
 
-  function csvEscape(value: unknown): string {
+  function toLocalDatetime(iso: string | null | undefined): string {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+function csvEscape(value: unknown): string {
     const str = value === null || value === undefined ? '' : String(value);
     const escaped = str.replace(/"/g, '""');
     if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
@@ -174,6 +192,9 @@ export function VendorsPage() {
         longitude: form.longitude ? Number(form.longitude) : undefined,
         discountType: form.discountKind,
         discountValue: value,
+        discountStartsAt: form.discountStartsAt ? new Date(form.discountStartsAt).toISOString() : null,
+        discountEndsAt: form.discountEndsAt ? new Date(form.discountEndsAt).toISOString() : null,
+        boosted: form.boosted,
         ...(form.iconDataUrl ? { iconDataUrl: form.iconDataUrl } : {}),
         ...(form.logoDataUrl ? { logoDataUrl: form.logoDataUrl } : {}),
       });
@@ -200,6 +221,11 @@ export function VendorsPage() {
         latitude: editing.latitude ?? undefined,
         longitude: editing.longitude ?? undefined,
         status: editing.status,
+        ...(editing.discount_type ? { discountType: editing.discount_type } : {}),
+        ...(editing.discount_value !== undefined && editing.discount_value !== null ? { discountValue: Number(editing.discount_value) } : {}),
+        discountStartsAt: editing.discount_starts_at ? new Date(editing.discount_starts_at).toISOString() : null,
+        discountEndsAt: editing.discount_ends_at ? new Date(editing.discount_ends_at).toISOString() : null,
+        boosted: editing.boosted ?? false,
       });
       setEditing(null);
       await load();
@@ -315,6 +341,20 @@ export function VendorsPage() {
                 <Input type="number" min="0" step="0.01" placeholder="15" value={form.discountValue} onChange={(e) => setForm((prev) => ({ ...prev, discountValue: e.target.value }))} required />
               </div>
             </label>
+            <div className="inline-row">
+              <label>
+                Flash deal starts
+                <Input type="datetime-local" value={form.discountStartsAt} onChange={(e) => setForm((prev) => ({ ...prev, discountStartsAt: e.target.value }))} />
+              </label>
+              <label>
+                Flash deal ends
+                <Input type="datetime-local" value={form.discountEndsAt} onChange={(e) => setForm((prev) => ({ ...prev, discountEndsAt: e.target.value }))} />
+              </label>
+            </div>
+            <label className="inline-row" style={{ alignItems: 'center', gap: 8 }}>
+              <input type="checkbox" checked={form.boosted} onChange={(e) => setForm((prev) => ({ ...prev, boosted: e.target.checked }))} />
+              Boost this deal (prioritize in the app)
+            </label>
             <label>
               Icon PNG
               <Input type="file" accept="image/png" onChange={(e) => handleFile(e, 'iconDataUrl')} />
@@ -348,6 +388,8 @@ export function VendorsPage() {
                     {vendor.phone ? ` · ${vendor.phone}` : ''}
                   </p>
                   <Badge tone={vendor.status === 'approved' ? 'success' : vendor.status === 'rejected' ? 'danger' : 'warning'}>{vendor.status}</Badge>
+                  {vendor.boosted ? <Badge tone="info">Boosted</Badge> : null}
+                  {formatFlashWindow(vendor.discount_starts_at, vendor.discount_ends_at) ? <p className="muted">{formatFlashWindow(vendor.discount_starts_at, vendor.discount_ends_at)}</p> : null}
                 </div>
                 <div className="row-actions">
                   <Button variant="secondary" disabled={readOnly} onClick={() => setEditing(vendor)}>
@@ -480,6 +522,24 @@ export function VendorsPage() {
                 <option value="rejected">Rejected</option>
                 <option value="suspended">Suspended</option>
               </Select>
+            </label>
+            <label>
+              Discount value
+              <Input type="number" min="0" step="0.01" value={editing.discount_value ?? ''} onChange={(e) => setEditing({ ...editing, discount_value: e.target.value ? Number(e.target.value) : null })} />
+            </label>
+            <div className="inline-row">
+              <label>
+                Flash deal starts
+                <Input type="datetime-local" value={toLocalDatetime(editing.discount_starts_at)} onChange={(e) => setEditing({ ...editing, discount_starts_at: e.target.value ? new Date(e.target.value).toISOString() : null })} />
+              </label>
+              <label>
+                Flash deal ends
+                <Input type="datetime-local" value={toLocalDatetime(editing.discount_ends_at)} onChange={(e) => setEditing({ ...editing, discount_ends_at: e.target.value ? new Date(e.target.value).toISOString() : null })} />
+              </label>
+            </div>
+            <label className="inline-row" style={{ alignItems: 'center', gap: 8 }}>
+              <input type="checkbox" checked={Boolean(editing.boosted)} onChange={(e) => setEditing({ ...editing, boosted: e.target.checked })} />
+              Boost this deal (prioritize in the app)
             </label>
             <Button type="submit" disabled={readOnly}>
               Save

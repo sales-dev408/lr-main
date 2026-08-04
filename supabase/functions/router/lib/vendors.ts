@@ -16,6 +16,9 @@ export interface CreateVendorInput {
   phone?: string | null;
   discountType: DiscountType;
   discountValue: number;
+  discountStartsAt?: string | null;
+  discountEndsAt?: string | null;
+  boosted?: boolean;
   latitude?: number | null;
   longitude?: number | null;
   iconDataUrl?: string | null;
@@ -86,11 +89,11 @@ export async function createVendorWithDiscount(input: CreateVendorInput): Promis
 
       await client.query('INSERT INTO card_vendors (card_id, vendor_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [membership.id, vendorId]);
       const discountRows = await client.query<{ id: string }>(
-        `INSERT INTO discounts (card_id, vendor_id, type, value, discount_code, description, active)
-         VALUES ($1, $2, $3, $4, $5, $6, true)
-         ON CONFLICT (card_id, vendor_id) DO UPDATE SET type = EXCLUDED.type, value = EXCLUDED.value, discount_code = COALESCE(discounts.discount_code, EXCLUDED.discount_code), description = EXCLUDED.description, active = true, updated_at = now()
+        `INSERT INTO discounts (card_id, vendor_id, type, value, discount_code, description, active, starts_at, ends_at, boosted)
+         VALUES ($1, $2, $3, $4, $5, $6, true, $7, $8, $9)
+         ON CONFLICT (card_id, vendor_id) DO UPDATE SET type = EXCLUDED.type, value = EXCLUDED.value, discount_code = COALESCE(discounts.discount_code, EXCLUDED.discount_code), description = EXCLUDED.description, active = true, starts_at = EXCLUDED.starts_at, ends_at = EXCLUDED.ends_at, boosted = EXCLUDED.boosted, updated_at = now()
          RETURNING id`,
-        [membership.id, vendorId, input.discountType, input.discountValue, discountCode, `${label} member discount`],
+        [membership.id, vendorId, input.discountType, input.discountValue, discountCode, `${label} member discount`, input.discountStartsAt ?? null, input.discountEndsAt ?? null, input.boosted ?? false],
       );
       const discountId = discountRows.rows[0]!.id;
 

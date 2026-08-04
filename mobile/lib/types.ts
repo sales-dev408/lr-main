@@ -137,6 +137,9 @@ export interface VendorListItem {
   logoUrl: string | null;
   discount: { type: DiscountType; value: number; label: string };
   discountCode: string | null;
+  boosted: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
   cardId: string;
   walletUrl: string | null;
 }
