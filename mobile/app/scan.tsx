@@ -32,18 +32,18 @@ export default function ScanScreen() {
 
   return (
     <Screen>
-      <Stack.Screen options={{ headerShown: true, title: 'Scan vendor QR' }} />
+      <Stack.Screen options={{ headerShown: true, title: 'Scan vendor code' }} />
       <View style={styles.container}>
         {permission?.granted ? (
           <CameraView
             style={styles.camera}
             facing="back"
-            barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+            barcodeScannerSettings={{ barcodeTypes: ['qr', 'code128', 'code39'] }}
             onBarcodeScanned={({ data }) => handleScan(data)}
           />
         ) : (
           <View style={styles.permission}>
-            <Text style={[styles.permissionText, { color: colors.ink }]}>Camera permission is required to scan QR codes.</Text>
+            <Text style={[styles.permissionText, { color: colors.ink }]}>Camera permission is required to scan discount codes.</Text>
             <AppButton onPress={() => void requestPermission()}>Grant camera access</AppButton>
           </View>
         )}
@@ -51,7 +51,7 @@ export default function ScanScreen() {
           <View style={styles.webOverlay}>
             <Banner tone="info">Camera scanning is not available on web. Enter the vendor code below.</Banner>
             <Card>
-              <SectionTitle title="Manual entry" subtitle="Type the code printed under the QR code." />
+              <SectionTitle title="Manual entry" subtitle="Type the code printed under the barcode." />
               <FieldInput value={manualCode} onChangeText={setManualCode} placeholder="Vendor discount code" autoCapitalize="none" />
               <AppButton onPress={() => void submitManual()}>Look up discount</AppButton>
             </Card>

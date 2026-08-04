@@ -26,7 +26,7 @@ Discounts are provided by third-party businesses and may change, be limited in q
 You agree not to misuse the App, share or resell your membership pass, attempt to extract or reverse-engineer vendor discount codes, duplicate or tamper with passes, or use the App for any unlawful purpose. Memberships are personal and non-transferable.
 
 6. Accounts
-You are responsible for keeping your credentials secure and for all activity under your account. You may sign in with your email address or phone number and password. You can request deletion of your account at any time (see the Privacy Policy).
+You are responsible for keeping your credentials secure and for all activity under your account. You sign in with your first and last name; no password is required. You can request deletion of your account at any time (see the Privacy Policy).
 
 7. Fees
 Membership may be offered free or as a paid subscription. Any purchase made through the App is processed by Apple or Google and is subject to their refund policies.
@@ -50,7 +50,7 @@ Last updated: ${LEGAL_LAST_UPDATED}
 This Privacy Policy explains how Light Rail Deals ("we", "us") collects, uses, and shares your data.
 
 1. Information We Collect
-- Account information: your first and last name, your email address and/or mobile phone number, and a securely hashed password. We never store your password in readable form.
+- Account information: your first and last name, your email address and/or mobile phone number. We do not store a password for your account.
 - Membership pass data: a unique member identifier and pass barcode value, plus which wallet platform you added the pass to.
 - Redemption information: which participating business applied a discount, when, and the discount that was applied.
 - Usage information: which businesses and deals you view, to improve the App.

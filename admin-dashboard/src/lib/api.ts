@@ -429,6 +429,19 @@ export async function saveEventsRssUrls(urls: string[]): Promise<{ urls: string[
   return apiRequest<{ urls: string[] }>('/admin/events', { method: 'PATCH', body: jsonBody({ urls }) });
 }
 
+export interface PublicEvent {
+  id: string;
+  title: string;
+  description: string | null;
+  link: string | null;
+  pubDate: string | null;
+  sourceName: string | null;
+}
+
+export async function fetchPublicEvents(): Promise<PublicEvent[]> {
+  return apiRequest<PublicEvent[]>('/events');
+}
+
 // Reads a File into a base64 data URL for upload via the content API.
 export function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
