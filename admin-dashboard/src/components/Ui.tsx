@@ -50,7 +50,7 @@ export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
   return <select className="input" {...props} />;
 }
 
-export function Badge({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neutral' | 'success' | 'warning' | 'danger' }) {
+export function Badge({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neutral' | 'info' | 'success' | 'warning' | 'danger' }) {
   return <span className={`badge badge-${tone}`}>{children}</span>;
 }
 
