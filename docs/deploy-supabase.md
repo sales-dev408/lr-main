@@ -37,6 +37,10 @@ existing database, also apply the newer migrations:
 - `backend/src/db/migrations/005_cms_onboarding_theme.sql`
 - `backend/src/db/migrations/006_event_tickets.sql`
 - `backend/src/db/migrations/007_vendor_contact_phone.sql`
+- `backend/src/db/migrations/008_events_rss.sql`
+- `backend/src/db/migrations/009_push_notifications.sql`
+- `backend/src/db/migrations/010_map_coordinates.sql`
+- `backend/src/db/migrations/011_flash_deals.sql`
 
 ## 3) Move the backend contract to a Supabase Edge Function
 
@@ -97,6 +101,11 @@ psql "$SUPABASE_DB_URL" -f backend/src/db/migrations/003_discount_workflow.sql
 psql "$SUPABASE_DB_URL" -f backend/src/db/migrations/004_membership_card.sql
 psql "$SUPABASE_DB_URL" -f backend/src/db/migrations/005_cms_onboarding_theme.sql
 psql "$SUPABASE_DB_URL" -f backend/src/db/migrations/006_event_tickets.sql
+psql "$SUPABASE_DB_URL" -f backend/src/db/migrations/007_vendor_contact_phone.sql
+psql "$SUPABASE_DB_URL" -f backend/src/db/migrations/008_events_rss.sql
+psql "$SUPABASE_DB_URL" -f backend/src/db/migrations/009_push_notifications.sql
+psql "$SUPABASE_DB_URL" -f backend/src/db/migrations/010_map_coordinates.sql
+psql "$SUPABASE_DB_URL" -f backend/src/db/migrations/011_flash_deals.sql
 # function
 supabase secrets set SUPABASE_DB_URL=... JWT_SECRET=... POS_TOKEN_ENC_KEY=... ALLOWED_ORIGINS=... \
   PASSCREATOR_API_KEY=... PASSCREATOR_TEMPLATE_ID=...
@@ -132,7 +141,7 @@ VITE_API_BASE_URL=https://<project>.supabase.co/functions/v1/router
 VITE_API_BASE_URL=https://api.yourdomain.com/api
 ```
 
-Both talk to the same Postgres schema (`001_init.sql` through `006_event_tickets.sql`),
+Both talk to the same Postgres schema (`001_init.sql` through `011_flash_deals.sql`),
 so you can even run them side by side against one Supabase database and cut over
 by flipping `VITE_API_BASE_URL` (and `EXPO_PUBLIC_API_BASE_URL` for mobile).
 
