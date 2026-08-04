@@ -3,7 +3,7 @@ import bcrypt from 'npm:bcryptjs';
 import { config } from './lib/config.ts';
 import { authenticate, requireRole } from './lib/auth.ts';
 import { dbQuery, withDbClient } from './lib/db.ts';
-import { getAdminAnalytics } from './lib/analytics.ts';
+import { getAdminAnalytics, getVendorAnalytics } from './lib/analytics.ts';
 import { buildLookupDiscountView } from './lib/discounts.ts';
 import { resolvePassLookup, resolveCardLookup } from './lib/lookup.ts';
 import { redeemDiscount } from './lib/redeem.ts';
@@ -21,7 +21,16 @@ import {
   saveTheme,
   updateContentBlock,
 } from './lib/content.ts';
-import { fetchEventsFromRss, getEventsRssUrls, saveEventsRssUrls } from './lib/events.ts';
+import {
+  fetchPublicEvents,
+  getEventsRssUrls,
+  saveEventsRssUrls,
+  listAdminEvents,
+  createAdminEvent,
+  updateAdminEvent,
+  deleteAdminEvent,
+  adminEventSchema,
+} from './lib/events.ts';
 import { savePushToken } from './lib/push.ts';
 
 // Shape the customer-facing membership pass payload (wallet + barcode links),
@@ -77,10 +86,6 @@ const themeSchema = z.object({
   tabs: z.array(themeTabSchema).min(1),
 });
 
-const eventsRssSchema = z.object({
-  urls: z.array(z.string().url()).max(10),
-});
-
 const pushTokenSchema = z.object({
   token: z.string().min(1),
   city: z.string().optional(),
@@ -110,9 +115,9 @@ const cardSchema = z.object({
   name: z.string().min(1),
   theme: z.enum(['sports', 'entertainment', 'shops_restaurants']),
   description: z.string().optional(),
-  imageUrl: z.string().url().optional(),
-  logoUrl: z.string().url().optional(),
-  iconUrl: z.string().url().optional(),
+  imageUrl: z.string().optional(),
+  logoUrl: z.string().optional(),
+  iconUrl: z.string().optional(),
   primaryColor: z.string().optional(),
   secondaryColor: z.string().optional(),
   qrSize: z.number().int().min(80).max(600).optional(),
@@ -124,6 +129,7 @@ const cardSchema = z.object({
 
 const adminVendorCreateSchema = z.object({
   name: z.string().min(1),
+  ownerName: z.string().optional(),
   address: z.string().optional(),
   category: z.enum(['Sports', 'Dining', 'Entertainment']),
   email: z.string().email().optional(),
@@ -141,6 +147,7 @@ const adminVendorCreateSchema = z.object({
 
 const adminVendorUpdateSchema = z.object({
   name: z.string().min(1).optional(),
+  ownerName: z.string().optional(),
   address: z.string().optional(),
   category: z.enum(['Sports', 'Dining', 'Entertainment']).optional(),
   email: z.string().email().optional(),
@@ -163,6 +170,7 @@ const adminSettingsSchema = z.object({
 
 const ticketCreateSchema = z.object({
   barcode: z.string().min(1),
+  barcodeFormat: z.string().optional(),
   name: z.string().min(1).default('Event Ticket'),
   allowedUses: z.number().int().positive().default(1),
   userId: z.string().uuid().optional(),
@@ -170,6 +178,8 @@ const ticketCreateSchema = z.object({
 
 const ticketUpdateSchema = z.object({
   name: z.string().min(1).optional(),
+  barcode: z.string().min(1).optional(),
+  barcodeFormat: z.string().optional(),
   allowedUses: z.number().int().positive().optional(),
   usedUses: z.number().int().min(0).optional(),
   status: z.enum(['active', 'used', 'disabled']).optional(),
@@ -298,7 +308,8 @@ async function loadCardsWithBusinesses(filters: { id?: string; theme?: string; s
     `
       SELECT *
       FROM cards
-      WHERE ($1::uuid IS NULL OR id = $1::uuid)
+      WHERE is_membership = true
+        AND ($1::uuid IS NULL OR id = $1::uuid)
         AND ($2::text IS NULL OR $2 = '' OR theme = $2)
         AND ($3::text IS NULL OR $3 = '' OR status = $3)
       ORDER BY created_at DESC
@@ -690,11 +701,12 @@ Deno.serve(async (request) => {
     if (path === '/api/admin/tickets' && request.method === 'GET') {
       const auth = requireRole(request, ['admin']);
       if (auth instanceof Response) return auth;
-      const rows = await dbQuery('SELECT id, name, barcode, allowed_uses, used_uses, status, user_id, created_at FROM tickets ORDER BY created_at DESC', []);
+      const rows = await dbQuery('SELECT id, name, barcode, barcode_format, allowed_uses, used_uses, status, user_id, created_at FROM tickets ORDER BY created_at DESC', []);
       return json(request, rows.map((row) => ({
         id: row.id,
         name: row.name,
         barcode: row.barcode,
+        barcodeFormat: row.barcode_format,
         allowedUses: row.allowed_uses,
         usedUses: row.used_uses,
         remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
@@ -708,7 +720,7 @@ Deno.serve(async (request) => {
       const auth = requireRole(request, ['admin']);
       if (auth instanceof Response) return auth;
       const body = ticketCreateSchema.parse(await readJsonBody(request, {}));
-      const rows = await dbQuery<{ id: string }>('INSERT INTO tickets (barcode, name, allowed_uses, user_id) VALUES ($1, $2, $3, $4) RETURNING id', [body.barcode, body.name, body.allowedUses, body.userId ?? null]);
+      const rows = await dbQuery<{ id: string }>('INSERT INTO tickets (barcode, barcode_format, name, allowed_uses, user_id) VALUES ($1, $2, $3, $4, $5) RETURNING id', [body.barcode, body.barcodeFormat ?? null, body.name, body.allowedUses, body.userId ?? null]);
       return json(request, { id: rows[0]!.id }, { status: 201 });
     }
 
@@ -720,14 +732,16 @@ Deno.serve(async (request) => {
       const rows = await dbQuery(
         `UPDATE tickets
          SET name = COALESCE($2, name),
-             allowed_uses = COALESCE($3, allowed_uses),
-             used_uses = COALESCE($4, used_uses),
-             status = COALESCE($5, status),
-             user_id = COALESCE($6, user_id),
+             barcode = COALESCE($3, barcode),
+             barcode_format = COALESCE($4, barcode_format),
+             allowed_uses = COALESCE($5, allowed_uses),
+             used_uses = COALESCE($6, used_uses),
+             status = COALESCE($7, status),
+             user_id = COALESCE($8, user_id),
              updated_at = now()
          WHERE id = $1
          RETURNING *`,
-        [id, body.name ?? null, body.allowedUses ?? null, body.usedUses ?? null, body.status ?? null, body.userId === undefined ? null : body.userId],
+        [id, body.name ?? null, body.barcode ?? null, body.barcodeFormat ?? null, body.allowedUses ?? null, body.usedUses ?? null, body.status ?? null, body.userId === undefined ? null : body.userId],
       );
       return json(request, rows[0] ?? {});
     }
@@ -793,6 +807,7 @@ Deno.serve(async (request) => {
       const body = adminVendorCreateSchema.parse(await readJsonBody(request, {}));
       const result = await createVendorWithDiscount({
         name: body.name,
+        ownerName: body.ownerName ?? null,
         address: body.address ?? null,
         category: body.category,
         email: body.email ?? null,
@@ -815,8 +830,8 @@ Deno.serve(async (request) => {
       const id = path.split('/').pop()!;
       const body = adminVendorUpdateSchema.parse(await readJsonBody(request, {}));
       const rows = await dbQuery(
-        `UPDATE vendors SET name = COALESCE($2, name), location = COALESCE($3, location), address = COALESCE($3, address), category = COALESCE($4, category), email = COALESCE($5, email), phone = COALESCE($6, phone), status = COALESCE($7, status), latitude = COALESCE($8, latitude), longitude = COALESCE($9, longitude), updated_at = now() WHERE id = $1 RETURNING *`,
-        [id, body.name ?? null, body.address ?? null, body.category ?? null, body.email ?? null, body.phone ?? null, body.status ?? null, body.latitude ?? null, body.longitude ?? null],
+        `UPDATE vendors SET name = COALESCE($2, name), owner_name = COALESCE($3, owner_name), location = COALESCE($4, location), address = COALESCE($4, address), category = COALESCE($5, category), email = COALESCE($6, email), phone = COALESCE($7, phone), status = COALESCE($8, status), latitude = COALESCE($9, latitude), longitude = COALESCE($10, longitude), updated_at = now() WHERE id = $1 RETURNING *`,
+        [id, body.name ?? null, body.ownerName ?? null, body.address ?? null, body.category ?? null, body.email ?? null, body.phone ?? null, body.status ?? null, body.latitude ?? null, body.longitude ?? null],
       );
       if (body.discountType !== undefined || body.discountValue !== undefined || body.discountStartsAt !== undefined || body.discountEndsAt !== undefined || body.boosted !== undefined) {
         await dbQuery(
@@ -868,6 +883,14 @@ Deno.serve(async (request) => {
       if (auth instanceof Response) return auth;
       const id = path.split('/').slice(-2)[0]!;
       return json(request, await dbQuery('SELECT * FROM transactions WHERE entity_type = \'vendor\' AND entity_id = $1 ORDER BY created_at DESC', [id]));
+    }
+    if (/^\/api\/admin\/vendors\/[^/]+\/analytics$/.test(path) && request.method === 'GET') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const id = path.split('/').slice(-2)[0]!;
+      const exists = await dbQuery<{ id: string }>('SELECT id FROM vendors WHERE id = $1 LIMIT 1', [id]);
+      if (exists.length === 0) return json(request, { error: 'Vendor not found' }, { status: 404 });
+      return json(request, await getVendorAnalytics(id));
     }
     if (/^\/api\/admin\/vendors\/[^/]+\/qr$/.test(path) && request.method === 'POST') {
       const auth = requireRole(request, ['admin']);
@@ -1045,19 +1068,44 @@ Deno.serve(async (request) => {
     // ---- Events RSS feed ----------------------------------------------------
     // Public: parsed RSS feed items shown on the Events tab.
     if (path === '/api/events' && request.method === 'GET') {
-      return json(request, await fetchEventsFromRss());
+      return json(request, await fetchPublicEvents());
     }
-    // Admin: manage the RSS feed URLs that power the Events tab.
+    // Admin: manage the RSS feed URLs and manually added events that power the Events tab.
     if (path === '/api/admin/events' && request.method === 'GET') {
       const auth = requireRole(request, ['admin']);
       if (auth instanceof Response) return auth;
-      return json(request, { urls: await getEventsRssUrls() });
+      return json(request, { urls: await getEventsRssUrls(), events: await listAdminEvents() });
     }
     if (path === '/api/admin/events' && request.method === 'PATCH') {
       const auth = requireRole(request, ['admin']);
       if (auth instanceof Response) return auth;
-      const body = eventsRssSchema.parse(await readJsonBody(request, {}));
-      return json(request, { urls: await saveEventsRssUrls(body.urls) });
+      const body = request.body ? (await readJsonBody(request, {})) as { urls?: unknown } : { urls: [] };
+      const urls = Array.isArray(body.urls)
+        ? body.urls.filter((url): url is string => typeof url === 'string' && url.length > 0)
+        : [];
+      return json(request, { urls: await saveEventsRssUrls(urls) });
+    }
+    if (path === '/api/admin/events/custom' && request.method === 'POST') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const body = adminEventSchema.parse(await readJsonBody(request, {}));
+      return json(request, await createAdminEvent(body), { status: 201 });
+    }
+    if (/^\/api\/admin\/events\/custom\/[^/]+$/.test(path) && request.method === 'PATCH') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const id = path.split('/').pop()!;
+      const body = adminEventSchema.partial().parse(await readJsonBody(request, {}));
+      const updated = await updateAdminEvent(id, body);
+      if (!updated) return json(request, { error: 'Event not found' }, { status: 404 });
+      return json(request, updated);
+    }
+    if (/^\/api\/admin\/events\/custom\/[^/]+$/.test(path) && request.method === 'DELETE') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const id = path.split('/').pop()!;
+      const deleted = await deleteAdminEvent(id);
+      return json(request, {}, { status: deleted ? 204 : 404 });
     }
 
     // Resolves a membership pass to its wallet download. 302-redirects to the

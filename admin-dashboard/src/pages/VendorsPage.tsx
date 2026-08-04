@@ -1,28 +1,35 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
-import { createAdminVendor, getVendorPass, listAdminVendors, regenerateVendorQr, updateAdminVendor } from '../lib/api';
-import type { CreateVendorResult, VendorCategory, VendorPassResult, VendorRecord } from '../lib/types';
-import { Button, EmptyState, ErrorBanner, Modal, PageCard, Select, Input, Badge, SuccessBanner } from '../components/Ui';
+import {
+  createAdminVendor,
+  getVendorAnalytics,
+  listAdminVendors,
+  regenerateVendorQr,
+  updateAdminVendor,
+} from '../lib/api';
+import type { VendorCategory, VendorRecord } from '../lib/types';
+import type { VendorAnalyticsResponse } from '../lib/api';
+import { Button, EmptyState, ErrorBanner, InfoCard, Modal, PageCard, Select, Input, Badge, SuccessBanner } from '../components/Ui';
 import { useAuth } from '../lib/auth';
 import { parseVendorFields, scanImageToText } from '../lib/ocr';
 import { qrCodeUrl } from '../lib/qr';
 
 const CATEGORIES: VendorCategory[] = ['Sports', 'Dining', 'Entertainment'];
 
+type DiscountKind = 'percent' | 'fixed' | 'bogo';
+
 const blankVendor = {
   name: '',
+  ownerName: '',
   address: '',
   email: '',
   phone: '',
   category: 'Dining' as VendorCategory,
-  latitude: '',
-  longitude: '',
-  discountKind: 'percent' as 'percent' | 'fixed',
+  discountKind: 'percent' as DiscountKind,
   discountValue: '',
   discountStartsAt: '',
   discountEndsAt: '',
   boosted: false,
   iconDataUrl: '',
-  logoDataUrl: '',
 };
 
 function readFileAsDataUrl(file: File): Promise<string> {
@@ -32,6 +39,69 @@ function readFileAsDataUrl(file: File): Promise<string> {
     reader.onerror = () => reject(reader.error ?? new Error('Failed to read file'));
     reader.readAsDataURL(file);
   });
+}
+
+function formatDiscount(type: VendorRecord['discount_type'], value: VendorRecord['discount_value']): string {
+  if (!type) return '';
+  if (type === 'bogo') return 'Buy one, get one';
+  if (value === undefined || value === null) return '';
+  const num = typeof value === 'string' ? Number(value) : value;
+  if (type === 'percent') return `${num}% off`;
+  if (type === 'fixed') return `$${num.toFixed(2)} off`;
+  return String(value);
+}
+
+function formatFlashWindow(starts: VendorRecord['discount_starts_at'], ends: VendorRecord['discount_ends_at']): string | null {
+  if (!starts && !ends) return null;
+  const start = starts ? new Date(starts).toLocaleString() : 'now';
+  const end = ends ? new Date(ends).toLocaleString() : 'ongoing';
+  return `Flash deal: ${start} → ${end}`;
+}
+
+function toLocalDatetime(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function downloadQrPdf(vendorName: string, code: string, discountLabel: string, instructions: string) {
+  const qr = qrCodeUrl(code, 240);
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>QR Code - ${vendorName}</title>
+        <style>
+          body { font-family: Arial, sans-serif; text-align: center; padding: 32px; }
+          h1 { margin: 0 0 8px; font-size: 28px; }
+          .discount { font-size: 18px; color: #444; margin-bottom: 20px; }
+          img { width: 240px; height: 240px; border-radius: 12px; margin-bottom: 16px; }
+          .code { font-size: 22px; font-weight: bold; margin: 12px 0; }
+          .instructions { max-width: 520px; margin: 20px auto; text-align: left; line-height: 1.5; white-space: pre-line; }
+          .footer { max-width: 520px; margin: 24px auto 0; color: #555; }
+          @media print { .no-print { display: none; } }
+        </style>
+      </head>
+      <body>
+        <h1>${vendorName}</h1>
+        <p class="discount">${discountLabel}</p>
+        <img src="${qr}" alt="QR code" />
+        <p class="code">Discount code: ${code}</p>
+        <div class="instructions">${instructions.replace(/\n/g, '<br>')}</div>
+        <p class="footer">Show this QR code at checkout. The merchant scans the member's pass barcode, then applies the discount code in their POS.</p>
+      </body>
+    </html>
+  `;
+  const win = window.open('', '_blank');
+  if (!win) return;
+  win.document.write(html);
+  win.document.close();
+  setTimeout(() => {
+    win.focus();
+    win.print();
+  }, 250);
 }
 
 export function VendorsPage() {
@@ -44,11 +114,10 @@ export function VendorsPage() {
   const [editing, setEditing] = useState<VendorRecord | null>(null);
   const [form, setForm] = useState(blankVendor);
   const [creating, setCreating] = useState(false);
-  const [result, setResult] = useState<CreateVendorResult | null>(null);
-  const [passView, setPassView] = useState<{ vendor: VendorRecord; pass: VendorPassResult } | null>(null);
-  const [qrResult, setQrResult] = useState<{ vendor: VendorRecord; discountCode: string; qrUrl: string } | null>(null);
   const [scanning, setScanning] = useState(false);
   const [scanNote, setScanNote] = useState<string | null>(null);
+  const [statsVendor, setStatsVendor] = useState<{ vendor: VendorRecord; stats: VendorAnalyticsResponse } | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -72,69 +141,12 @@ export function VendorsPage() {
 
   const sorted = useMemo(() => vendors.slice().sort((a, b) => a.name.localeCompare(b.name)), [vendors]);
 
-  function formatFlashWindow(starts: VendorRecord['discount_starts_at'], ends: VendorRecord['discount_ends_at']): string | null {
-    if (!starts && !ends) return null;
-    const start = starts ? new Date(starts).toLocaleString() : 'now';
-    const end = ends ? new Date(ends).toLocaleString() : 'ongoing';
-    return `Flash deal: ${start} → ${end}`;
-  }
-
-  function formatDiscount(type: VendorRecord['discount_type'], value: VendorRecord['discount_value']): string {
-    if (!type || value === undefined || value === null) return '';
-    const num = typeof value === 'string' ? Number(value) : value;
-    if (type === 'percent') return `${num}% off`;
-    if (type === 'fixed') return `$${num.toFixed(2)} off`;
-    if (type === 'bogo') return 'Buy one, get one';
-    return String(value);
-  }
-
-  function toLocalDatetime(iso: string | null | undefined): string {
-    if (!iso) return '';
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return '';
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  }
-
-function csvEscape(value: unknown): string {
-    const str = value === null || value === undefined ? '' : String(value);
-    const escaped = str.replace(/"/g, '""');
-    if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
-      return `"${escaped}"`;
-    }
-    return escaped;
-  }
-
-  function downloadVendorsCsv(items: VendorRecord[]) {
-    const headers = ['Business Name', 'Email', 'Phone', 'Address', 'Category', 'Status', 'Discount', 'Discount Code'];
-    const rows = items.map((v) => [
-      v.name,
-      v.email ?? '',
-      v.phone ?? '',
-      v.address ?? v.location ?? '',
-      v.category ?? '',
-      v.status,
-      formatDiscount(v.discount_type, v.discount_value),
-      v.discount_code ?? '',
-    ]);
-    const csv = [headers.map(csvEscape).join(','), ...rows.map((row) => row.map(csvEscape).join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `vendors-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }
-
-  async function handleFile(event: ChangeEvent<HTMLInputElement>, key: 'iconDataUrl' | 'logoDataUrl') {
+  async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
     try {
       const dataUrl = await readFileAsDataUrl(file);
-      setForm((prev) => ({ ...prev, [key]: dataUrl }));
+      setForm((prev) => ({ ...prev, iconDataUrl: dataUrl }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to read image');
     }
@@ -160,7 +172,7 @@ function csvEscape(value: unknown): string {
         ...(fields.name ? { name: fields.name } : {}),
         ...(fields.address ? { address: fields.address } : {}),
         ...(fields.category ? { category: fields.category } : {}),
-        ...(fields.discountKind ? { discountKind: fields.discountKind } : {}),
+        ...(fields.discountKind ? { discountKind: fields.discountKind as DiscountKind } : {}),
         ...(fields.discountValue ? { discountValue: fields.discountValue } : {}),
       }));
       setScanNote(`Scanned ${filled.map(([k]) => k).join(', ')}. Review before creating.`);
@@ -171,35 +183,38 @@ function csvEscape(value: unknown): string {
     }
   }
 
+  function discountValueRequired(kind: DiscountKind): boolean {
+    return kind === 'percent' || kind === 'fixed';
+  }
+
   async function submitCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (readOnly) return;
+    const needsValue = discountValueRequired(form.discountKind);
     const value = Number(form.discountValue);
-    if (!Number.isFinite(value) || value <= 0) {
+    if (needsValue && (!Number.isFinite(value) || value <= 0)) {
       setError('Enter a valid discount amount.');
       return;
     }
     setCreating(true);
     setError(null);
     try {
-      const created = await createAdminVendor({
+      await createAdminVendor({
         name: form.name,
+        ownerName: form.ownerName || undefined,
         address: form.address || undefined,
         category: form.category,
         email: form.email || undefined,
         phone: form.phone || undefined,
-        latitude: form.latitude ? Number(form.latitude) : undefined,
-        longitude: form.longitude ? Number(form.longitude) : undefined,
         discountType: form.discountKind,
-        discountValue: value,
+        discountValue: needsValue ? value : 0,
         discountStartsAt: form.discountStartsAt ? new Date(form.discountStartsAt).toISOString() : null,
         discountEndsAt: form.discountEndsAt ? new Date(form.discountEndsAt).toISOString() : null,
         boosted: form.boosted,
         ...(form.iconDataUrl ? { iconDataUrl: form.iconDataUrl } : {}),
-        ...(form.logoDataUrl ? { logoDataUrl: form.logoDataUrl } : {}),
       });
-      setResult(created);
       setForm(blankVendor);
+      setScanNote('Vendor created successfully.');
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Create failed');
@@ -212,17 +227,20 @@ function csvEscape(value: unknown): string {
     event.preventDefault();
     if (readOnly || !editing) return;
     try {
+      const kind = editing.discount_type ?? 'percent';
+      const needsValue = discountValueRequired(kind as DiscountKind);
+      const rawValue = editing.discount_value;
+      const value = rawValue !== undefined && rawValue !== null && rawValue !== '' ? Number(rawValue) : null;
       await updateAdminVendor(editing.id, {
         name: editing.name,
-        address: editing.address ?? undefined,
+        ownerName: editing.owner_name ?? undefined,
+        address: editing.address ?? editing.location ?? undefined,
         category: (editing.category as VendorCategory | null) ?? undefined,
         email: editing.email ?? undefined,
         phone: editing.phone ?? undefined,
-        latitude: editing.latitude ?? undefined,
-        longitude: editing.longitude ?? undefined,
         status: editing.status,
         ...(editing.discount_type ? { discountType: editing.discount_type } : {}),
-        ...(editing.discount_value !== undefined && editing.discount_value !== null ? { discountValue: Number(editing.discount_value) } : {}),
+        ...(needsValue && value !== null ? { discountValue: value } : {}),
         discountStartsAt: editing.discount_starts_at ? new Date(editing.discount_starts_at).toISOString() : null,
         discountEndsAt: editing.discount_ends_at ? new Date(editing.discount_ends_at).toISOString() : null,
         boosted: editing.boosted ?? false,
@@ -234,23 +252,38 @@ function csvEscape(value: unknown): string {
     }
   }
 
-  async function handleViewPass(vendor: VendorRecord) {
-    try {
-      const pass = await getVendorPass(vendor.id);
-      setPassView({ vendor, pass });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load pass');
-    }
-  }
-
   async function handleRegenerateQr(vendor: VendorRecord) {
     if (readOnly) return;
     try {
-      const { discountCode, qrUrl } = await regenerateVendorQr(vendor.id);
-      setQrResult({ vendor, discountCode, qrUrl });
+      setError(null);
+      const { discountCode } = await regenerateVendorQr(vendor.id);
       await load();
+      const discountType = vendor.discount_type ?? 'percent';
+      const value = typeof vendor.discount_value === 'string' ? Number(vendor.discount_value) : (vendor.discount_value ?? 0);
+      const label = formatDiscount(discountType, value);
+      const instructions = [
+        `Activate the "${label}" member discount in your point-of-sale system:`,
+        '1. Ask the customer to show their Light Rail membership pass and scan its barcode.',
+        `2. Apply this discount using code ${discountCode}.`,
+        '3. No NFC or special hardware is required — any barcode scanner or manual keypad works.',
+      ].join('\n');
+      downloadQrPdf(vendor.name, discountCode, label, instructions);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to regenerate QR code');
+    }
+  }
+
+  async function handleViewStats(vendor: VendorRecord) {
+    setStatsLoading(true);
+    setStatsVendor(null);
+    setError(null);
+    try {
+      const stats = await getVendorAnalytics(vendor.id);
+      setStatsVendor({ vendor, stats });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to load vendor stats');
+    } finally {
+      setStatsLoading(false);
     }
   }
 
@@ -259,7 +292,7 @@ function csvEscape(value: unknown): string {
       <div className="page-heading">
         <div>
           <h1>Vendors</h1>
-          <p className="muted">Create vendors and issue their Apple Wallet discount passes.</p>
+          <p className="muted">Create vendors and manage their discount offers.</p>
         </div>
         <div className="filters">
           <Select value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))}>
@@ -271,9 +304,7 @@ function csvEscape(value: unknown): string {
           <Select value={filters.category} onChange={(e) => setFilters((prev) => ({ ...prev, category: e.target.value }))}>
             <option value="">All categories</option>
             {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
+              <option key={c} value={c}>{c}</option>
             ))}
           </Select>
         </div>
@@ -282,12 +313,12 @@ function csvEscape(value: unknown): string {
       {error ? <ErrorBanner message={error} /> : null}
 
       <div className="grid-2">
-        <PageCard title="Create vendor" subtitle={readOnly ? 'Read-only analyst mode' : 'Add a business and generate its discount pass.'}>
+        <PageCard title="Create vendor" subtitle={readOnly ? 'Read-only analyst mode' : 'Scan a flyer or enter business details.'}>
           <form className="form" onSubmit={submitCreate}>
             <div className="scan-box">
               <div>
                 <strong>Scan a flyer or business card</strong>
-                <p className="muted">Upload a photo and we&apos;ll auto-fill the fields below (OCR by Puter.js). Review before creating.</p>
+                <p className="muted">Upload a photo to auto-fill fields below.</p>
               </div>
               <label className="btn btn-secondary scan-btn">
                 {scanning ? 'Scanning…' : 'Scan image'}
@@ -296,30 +327,22 @@ function csvEscape(value: unknown): string {
             </div>
             {scanNote ? <SuccessBanner message={scanNote} /> : null}
             <label>
-              Vendor name
-              <Input placeholder="Vendor name" value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} required />
+              Business name
+              <Input placeholder="Business name" value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} required />
+            </label>
+            <label>
+              Owner name
+              <Input placeholder="Owner name" value={form.ownerName} onChange={(e) => setForm((prev) => ({ ...prev, ownerName: e.target.value }))} />
             </label>
             <label>
               Address
               <Input placeholder="Address" value={form.address} onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))} />
             </label>
-            <div className="inline-row">
-              <label>
-                Latitude
-                <Input type="number" step="any" placeholder="33.45" value={form.latitude} onChange={(e) => setForm((prev) => ({ ...prev, latitude: e.target.value }))} />
-              </label>
-              <label>
-                Longitude
-                <Input type="number" step="any" placeholder="-112.07" value={form.longitude} onChange={(e) => setForm((prev) => ({ ...prev, longitude: e.target.value }))} />
-              </label>
-            </div>
             <label>
               Category
               <Select value={form.category} onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value as VendorCategory }))}>
                 {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
+                  <option key={c} value={c}>{c}</option>
                 ))}
               </Select>
             </label>
@@ -334,11 +357,14 @@ function csvEscape(value: unknown): string {
             <label>
               Discount amount
               <div className="inline-row">
-                <Select value={form.discountKind} onChange={(e) => setForm((prev) => ({ ...prev, discountKind: e.target.value as 'percent' | 'fixed' }))}>
-                  <option value="percent">%</option>
-                  <option value="fixed">$</option>
+                <Select value={form.discountKind} onChange={(e) => setForm((prev) => ({ ...prev, discountKind: e.target.value as DiscountKind }))}>
+                  <option value="percent">% off</option>
+                  <option value="fixed">$ off</option>
+                  <option value="bogo">BOGO</option>
                 </Select>
-                <Input type="number" min="0" step="0.01" placeholder="15" value={form.discountValue} onChange={(e) => setForm((prev) => ({ ...prev, discountValue: e.target.value }))} required />
+                {discountValueRequired(form.discountKind) ? (
+                  <Input type="number" min="0" step="0.01" placeholder="15" value={form.discountValue} onChange={(e) => setForm((prev) => ({ ...prev, discountValue: e.target.value }))} required />
+                ) : null}
               </div>
             </label>
             <div className="inline-row">
@@ -353,15 +379,12 @@ function csvEscape(value: unknown): string {
             </div>
             <label className="inline-row" style={{ alignItems: 'center', gap: 8 }}>
               <input type="checkbox" checked={form.boosted} onChange={(e) => setForm((prev) => ({ ...prev, boosted: e.target.checked }))} />
-              Boost this deal (prioritize in the app)
+              Boost this deal
             </label>
             <label>
-              Icon PNG
-              <Input type="file" accept="image/png" onChange={(e) => handleFile(e, 'iconDataUrl')} />
-            </label>
-            <label>
-              Logo PNG
-              <Input type="file" accept="image/png" onChange={(e) => handleFile(e, 'logoDataUrl')} />
+              Icon
+              <Input type="file" accept="image/*" onChange={handleFile} />
+              {form.iconDataUrl ? <img src={form.iconDataUrl} alt="Icon preview" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, marginTop: 8 }} /> : null}
             </label>
             <Button type="submit" disabled={readOnly || creating}>
               {creating ? 'Creating…' : 'Create vendor'}
@@ -370,37 +393,33 @@ function csvEscape(value: unknown): string {
         </PageCard>
 
         <PageCard title="Vendors list">
-          <div className="row-actions" style={{ justifyContent: 'flex-end', paddingBottom: 12 }}>
-            <Button variant="secondary" onClick={() => downloadVendorsCsv(sorted)} disabled={sorted.length === 0}>
-              Export CSV
-            </Button>
-          </div>
           {loading ? <div className="muted">Loading…</div> : null}
           {sorted.length === 0 ? <EmptyState title="No vendors" description="Use the create form to add vendors." /> : null}
           <div className="vendor-list">
             {sorted.map((vendor) => (
               <article key={vendor.id} className="list-row">
-                <div>
-                  <strong>{vendor.name}</strong>
-                  <p className="muted">
-                    {(vendor.address ?? vendor.location) ?? '—'} · {vendor.category ?? '—'}
-                    {vendor.email ? ` · ${vendor.email}` : ''}
-                    {vendor.phone ? ` · ${vendor.phone}` : ''}
-                  </p>
-                  <Badge tone={vendor.status === 'approved' ? 'success' : vendor.status === 'rejected' ? 'danger' : 'warning'}>{vendor.status}</Badge>
-                  {vendor.boosted ? <Badge tone="info">Boosted</Badge> : null}
-                  {formatFlashWindow(vendor.discount_starts_at, vendor.discount_ends_at) ? <p className="muted">{formatFlashWindow(vendor.discount_starts_at, vendor.discount_ends_at)}</p> : null}
+                <div className="vendor-info">
+                  {vendor.icon_url ? <img src={vendor.icon_url} alt="" className="vendor-icon" /> : null}
+                  <div>
+                    <strong>{vendor.name}</strong>
+                    {vendor.owner_name ? <p className="muted">Owner: {vendor.owner_name}</p> : null}
+                    <p className="muted">
+                      {(vendor.address ?? vendor.location) ?? '—'} · {vendor.category ?? '—'}
+                      {vendor.email ? ` · ${vendor.email}` : ''}
+                      {vendor.phone ? ` · ${vendor.phone}` : ''}
+                    </p>
+                    <div className="inline-row" style={{ gap: 6, flexWrap: 'wrap' }}>
+                      <Badge tone={vendor.status === 'approved' ? 'success' : vendor.status === 'rejected' ? 'danger' : 'warning'}>{vendor.status}</Badge>
+                      {vendor.boosted ? <Badge tone="info">Boosted</Badge> : null}
+                      {vendor.discount_type ? <Badge tone="neutral">{formatDiscount(vendor.discount_type, vendor.discount_value)}</Badge> : null}
+                    </div>
+                    {formatFlashWindow(vendor.discount_starts_at, vendor.discount_ends_at) ? <p className="muted">{formatFlashWindow(vendor.discount_starts_at, vendor.discount_ends_at)}</p> : null}
+                  </div>
                 </div>
                 <div className="row-actions">
-                  <Button variant="secondary" disabled={readOnly} onClick={() => setEditing(vendor)}>
-                    Edit
-                  </Button>
-                  <Button variant="secondary" disabled={readOnly} onClick={() => handleRegenerateQr(vendor)}>
-                    Regenerate QR
-                  </Button>
-                  <Button variant="secondary" onClick={() => handleViewPass(vendor)}>
-                    View discount
-                  </Button>
+                  <Button variant="secondary" disabled={readOnly} onClick={() => setEditing(vendor)}>Edit</Button>
+                  <Button variant="secondary" disabled={readOnly} onClick={() => handleRegenerateQr(vendor)}>Regenerate QR</Button>
+                  <Button variant="secondary" onClick={() => handleViewStats(vendor)}>View stats</Button>
                 </div>
               </article>
             ))}
@@ -408,101 +427,26 @@ function csvEscape(value: unknown): string {
         </PageCard>
       </div>
 
-      <Modal open={Boolean(result)} title="Vendor created" onClose={() => setResult(null)}>
-        {result ? (
-          <div className="stack">
-            <SuccessBanner message={`"${result.vendor.name}" added to the ${result.membershipCard.name} with a ${result.discount.label} member discount.`} />
-            <div>
-              <p className="muted">Exclusive member discount</p>
-              <pre className="code-block">{result.discount.label}</pre>
-            </div>
-            <div>
-              <p className="muted">POS discount code</p>
-              <pre className="code-block">{result.discountCode}</pre>
-            </div>
-            <div>
-              <p className="muted">Printable in-store QR code</p>
-              <img src={qrCodeUrl(result.discountCode, 240)} alt="Vendor QR code" style={{ width: 240, height: 240, borderRadius: 12 }} />
-            </div>
-            <div>
-              <p className="muted">Merchant POS activation instructions</p>
-              <pre className="code-block">{result.posInstructions}</pre>
-            </div>
-            <p className="muted">
-              Members carry one all-in-one membership pass. This vendor&apos;s discount is applied when a member scans this
-              QR code in the app — no per-vendor pass is generated.
-            </p>
-          </div>
-        ) : null}
-      </Modal>
-
-      <Modal open={Boolean(passView)} title={`Discount: ${passView?.vendor.name ?? ''}`} onClose={() => setPassView(null)}>
-        {passView ? (
-          <div className="stack">
-            <div>
-              <p className="muted">Exclusive member discount</p>
-              <pre className="code-block">{passView.pass.discount.label}</pre>
-            </div>
-            <div>
-              <p className="muted">POS discount code</p>
-              <pre className="code-block">{passView.pass.discountCode ?? '—'}</pre>
-            </div>
-            <div>
-              <p className="muted">Membership card</p>
-              <pre className="code-block">{passView.pass.membershipCard.name}</pre>
-            </div>
-            <div>
-              <p className="muted">POS instructions</p>
-              <pre className="code-block">{passView.pass.posInstructions}</pre>
-            </div>
-          </div>
-        ) : null}
-      </Modal>
-
-      <Modal open={Boolean(qrResult)} title={`QR code: ${qrResult?.vendor.name ?? ''}`} onClose={() => setQrResult(null)}>
-        {qrResult ? (
-          <div className="stack">
-            <SuccessBanner message="A new QR code and discount code have been generated for this vendor." />
-            <div>
-              <p className="muted">New POS discount code</p>
-              <pre className="code-block">{qrResult.discountCode}</pre>
-            </div>
-            <div>
-              <p className="muted">Printable QR code</p>
-              <img src={qrResult.qrUrl} alt="Vendor QR code" style={{ width: 240, height: 240, borderRadius: 12 }} />
-            </div>
-          </div>
-        ) : null}
-      </Modal>
-
       <Modal open={Boolean(editing)} title="Edit vendor" onClose={() => setEditing(null)}>
         {editing ? (
           <form className="form" onSubmit={submitUpdate}>
             <label>
-              Name
+              Business name
               <Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
             </label>
             <label>
-              Address
-              <Input value={editing.address ?? ''} onChange={(e) => setEditing({ ...editing, address: e.target.value })} />
+              Owner name
+              <Input value={editing.owner_name ?? ''} onChange={(e) => setEditing({ ...editing, owner_name: e.target.value || null })} />
             </label>
-            <div className="inline-row">
-              <label>
-                Latitude
-                <Input type="number" step="any" value={editing.latitude ?? ''} onChange={(e) => setEditing({ ...editing, latitude: e.target.value ? Number(e.target.value) : null })} />
-              </label>
-              <label>
-                Longitude
-                <Input type="number" step="any" value={editing.longitude ?? ''} onChange={(e) => setEditing({ ...editing, longitude: e.target.value ? Number(e.target.value) : null })} />
-              </label>
-            </div>
+            <label>
+              Address
+              <Input value={editing.address ?? editing.location ?? ''} onChange={(e) => setEditing({ ...editing, address: e.target.value })} />
+            </label>
             <label>
               Category
               <Select value={editing.category ?? 'Dining'} onChange={(e) => setEditing({ ...editing, category: e.target.value })}>
                 {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
+                  <option key={c} value={c}>{c}</option>
                 ))}
               </Select>
             </label>
@@ -524,9 +468,19 @@ function csvEscape(value: unknown): string {
               </Select>
             </label>
             <label>
-              Discount value
-              <Input type="number" min="0" step="0.01" value={editing.discount_value ?? ''} onChange={(e) => setEditing({ ...editing, discount_value: e.target.value ? Number(e.target.value) : null })} />
+              Discount type
+              <Select value={editing.discount_type ?? 'percent'} onChange={(e) => setEditing({ ...editing, discount_type: e.target.value as 'fixed' | 'percent' | 'bogo' })}>
+                <option value="percent">% off</option>
+                <option value="fixed">$ off</option>
+                <option value="bogo">BOGO</option>
+              </Select>
             </label>
+            {(editing.discount_type === 'percent' || editing.discount_type === 'fixed') ? (
+              <label>
+                Discount value
+                <Input type="number" min="0" step="0.01" value={editing.discount_value ?? ''} onChange={(e) => setEditing({ ...editing, discount_value: e.target.value ? Number(e.target.value) : null })} />
+              </label>
+            ) : null}
             <div className="inline-row">
               <label>
                 Flash deal starts
@@ -539,12 +493,38 @@ function csvEscape(value: unknown): string {
             </div>
             <label className="inline-row" style={{ alignItems: 'center', gap: 8 }}>
               <input type="checkbox" checked={Boolean(editing.boosted)} onChange={(e) => setEditing({ ...editing, boosted: e.target.checked })} />
-              Boost this deal (prioritize in the app)
+              Boost this deal
             </label>
-            <Button type="submit" disabled={readOnly}>
-              Save
-            </Button>
+            <Button type="submit" disabled={readOnly}>Save</Button>
           </form>
+        ) : null}
+      </Modal>
+
+      <Modal open={Boolean(statsVendor) || statsLoading} title={statsVendor ? `Stats: ${statsVendor.vendor.name}` : 'Loading stats…'} onClose={() => { setStatsVendor(null); setStatsLoading(false); }}>
+        {statsVendor ? (
+          <div className="stack">
+            <div className="stats-grid">
+              <InfoCard label="Total redemptions" value={statsVendor.stats.totals.redemptions} />
+              <InfoCard label="Unique customers" value={statsVendor.stats.totals.uniqueCustomers} />
+            </div>
+            {statsVendor.stats.daily.length > 0 ? (
+              <PageCard title="Daily redemptions">
+                <table className="table">
+                  <thead>
+                    <tr><th>Day</th><th>Redemptions</th></tr>
+                  </thead>
+                  <tbody>
+                    {statsVendor.stats.daily.map((row) => (
+                      <tr key={row.day}>
+                        <td>{new Date(row.day).toLocaleDateString()}</td>
+                        <td>{row.redemptions}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </PageCard>
+            ) : null}
+          </div>
         ) : null}
       </Modal>
     </div>

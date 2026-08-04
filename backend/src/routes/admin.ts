@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { dbQuery, withDbClient, type PoolClient } from '../db/pool.js';
-import { getAdminAnalytics } from '../services/analytics.js';
+import { getAdminAnalytics, getVendorAnalytics } from '../services/analytics.js';
 import { buildLookupDiscountView, generateDiscountCode, humanDiscountLabel } from '../services/discounts.js';
 import { generateTempPassword } from '../utils/ids.js';
 import { writeTransactionAudit } from '../services/audit.js';
@@ -15,9 +15,9 @@ const cardSchema = z.object({
   name: z.string().min(1),
   theme: z.enum(['sports', 'entertainment', 'shops_restaurants']),
   description: z.string().optional(),
-  imageUrl: z.string().url().optional(),
-  logoUrl: z.string().url().optional(),
-  iconUrl: z.string().url().optional(),
+  imageUrl: z.string().optional(),
+  logoUrl: z.string().optional(),
+  iconUrl: z.string().optional(),
   primaryColor: z.string().optional(),
   secondaryColor: z.string().optional(),
   qrSize: z.number().int().min(80).max(600).optional(),
@@ -29,6 +29,7 @@ const cardSchema = z.object({
 
 const vendorSchema = z.object({
   name: z.string().min(1),
+  ownerName: z.string().optional(),
   location: z.string().optional(),
   city: z.string().optional(),
   address: z.string().optional(),
@@ -120,12 +121,13 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
       const address = body.address ?? body.location;
       const vendorRows = await client.query<{ id: string }>(
         `
-          INSERT INTO vendors (name, location, address, city, category, pos_type, pos_system, email, phone, password_hash, status, latitude, longitude, icon_url, logo_url)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+          INSERT INTO vendors (name, owner_name, location, address, city, category, pos_type, pos_system, email, phone, password_hash, status, latitude, longitude, icon_url, logo_url)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
           RETURNING id
         `,
         [
           body.name,
+          body.ownerName ?? null,
           address ?? null,
           address ?? null,
           body.city ?? null,
@@ -170,7 +172,7 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
       );
 
       return {
-        vendor: { id: vendorId, name: body.name, address: address ?? null, category: body.category ?? null },
+        vendor: { id: vendorId, name: body.name, ownerName: body.ownerName ?? null, address: address ?? null, category: body.category ?? null },
         discountCode,
         discount: { id: discountRows.rows[0]!.id, type: discountType, value: discountValue, label },
         membershipCard: { id: cardId, name: cardName },
@@ -222,22 +224,23 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
       `
         UPDATE vendors
         SET name = COALESCE($2, name),
-            location = COALESCE($3, location),
-            address = COALESCE($3, address),
-            city = COALESCE($4, city),
-            category = COALESCE($5, category),
-            email = COALESCE($6, email),
-            phone = COALESCE($7, phone),
-            status = COALESCE($8, status),
-            latitude = COALESCE($9, latitude),
-            longitude = COALESCE($10, longitude),
-            icon_url = COALESCE($11, icon_url),
-            logo_url = COALESCE($12, logo_url),
+            owner_name = COALESCE($3, owner_name),
+            location = COALESCE($4, location),
+            address = COALESCE($4, address),
+            city = COALESCE($5, city),
+            category = COALESCE($6, category),
+            email = COALESCE($7, email),
+            phone = COALESCE($8, phone),
+            status = COALESCE($9, status),
+            latitude = COALESCE($10, latitude),
+            longitude = COALESCE($11, longitude),
+            icon_url = COALESCE($12, icon_url),
+            logo_url = COALESCE($13, logo_url),
             updated_at = now()
         WHERE id = $1
         RETURNING *
       `,
-      [id, body.name ?? null, address ?? null, body.city ?? null, body.category ?? null, body.email ?? null, body.phone ?? null, body.status ?? null, body.latitude ?? null, body.longitude ?? null, body.iconDataUrl ?? null, body.logoDataUrl ?? null],
+      [id, body.name ?? null, body.ownerName ?? null, address ?? null, body.city ?? null, body.category ?? null, body.email ?? null, body.phone ?? null, body.status ?? null, body.latitude ?? null, body.longitude ?? null, body.iconDataUrl ?? null, body.logoDataUrl ?? null],
     );
 
     if (body.discountType !== undefined || body.discountValue !== undefined || body.discountStartsAt !== undefined || body.discountEndsAt !== undefined || body.boosted !== undefined) {
@@ -349,6 +352,13 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
   fastify.get('/api/admin/vendors/:id/activity', { preHandler: fastify.requireRole(['admin']) }, async (request) => {
     const id = (request.params as { id: string }).id;
     return dbQuery('SELECT * FROM transactions WHERE entity_type = \'vendor\' AND entity_id = $1 ORDER BY created_at DESC', [id]);
+  });
+
+  fastify.get('/api/admin/vendors/:id/analytics', { preHandler: fastify.requireRole(['admin']) }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const exists = await dbQuery<{ id: string }>('SELECT id FROM vendors WHERE id = $1 LIMIT 1', [id]);
+    if (exists.length === 0) return reply.code(404).send({ error: 'Vendor not found' });
+    return getVendorAnalytics(id);
   });
 
   fastify.post('/api/admin/cards', { preHandler: fastify.requireRole(['admin']) }, async (request, reply) => {
@@ -531,7 +541,8 @@ async function loadCardsWithBusinesses(filters: { id?: string; theme?: string; s
     `
       SELECT *
       FROM cards
-      WHERE ($1::uuid IS NULL OR id = $1::uuid)
+      WHERE is_membership = true
+        AND ($1::uuid IS NULL OR id = $1::uuid)
         AND ($2::text IS NULL OR $2 = '' OR theme = $2)
         AND ($3::text IS NULL OR $3 = '' OR status = $3)
       ORDER BY created_at DESC

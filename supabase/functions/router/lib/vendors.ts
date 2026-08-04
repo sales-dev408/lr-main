@@ -10,6 +10,7 @@ export type VendorCategory = 'Sports' | 'Dining' | 'Entertainment';
 
 export interface CreateVendorInput {
   name: string;
+  ownerName?: string | null;
   address?: string | null;
   category: VendorCategory;
   email?: string | null;
@@ -26,7 +27,7 @@ export interface CreateVendorInput {
 }
 
 export interface CreateVendorResult {
-  vendor: { id: string; name: string; address: string | null; category: string; email: string | null; phone: string | null };
+  vendor: { id: string; name: string; ownerName: string | null; address: string | null; category: string; email: string | null; phone: string | null };
   discountCode: string;
   discount: { id: string; type: DiscountType; value: number; label: string };
   membershipCard: { id: string; name: string };
@@ -65,9 +66,9 @@ export async function createVendorWithDiscount(input: CreateVendorInput): Promis
     await client.query('BEGIN');
     try {
       const vendorRows = await client.query<{ id: string }>(
-        `INSERT INTO vendors (name, location, address, city, category, pos_type, pos_system, email, phone, password_hash, status, latitude, longitude)
-         VALUES ($1, $2, $3, NULL, $4, NULL, NULL, $5, $6, NULL, 'approved', $7, $8) RETURNING id`,
-        [input.name, input.address ?? null, input.address ?? null, input.category, input.email ?? null, input.phone ?? null, input.latitude ?? null, input.longitude ?? null],
+        `INSERT INTO vendors (name, owner_name, location, address, city, category, pos_type, pos_system, email, phone, password_hash, status, latitude, longitude)
+         VALUES ($1, $2, $3, $4, NULL, $5, NULL, NULL, $6, $7, NULL, 'approved', $8, $9) RETURNING id`,
+        [input.name, input.ownerName ?? null, input.address ?? null, input.address ?? null, input.category, input.email ?? null, input.phone ?? null, input.latitude ?? null, input.longitude ?? null],
       );
       const vendorId = vendorRows.rows[0]!.id;
 
@@ -106,7 +107,7 @@ export async function createVendorWithDiscount(input: CreateVendorInput): Promis
       await client.query('COMMIT');
 
       const result = {
-        vendor: { id: vendorId, name: input.name, address: input.address ?? null, category: input.category, email: input.email ?? null, phone: input.phone ?? null },
+        vendor: { id: vendorId, name: input.name, ownerName: input.ownerName ?? null, address: input.address ?? null, category: input.category, email: input.email ?? null, phone: input.phone ?? null },
         discountCode,
         discount: { id: discountId, type: input.discountType, value: input.discountValue, label },
         membershipCard: { id: membership.id, name: membership.name },

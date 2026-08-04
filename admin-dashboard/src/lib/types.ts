@@ -21,7 +21,7 @@ export interface AdminSettings {
 export type VendorCategory = 'Sports' | 'Dining' | 'Entertainment';
 
 export interface CreateVendorResult {
-  vendor: { id: string; name: string; address: string | null; category: string; email: string | null; phone: string | null; latitude: number | null; longitude: number | null };
+  vendor: { id: string; name: string; ownerName: string | null; address: string | null; category: string; email: string | null; phone: string | null; latitude: number | null; longitude: number | null };
   discountCode: string;
   discount: { id: string; type: DiscountType; value: number; label: string };
   membershipCard: { id: string; name: string };
@@ -70,6 +70,7 @@ export interface AdminAnalyticsResponse {
 export interface VendorRecord {
   id: string;
   name: string;
+  owner_name: string | null;
   location: string | null;
   address: string | null;
   city: string | null;
@@ -109,6 +110,7 @@ export interface TicketRecord {
   id: string;
   name: string;
   barcode: string;
+  barcodeFormat: string | null;
   allowedUses: number;
   usedUses: number;
   remainingUses: number;
@@ -122,6 +124,7 @@ export type CardLayout = 'qr_top' | 'qr_bottom' | 'qr_left' | 'qr_right';
 export interface CardSummary {
   id: string;
   name: string;
+  is_membership: boolean;
   theme: CardTheme;
   description: string | null;
   image_url: string | null;
@@ -198,6 +201,14 @@ export interface ThemeSettings {
   brand: string;
   primaryGradient: [string, string];
   tabs: ThemeTab[];
+}
+
+export interface AdminEvent {
+  id: string;
+  title: string;
+  description: string | null;
+  eventDate: string | null;
+  createdAt: string;
 }
 
 export interface PublicCardsResponseItem {
