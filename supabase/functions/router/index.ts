@@ -58,6 +58,7 @@ const customerRegisterSchema = z.object({
   lastName: z.string().trim().min(1),
   email: z.string().email().optional(),
   phone: z.string().min(7).optional(),
+  password: z.string().min(8),
   city: z.string().optional(),
 });
 
@@ -91,10 +92,13 @@ const pushTokenSchema = z.object({
   city: z.string().optional(),
 });
 
-const customerLoginSchema = z.object({
-  firstName: z.string().trim().min(1),
-  lastName: z.string().trim().min(1),
-});
+const customerLoginSchema = z
+  .object({
+    email: z.string().email().optional(),
+    phone: z.string().min(7).optional(),
+    password: z.string().min(1),
+  })
+  .refine((data) => Boolean(data.email || data.phone), { message: 'Email or phone is required', path: ['email'] });
 
 const socialSchema = z
   .object({
@@ -173,6 +177,7 @@ const ticketCreateSchema = z.object({
   barcodeFormat: z.string().optional(),
   name: z.string().min(1).default('Event Ticket'),
   allowedUses: z.number().int().positive().default(1),
+  drawingDeadline: z.coerce.date().optional(),
   drawingDate: z.string().optional(),
   userId: z.string().uuid().optional(),
 });
@@ -184,8 +189,15 @@ const ticketUpdateSchema = z.object({
   allowedUses: z.number().int().positive().optional(),
   usedUses: z.number().int().min(0).optional(),
   status: z.enum(['active', 'used', 'disabled']).optional(),
+  drawingDeadline: z.coerce.date().optional().nullable(),
+  drawingStatus: z.enum(['open', 'drawn', 'closed']).optional(),
   drawingDate: z.string().optional().nullable(),
   userId: z.string().uuid().optional().nullable(),
+});
+
+const ticketEntrySchema = z.object({
+  ticketId: z.string().uuid(),
+  requestedCount: z.coerce.number().int().min(1).max(4).default(1),
 });
 
 const discountSchema = z.object({
@@ -456,6 +468,7 @@ Deno.serve(async (request) => {
       const phone = normalizePhone(body.phone);
       if (body.phone && !phone) return json(request, { error: 'Invalid phone number' }, { status: 400 });
       const fullName = `${body.firstName} ${body.lastName}`.trim();
+      const passwordHash = await bcrypt.hash(body.password, 10);
       let rows: Array<{ id: string }>;
       try {
         rows = await withDbClient(async (client) => {
@@ -463,7 +476,7 @@ Deno.serve(async (request) => {
           try {
             const result = await client.query<{ id: string }>(
               `INSERT INTO users (email, phone, password_hash, full_name, first_name, last_name, city) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-              [body.email ?? null, phone ?? null, null, fullName, body.firstName, body.lastName, body.city ?? null],
+              [body.email ?? null, phone ?? null, passwordHash, fullName, body.firstName, body.lastName, body.city ?? null],
             );
             await client.query('COMMIT');
             return result.rows;
@@ -474,7 +487,7 @@ Deno.serve(async (request) => {
         });
       } catch (error) {
         if (isUniqueViolation(error)) {
-          return json(request, { error: 'An account with this email or phone number already exists. Please sign in with your first and last name.' }, { status: 409 });
+          return json(request, { error: 'An account with this email or phone number already exists. Please sign in.' }, { status: 409 });
         }
         throw error;
       }
@@ -487,12 +500,14 @@ Deno.serve(async (request) => {
 
     if (path === '/api/auth/login' && request.method === 'POST') {
       const body = customerLoginSchema.parse(await readJsonBody(request, {}));
-      const rows = await dbQuery<{ id: string; email: string | null; status: string; full_name: string }>(
-        'SELECT id, email::text AS email, status, full_name FROM users WHERE first_name = $1 AND last_name = $2 ORDER BY created_at DESC LIMIT 1',
-        [body.firstName, body.lastName],
+      const loginPhone = body.phone ? normalizePhone(body.phone) : null;
+      if (body.phone && !loginPhone) return json(request, { error: 'Invalid phone number' }, { status: 400 });
+      const rows = await dbQuery<{ id: string; email: string | null; password_hash: string | null; status: string; full_name: string }>(
+        'SELECT id, email::text AS email, password_hash, status, full_name FROM users WHERE ($1::text IS NOT NULL AND lower(email::text) = lower($1::text)) OR ($2::text IS NOT NULL AND phone = $2::text) ORDER BY created_at DESC LIMIT 1',
+        [body.email ?? null, loginPhone ?? null],
       );
       const user = rows[0];
-      if (!user || user.status !== 'active') {
+      if (!user || user.status !== 'active' || !user.password_hash || !(await bcrypt.compare(body.password, user.password_hash))) {
         return json(request, { error: 'Invalid credentials' }, { status: 401 });
       }
       const profile = await buildCustomerProfile(user.id);
@@ -647,15 +662,63 @@ Deno.serve(async (request) => {
     if (path === '/api/tickets' && request.method === 'GET') {
       const claims = authenticate(request);
       const userId = claims?.role === 'customer' ? claims.sub : null;
-      const rows = await dbQuery('SELECT id, name, barcode, allowed_uses, used_uses, status, user_id, created_at FROM tickets WHERE status = $1 AND (user_id IS NULL OR $2::uuid IS NULL OR user_id = $2) ORDER BY created_at DESC', ['active', userId]);
+      await withDbClient(async (client) => {
+        await client.query('BEGIN');
+        try {
+          const due = await client.query<{ id: string }>("SELECT id FROM tickets WHERE drawing_status = 'open' AND drawing_deadline <= now() FOR UPDATE SKIP LOCKED");
+          for (const row of due.rows) {
+            const winner = await client.query<{ user_id: string }>(
+              `WITH weights AS (
+                 SELECT user_id, SUM(requested_count)::int AS weight
+                 FROM ticket_entries
+                 WHERE ticket_id = $1
+                 GROUP BY user_id
+               )
+               SELECT user_id
+               FROM weights
+               ORDER BY random() * weight DESC
+               LIMIT 1`,
+              [row.id],
+            );
+            if (winner.rows[0]) {
+              await client.query("UPDATE tickets SET user_id = $1, drawing_status = 'drawn', updated_at = now() WHERE id = $2", [winner.rows[0].user_id, row.id]);
+            } else {
+              await client.query("UPDATE tickets SET drawing_status = 'drawn', updated_at = now() WHERE id = $1", [row.id]);
+            }
+          }
+          await client.query('COMMIT');
+        } catch (error) {
+          await client.query('ROLLBACK');
+          throw error;
+        }
+      });
+      const rows = await dbQuery(
+        `
+          SELECT t.id, t.name, t.barcode, t.barcode_format, t.allowed_uses, t.used_uses, t.status,
+                 t.drawing_deadline, t.drawing_status, t.user_id, t.created_at,
+                 (SELECT COALESCE(SUM(requested_count), 0)::int FROM ticket_entries te WHERE te.ticket_id = t.id AND te.user_id = $1::uuid) AS entry_count
+          FROM tickets t
+          WHERE t.status = 'active'
+            AND (
+              (t.drawing_status = 'open' AND t.drawing_deadline > now())
+              OR ($1::uuid IS NOT NULL AND t.user_id = $1::uuid)
+            )
+          ORDER BY t.created_at DESC
+        `,
+        [userId],
+      );
       return json(request, rows.map((row) => ({
         id: row.id,
         name: row.name,
         barcode: row.barcode,
+        barcodeFormat: row.barcode_format,
         allowedUses: row.allowed_uses,
         usedUses: row.used_uses,
         remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
         status: row.status,
+        drawingDeadline: row.drawing_deadline,
+        drawingStatus: row.drawing_status,
+        entryCount: Number(row.entry_count ?? 0),
         userId: row.user_id,
         createdAt: row.created_at,
       })));
@@ -663,52 +726,46 @@ Deno.serve(async (request) => {
 
     if (/^\/api\/tickets\/[^/]+$/.test(path) && request.method === 'GET') {
       const id = path.split('/').pop()!;
-      const rows = await dbQuery('SELECT id, name, barcode, allowed_uses, used_uses, status, created_at FROM tickets WHERE id = $1 LIMIT 1', [id]);
+      const rows = await dbQuery('SELECT id, name, barcode, barcode_format, allowed_uses, used_uses, status, drawing_deadline, drawing_status, created_at FROM tickets WHERE id = $1 LIMIT 1', [id]);
       if (rows.length === 0) return json(request, { error: 'Ticket not found' }, { status: 404 });
       const row = rows[0];
       return json(request, {
         id: row.id,
         name: row.name,
         barcode: row.barcode,
+        barcodeFormat: row.barcode_format,
         allowedUses: row.allowed_uses,
         usedUses: row.used_uses,
         remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
         status: row.status,
+        drawingDeadline: row.drawing_deadline,
+        drawingStatus: row.drawing_status,
         createdAt: row.created_at,
       });
     }
 
-    // Enter a random drawing: assigns an unclaimed active ticket to the current member.
-    if (path === '/api/tickets/apply' && request.method === 'POST') {
+    // Enter a random drawing: choose a ticket and request 1-4 entries.
+    if (path === '/api/tickets/enter' && request.method === 'POST') {
       const claims = requireRole(request, ['customer']);
       if (claims instanceof Response) return claims;
       const userId = claims.sub;
-      const rows = await dbQuery(
-        `UPDATE tickets
-         SET user_id = $1, updated_at = now()
-         WHERE id = (
-           SELECT id FROM tickets
-           WHERE status = 'active' AND user_id IS NULL
-           ORDER BY random()
-           LIMIT 1
-           FOR UPDATE SKIP LOCKED
-         )
-         RETURNING id, name, barcode, allowed_uses, used_uses, status, created_at`,
-        [userId],
+      const body = ticketEntrySchema.parse(await readJsonBody(request, {}));
+      const tickets = await dbQuery<{ id: string; drawing_status: string; drawing_deadline: string | null }>(
+        'SELECT id, drawing_status, drawing_deadline FROM tickets WHERE id = $1 AND status = $2 LIMIT 1',
+        [body.ticketId, 'active'],
       );
-      if (rows.length === 0) return json(request, { error: 'No tickets available in the drawing' }, { status: 409 });
-      const row = rows[0];
-      return json(request, {
-        id: row.id,
-        name: row.name,
-        barcode: row.barcode,
-        allowedUses: row.allowed_uses,
-        usedUses: row.used_uses,
-        remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
-        status: row.status,
-        userId,
-        createdAt: row.created_at,
-      });
+      const ticket = tickets[0];
+      if (!ticket) return json(request, { error: 'Ticket not found' }, { status: 404 });
+      if (ticket.drawing_status !== 'open') return json(request, { error: 'This drawing has already closed' }, { status: 409 });
+      if (ticket.drawing_deadline && new Date(ticket.drawing_deadline).getTime() <= Date.now()) return json(request, { error: 'This drawing has already closed' }, { status: 409 });
+      await dbQuery(
+        `INSERT INTO ticket_entries (ticket_id, user_id, requested_count)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (ticket_id, user_id)
+         DO UPDATE SET requested_count = LEAST(4, ticket_entries.requested_count + EXCLUDED.requested_count), updated_at = now()`,
+        [body.ticketId, userId, body.requestedCount],
+      );
+      return json(request, { success: true, ticketId: body.ticketId, requestedCount: body.requestedCount });
     }
 
     if (/^\/api\/tickets\/[^/]+$/.test(path) && request.method === 'POST') {
@@ -719,7 +776,7 @@ Deno.serve(async (request) => {
              status = CASE WHEN used_uses + 1 >= allowed_uses THEN 'used' ELSE status END,
              updated_at = now()
          WHERE id = $1 AND status = 'active' AND used_uses < allowed_uses
-         RETURNING id, name, barcode, allowed_uses, used_uses, status`,
+         RETURNING id, name, barcode, barcode_format, allowed_uses, used_uses, status, drawing_deadline, drawing_status, created_at`,
         [id],
       );
       if (rows.length === 0) return json(request, { error: 'Ticket unavailable or fully used' }, { status: 409 });
@@ -728,10 +785,14 @@ Deno.serve(async (request) => {
         id: row.id,
         name: row.name,
         barcode: row.barcode,
+        barcodeFormat: row.barcode_format,
         allowedUses: row.allowed_uses,
         usedUses: row.used_uses,
         remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
         status: row.status,
+        drawingDeadline: row.drawing_deadline,
+        drawingStatus: row.drawing_status,
+        createdAt: row.created_at,
       });
     }
 
@@ -1339,6 +1400,15 @@ Deno.serve(async (request) => {
       const auth = requireRole(request, ['customer']);
       if (auth instanceof Response) return auth;
       const code = path.split('/').pop()!;
+      const userId = auth.sub;
+      const result = await redeemDiscount({
+        discountCode: code,
+        userId,
+        actorType: 'customer',
+        actorId: userId,
+        ip: getIp(request),
+      });
+      if (!result.valid) return json(request, { error: result.reason ?? 'Unable to redeem this discount' }, { status: 409 });
       const rows = await dbQuery<{ vendor_name: string; card_name: string; type: 'fixed' | 'percent' | 'bogo'; value: string }>(
         `SELECT v.name AS vendor_name, c.name AS card_name, d.type, d.value
          FROM discounts d
@@ -1348,15 +1418,14 @@ Deno.serve(async (request) => {
          LIMIT 1`,
         [code],
       );
-      if (rows.length === 0) return json(request, { error: 'Discount not found' }, { status: 404 });
-      const row = rows[0]!;
+      const row = rows[0];
       return json(request, {
-        vendorName: row.vendor_name,
-        cardName: row.card_name,
+        vendorName: row?.vendor_name ?? 'Vendor',
+        cardName: row?.card_name ?? 'Membership',
         discountCode: code,
-        type: row.type,
-        value: Number(row.value),
-        discountLabel: humanDiscountLabel(row.type, Number(row.value)),
+        type: row?.type ?? 'fixed',
+        value: Number(row?.value ?? 0),
+        discountLabel: humanDiscountLabel(row?.type ?? 'fixed', Number(row?.value ?? 0)),
       });
     }
     if (/^\/api\/lookup\/card\/[^/]+$/.test(path) && request.method === 'GET') {
@@ -1372,7 +1441,8 @@ Deno.serve(async (request) => {
           lookupToken: z.string().optional(),
           cardId: z.string().uuid().optional(),
           userId: z.string().uuid().optional(),
-          vendorId: z.string().uuid(),
+          vendorId: z.string().uuid().optional(),
+          discountCode: z.string().optional(),
           discountId: z.string().uuid().optional(),
           city: z.string().optional(),
           purchaseAmount: z.number().optional(),

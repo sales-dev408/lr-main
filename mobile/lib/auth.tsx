@@ -12,8 +12,8 @@ type AuthContextValue = {
   loading: boolean;
   token: string | null;
   profile: UserProfile | null;
-  signIn: (body: { firstName: string; lastName: string }) => Promise<void>;
-  registerAccount: (body: { firstName: string; lastName: string; email?: string; phone?: string; city?: string }) => Promise<void>;
+  signIn: (body: { email?: string; phone?: string; password: string }) => Promise<void>;
+  registerAccount: (body: { firstName: string; lastName: string; email?: string; phone?: string; password: string; city?: string }) => Promise<void>;
   updateProfile: (profile: Partial<UserProfile> & { pushPreferences?: PushPreferences }) => Promise<void>;
   deleteAccount: () => Promise<void>;
   logout: () => Promise<void>;

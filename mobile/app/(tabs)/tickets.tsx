@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Image, RefreshControl, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { applyForTicket, listTickets } from '@/lib/api';
+import { enterTicketDrawing, listTickets } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { barcodeUrl } from '@/lib/qr';
 import { useThemeColors } from '@/lib/useThemeColors';
@@ -24,14 +24,23 @@ function TicketCard({ ticket, colors }: { ticket: Ticket; colors: ReturnType<typ
   );
 }
 
+function formatDeadline(value: string | null | undefined) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
 export default function TicketsScreen() {
   const colors = useThemeColors();
   const auth = useAuth();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [applying, setApplying] = useState(false);
-  const [applyResult, setApplyResult] = useState<{ success: boolean; message: string; ticket?: Ticket } | null>(null);
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  const [count, setCount] = useState(1);
+  const [entering, setEntering] = useState(false);
+  const [enterResult, setEnterResult] = useState<{ success: boolean; message: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -62,27 +71,33 @@ export default function TicketsScreen() {
     }, [load]),
   );
 
-  const { available, mine } = useMemo(() => {
-    const available = tickets.filter((t) => !t.userId);
+  const { open, mine } = useMemo(() => {
+    const open = tickets.filter((t) => t.drawingStatus === 'open');
     const mine = tickets.filter((t) => t.userId && t.userId === auth.profile?.id);
-    return { available, mine };
+    return { open, mine };
   }, [tickets, auth.profile?.id]);
 
-  async function handleApply() {
+  function adjustCount(delta: number) {
+    setCount((c) => Math.min(4, Math.max(1, c + delta)));
+  }
+
+  async function handleEnter(ticketId: string) {
     if (!auth.token) {
-      setApplyResult({ success: false, message: 'Sign in to enter the drawing.' });
+      setEnterResult({ success: false, message: 'Sign in to enter the drawing.' });
       return;
     }
-    setApplying(true);
-    setApplyResult(null);
+    setEntering(true);
+    setEnterResult(null);
     try {
-      const ticket = await applyForTicket();
-      setTickets((prev) => [ticket, ...prev]);
-      setApplyResult({ success: true, message: `You won a ticket: ${ticket.name}`, ticket });
+      await enterTicketDrawing(ticketId, count);
+      setEnterResult({ success: true, message: `You entered with ${count} ticket${count === 1 ? '' : 's'}. Good luck!` });
+      setCount(1);
+      setSelectedTicketId(null);
+      await load();
     } catch (err) {
-      setApplyResult({ success: false, message: err instanceof Error ? err.message : 'Unable to enter drawing' });
+      setEnterResult({ success: false, message: err instanceof Error ? err.message : 'Unable to enter drawing' });
     } finally {
-      setApplying(false);
+      setEntering(false);
     }
   }
 
@@ -90,17 +105,6 @@ export default function TicketsScreen() {
     <Screen>
       <ScrollView contentContainerStyle={{ gap: 14, paddingBottom: 24 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}>
         <BrandHeader subtitle="Event tickets & random drawings" />
-
-        <Card>
-          <SectionTitle title="Random drawing" subtitle="Enter to win an event ticket" />
-          <Banner tone="info">All tickets are random drawing. Tap below to enter and a random available ticket will be assigned to you.</Banner>
-          <AppButton onPress={() => void handleApply()} disabled={applying || available.length === 0}>
-            {applying ? 'Entering…' : available.length === 0 ? 'No tickets available' : 'Enter drawing'}
-          </AppButton>
-          {applyResult ? (
-            <Banner tone={applyResult.success ? 'success' : 'error'}>{applyResult.message}</Banner>
-          ) : null}
-        </Card>
 
         {loading ? <Spinner /> : null}
         {error ? <Banner tone="error">{error}</Banner> : null}
@@ -114,19 +118,55 @@ export default function TicketsScreen() {
           </Card>
         ) : null}
 
-        {!loading && available.length > 0 ? (
+        {!loading && open.length > 0 ? (
           <Card>
-            <SectionTitle title="Open drawings" subtitle={`${available.length} ticket${available.length === 1 ? '' : 's'} remaining`} />
-            {available.map((ticket) => (
-              <View key={ticket.id} style={{ padding: 12, borderRadius: 12, backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border }}>
-                <Text style={{ color: colors.ink, fontWeight: '700' }}>{ticket.name}</Text>
-                <Text style={{ color: colors.muted }}>{ticket.remainingUses} use{ticket.remainingUses === 1 ? '' : 's'} left</Text>
+            <SectionTitle title="Open drawings" subtitle={`${open.length} drawing${open.length === 1 ? '' : 's'} open`} />
+            {open.map((ticket) => (
+              <View key={ticket.id} style={{ padding: 14, borderRadius: 16, backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border, gap: 10 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ color: colors.ink, fontWeight: '700', fontSize: 16 }}>{ticket.name}</Text>
+                  <Pill tone={ticket.entryCount ? 'success' : 'neutral'}>{ticket.entryCount ? `${ticket.entryCount} entries` : 'Not entered'}</Pill>
+                </View>
+                {ticket.drawingDeadline ? <Text style={{ color: colors.muted }}>Deadline: {formatDeadline(ticket.drawingDeadline)}</Text> : null}
+
+                {selectedTicketId === ticket.id ? (
+                  <View style={{ gap: 10 }}>
+                    <Text style={{ color: colors.ink }}>Number of tickets to request (1–4)</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+                      <AppButton variant="secondary" onPress={() => adjustCount(-1)} style={{ width: 50 }}>
+                        –
+                      </AppButton>
+                      <Text style={{ color: colors.ink, fontSize: 22, fontWeight: '800', minWidth: 32, textAlign: 'center' }}>{count}</Text>
+                      <AppButton variant="secondary" onPress={() => adjustCount(1)} style={{ width: 50 }}>
+                        +
+                      </AppButton>
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                      <View style={{ flex: 1 }}>
+                        <AppButton variant="ghost" onPress={() => setSelectedTicketId(null)}>
+                          Cancel
+                        </AppButton>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <AppButton onPress={() => void handleEnter(ticket.id)} disabled={entering}>
+                          {entering ? 'Submitting…' : 'Submit'}
+                        </AppButton>
+                      </View>
+                    </View>
+                  </View>
+                ) : (
+                  <AppButton onPress={() => setSelectedTicketId(ticket.id)}>
+                    Enter drawing
+                  </AppButton>
+                )}
               </View>
             ))}
           </Card>
         ) : null}
 
-        {!loading && tickets.length === 0 ? <Banner tone="info">No event tickets available right now.</Banner> : null}
+        {enterResult ? <Banner tone={enterResult.success ? 'success' : 'error'}>{enterResult.message}</Banner> : null}
+
+        {!loading && tickets.length === 0 ? <Banner tone="info">No event tickets or drawings available right now.</Banner> : null}
       </ScrollView>
     </Screen>
   );

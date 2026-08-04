@@ -4,6 +4,7 @@ import { dbQuery } from '../db/pool.js';
 import { humanDiscountLabel } from '../services/discounts.js';
 import { resolveCardLookup, resolvePassLookup } from '../services/lookup.js';
 import { redeemDiscount } from '../services/redeem.js';
+import type { AppliedDiscount } from '../types.js';
 
 export async function registerLookupRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get('/api/lookup/:lookupToken', async (request, reply) => {
@@ -31,9 +32,23 @@ export async function registerLookupRoutes(fastify: FastifyInstance): Promise<vo
 
   fastify.get('/api/discounts/by-code/:code', { preHandler: fastify.requireRole(['customer']) }, async (request, reply) => {
     const code = (request.params as { code: string }).code;
-    const rows = await dbQuery<{ vendor_name: string; card_name: string; type: 'fixed' | 'percent' | 'bogo'; value: string }>(
+    const userId = request.user!.sub;
+
+    const result = await redeemDiscount({
+      discountCode: code,
+      userId,
+      actorType: 'customer',
+      actorId: userId,
+      ip: request.ip,
+    });
+
+    if (!result.valid) {
+      return reply.code(409).send({ error: result.reason ?? 'Unable to redeem this discount' });
+    }
+
+    const rows = await dbQuery<{ vendor_name: string; card_name: string }>(
       `
-        SELECT v.name AS vendor_name, c.name AS card_name, d.type, d.value
+        SELECT v.name AS vendor_name, c.name AS card_name
         FROM discounts d
         JOIN vendors v ON v.id = d.vendor_id
         JOIN cards c ON c.id = d.card_id
@@ -42,17 +57,15 @@ export async function registerLookupRoutes(fastify: FastifyInstance): Promise<vo
       `,
       [code],
     );
-    if (rows.length === 0) {
-      return reply.code(404).send({ error: 'Discount not found' });
-    }
-    const row = rows[0]!;
+    const row = rows[0];
+    const discount = result.discount ?? ({} as AppliedDiscount);
     return {
-      vendorName: row.vendor_name,
-      cardName: row.card_name,
+      vendorName: row?.vendor_name ?? 'Vendor',
+      cardName: row?.card_name ?? 'Membership',
       discountCode: code,
-      type: row.type,
-      value: Number(row.value),
-      discountLabel: humanDiscountLabel(row.type, Number(row.value)),
+      type: discount.type,
+      value: discount.value ?? 0,
+      discountLabel: discount.description ?? humanDiscountLabel(discount.type ?? 'fixed', discount.value ?? 0),
     };
   });
 
@@ -71,7 +84,8 @@ export async function registerLookupRoutes(fastify: FastifyInstance): Promise<vo
       lookupToken: z.string().optional(),
       cardId: z.string().uuid().optional(),
       userId: z.string().uuid().optional(),
-      vendorId: z.string().uuid(),
+      vendorId: z.string().uuid().optional(),
+      discountCode: z.string().optional(),
       discountId: z.string().uuid().optional(),
       city: z.string().optional(),
       purchaseAmount: z.number().optional(),
@@ -79,7 +93,8 @@ export async function registerLookupRoutes(fastify: FastifyInstance): Promise<vo
     }).parse(request.body);
 
     const result = await redeemDiscount({
-      vendorId: body.vendorId,
+      ...(body.vendorId ? { vendorId: body.vendorId } : {}),
+      ...(body.discountCode ? { discountCode: body.discountCode } : {}),
       ...(body.lookupToken ? { lookupToken: body.lookupToken } : {}),
       ...(body.cardId ? { cardId: body.cardId } : {}),
       ...(body.userId ? { userId: body.userId } : {}),

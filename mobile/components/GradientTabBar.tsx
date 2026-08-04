@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -55,12 +55,12 @@ function useTabStyles() {
         borderRadius: 14,
         alignItems: 'center',
         justifyContent: 'center',
-        shadowColor: colors.ink,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.12,
-        shadowRadius: 10,
         elevation: 6,
       },
+      iconShadow: Platform.select({
+        web: { boxShadow: `0 4px 10px ${colors.ink}1f` },
+        default: { shadowColor: colors.ink, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 10 },
+      }) as Record<string, unknown>,
       iconFocused: {
         opacity: 1,
         transform: [{ scale: 1.05 }],
@@ -114,7 +114,7 @@ export function GradientTabBar({ state, descriptors, navigation }: GradientTabBa
               colors={tab.gradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={[styles.icon, focused ? styles.iconFocused : styles.iconIdle]}
+              style={[styles.icon, styles.iconShadow, focused ? styles.iconFocused : styles.iconIdle]}
             >
               <Text style={[styles.glyph, { fontSize: 16 * multiplier }]} maxFontSizeMultiplier={MAX_FONT_MULTIPLIER}>
                 {TAB_GLYPHS[route.name] ?? '•'}

@@ -4,7 +4,6 @@ import { Link, useFocusEffect } from 'expo-router';
 import * as Location from 'expo-location';
 import { AppButton, Banner, BrandHeader, Card, FieldInput, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { listVendors } from '@/lib/api';
-import { barcodeUrl } from '@/lib/qr';
 import { shareDeal } from '@/lib/share';
 import { useThemeColors } from '@/lib/useThemeColors';
 import MapView, { Marker, type Region } from '@/components/MapView';
@@ -251,25 +250,9 @@ export default function BrowseScreen() {
                 Get directions
               </AppButton>
             ) : null}
-            <Link href="/(tabs)/mypass" asChild>
-              <AppButton variant="secondary">Open my membership pass</AppButton>
-            </Link>
             <AppButton variant="secondary" onPress={() => void shareDeal(selected)}>
               Share this deal
             </AppButton>
-
-            {selected.discountCode ? (
-              <View style={{ alignItems: 'center', gap: 8 }}>
-                <Image
-                  source={{ uri: barcodeUrl(selected.discountCode, 320, 120) }}
-                  style={{ width: '100%', maxWidth: 320, height: 120, borderRadius: 8, backgroundColor: '#fff' }}
-                  resizeMode="contain"
-                />
-                <Text selectable style={{ color: colors.ink, fontWeight: '700', letterSpacing: 0.5 }}>
-                  {selected.discountCode}
-                </Text>
-              </View>
-            ) : null}
             <Link href="/(tabs)/scan" asChild>
               <AppButton>Scan this vendor&apos;s discount code</AppButton>
             </Link>
