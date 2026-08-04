@@ -100,8 +100,12 @@ a { color: inherit; text-decoration: none; }
 .checkbox-row { flex-direction: row; align-items: center; gap: 0.5rem; }
 
 .form-row { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 0.75rem; }
-.vendor-info { display: flex; gap: 0.85rem; align-items: center; }
-.vendor-icon { width: 3rem; height: 3rem; border-radius: 0.75rem; object-fit: cover; border: 1px solid var(--border); }
+.vendor-info { display: flex; gap: 0.85rem; align-items: center; flex: 1; min-width: 0; }
+.vendor-info > div { min-width: 0; }
+.vendor-icon { width: 3rem; height: 3rem; border-radius: 0.75rem; object-fit: cover; border: 1px solid var(--border); flex-shrink: 0; }
+.vendor-list .list-row { align-items: center; }
+.vendor-list .row-actions { align-items: center; }
+.vendor-list .row-actions .btn { min-width: 5.5rem; }
 .image-preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 0.75rem; }
 .image-preview { display: grid; gap: 0.5rem; }
 .image-preview img { width: 100%; height: 120px; object-fit: cover; border-radius: 0.75rem; border: 1px solid var(--border); }

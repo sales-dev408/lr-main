@@ -66,8 +66,8 @@ function toLocalDatetime(iso: string | null | undefined): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function downloadQrPdf(vendorName: string, code: string, discountLabel: string, instructions: string) {
-  const qr = qrCodeUrl(code, 240);
+function downloadQrPdf(vendorName: string, code: string, discountLabel: string) {
+  const qr = qrCodeUrl(code, 260);
   const html = `
     <!DOCTYPE html>
     <html>
@@ -75,22 +75,15 @@ function downloadQrPdf(vendorName: string, code: string, discountLabel: string, 
         <title>QR Code - ${vendorName}</title>
         <style>
           body { font-family: Arial, sans-serif; text-align: center; padding: 32px; }
-          h1 { margin: 0 0 8px; font-size: 28px; }
-          .discount { font-size: 18px; color: #444; margin-bottom: 20px; }
-          img { width: 240px; height: 240px; border-radius: 12px; margin-bottom: 16px; }
-          .code { font-size: 22px; font-weight: bold; margin: 12px 0; }
-          .instructions { max-width: 520px; margin: 20px auto; text-align: left; line-height: 1.5; white-space: pre-line; }
-          .footer { max-width: 520px; margin: 24px auto 0; color: #555; }
-          @media print { .no-print { display: none; } }
+          h1 { margin: 0 0 12px; font-size: 28px; }
+          img { width: 260px; height: 260px; border-radius: 12px; margin: 24px 0; }
+          .instructions { max-width: 520px; margin: 0 auto; font-size: 18px; line-height: 1.5; }
         </style>
       </head>
       <body>
         <h1>${vendorName}</h1>
-        <p class="discount">${discountLabel}</p>
         <img src="${qr}" alt="QR code" />
-        <p class="code">Discount code: ${code}</p>
-        <div class="instructions">${instructions.replace(/\n/g, '<br>')}</div>
-        <p class="footer">Show this QR code at checkout. The merchant scans the member's pass barcode, then applies the discount code in their POS.</p>
+        <p class="instructions">Light Rail Deals Pass Holders, scan the QR code and present your screen to the vendor to redeem your ${discountLabel}.</p>
       </body>
     </html>
   `;
@@ -261,13 +254,7 @@ export function VendorsPage() {
       const discountType = vendor.discount_type ?? 'percent';
       const value = typeof vendor.discount_value === 'string' ? Number(vendor.discount_value) : (vendor.discount_value ?? 0);
       const label = formatDiscount(discountType, value);
-      const instructions = [
-        `Activate the "${label}" member discount in your point-of-sale system:`,
-        '1. Ask the customer to show their Light Rail membership pass and scan its barcode.',
-        `2. Apply this discount using code ${discountCode}.`,
-        '3. No NFC or special hardware is required — any barcode scanner or manual keypad works.',
-      ].join('\n');
-      downloadQrPdf(vendor.name, discountCode, label, instructions);
+      downloadQrPdf(vendor.name, discountCode, label);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to regenerate QR code');
     }
@@ -367,7 +354,7 @@ export function VendorsPage() {
                 ) : null}
               </div>
             </label>
-            <div className="inline-row">
+            <div className="grid-2">
               <label>
                 Flash deal starts
                 <Input type="datetime-local" value={form.discountStartsAt} onChange={(e) => setForm((prev) => ({ ...prev, discountStartsAt: e.target.value }))} />
@@ -481,7 +468,7 @@ export function VendorsPage() {
                 <Input type="number" min="0" step="0.01" value={editing.discount_value ?? ''} onChange={(e) => setEditing({ ...editing, discount_value: e.target.value ? Number(e.target.value) : null })} />
               </label>
             ) : null}
-            <div className="inline-row">
+            <div className="grid-2">
               <label>
                 Flash deal starts
                 <Input type="datetime-local" value={toLocalDatetime(editing.discount_starts_at)} onChange={(e) => setEditing({ ...editing, discount_starts_at: e.target.value ? new Date(e.target.value).toISOString() : null })} />

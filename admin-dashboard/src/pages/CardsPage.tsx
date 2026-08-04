@@ -16,9 +16,10 @@ function parseImageUrls(value: string | null): string[] {
   }
 }
 
-function serializeImageUrls(urls: string[]): string {
+function serializeImageUrls(urls: string[]): string | null {
   const clean = urls.filter((url) => url.trim().length > 0);
-  return clean.length > 1 ? JSON.stringify(clean) : clean[0] ?? '';
+  if (clean.length === 0) return null;
+  return clean.length > 1 ? JSON.stringify(clean) : clean[0]!;
 }
 
 export function CardsPage() {
