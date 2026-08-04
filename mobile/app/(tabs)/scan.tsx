@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { router, Stack } from 'expo-router';
+import { router } from 'expo-router';
 import { AppButton, Banner, Card, FieldInput, Screen, SectionTitle } from '@/components/Ui';
 import { useThemeColors } from '@/lib/useThemeColors';
 
-export default function ScanScreen() {
+export default function ScanTabScreen() {
   const colors = useThemeColors();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
@@ -32,7 +32,6 @@ export default function ScanScreen() {
 
   return (
     <Screen>
-      <Stack.Screen options={{ headerShown: true, title: 'Scan vendor code' }} />
       <View style={styles.container}>
         {permission?.granted ? (
           <CameraView
@@ -58,7 +57,7 @@ export default function ScanScreen() {
           </View>
         ) : (
           <View style={styles.overlay}>
-            <Text style={styles.hint}>Point the camera at the vendor’s in-store discount code.</Text>
+            <Text style={styles.hint}>Point the camera at the vendor&apos;s in-store discount code.</Text>
             {scanned ? <ActivityIndicator color={colors.brand} /> : null}
           </View>
         )}

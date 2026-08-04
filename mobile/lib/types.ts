@@ -136,6 +136,7 @@ export interface VendorListItem {
   id: string;
   name: string;
   address: string | null;
+  city: string | null;
   category: string | null;
   latitude: number | null;
   longitude: number | null;
@@ -263,6 +264,7 @@ export interface Ticket {
   usedUses: number;
   remainingUses: number;
   status: 'active' | 'used' | 'disabled';
+  userId?: string | null;
   createdAt?: string;
 }
 

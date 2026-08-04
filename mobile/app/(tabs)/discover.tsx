@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Image, Linking, ScrollView, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
@@ -7,11 +7,21 @@ import { useAdmin } from '@/lib/admin';
 import { useThemeColors } from '@/lib/useThemeColors';
 import type { ContentBlock } from '@/lib/types';
 
+type SortOption = 'newest' | 'oldest' | 'az' | 'za';
+
+const SORT_LABELS: Record<SortOption, string> = {
+  newest: 'Newest',
+  oldest: 'Oldest',
+  az: 'A-Z',
+  za: 'Z-A',
+};
+
 export default function DiscoverScreen() {
   const colors = useThemeColors();
   const router = useRouter();
   const admin = useAdmin();
   const [items, setItems] = useState<ContentBlock[]>([]);
+  const [sort, setSort] = useState<SortOption>('newest');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,6 +63,22 @@ export default function DiscoverScreen() {
     }
   }
 
+  const sortedItems = useMemo(() => {
+    const list = [...items];
+    switch (sort) {
+      case 'newest':
+        return list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      case 'oldest':
+        return list.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      case 'az':
+        return list.sort((a, b) => a.title.localeCompare(b.title));
+      case 'za':
+        return list.sort((a, b) => b.title.localeCompare(a.title));
+      default:
+        return list;
+    }
+  }, [items, sort]);
+
   return (
     <Screen>
       <ScrollView contentContainerStyle={{ gap: 14, paddingBottom: 24 }}>
@@ -71,11 +97,24 @@ export default function DiscoverScreen() {
           </Card>
         ) : null}
 
+        {!loading && items.length > 0 ? (
+          <Card>
+            <SectionTitle title="Sort" subtitle="Choose how content is ordered" />
+            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+              {(Object.keys(SORT_LABELS) as SortOption[]).map((key) => (
+                <AppButton key={key} variant={sort === key ? 'primary' : 'secondary'} onPress={() => setSort(key)}>
+                  {SORT_LABELS[key]}
+                </AppButton>
+              ))}
+            </View>
+          </Card>
+        ) : null}
+
         {loading ? <Spinner /> : null}
         {error ? <Banner tone="error">{error}</Banner> : null}
         {!loading && items.length === 0 ? <Banner tone="info">No content has been published yet.</Banner> : null}
 
-        {items.map((item) => (
+        {sortedItems.map((item) => (
           <Card key={item.id}>
             <SectionTitle title={item.title} />
             {!item.published ? <Pill tone="warning">Draft</Pill> : null}

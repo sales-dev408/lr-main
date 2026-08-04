@@ -580,6 +580,7 @@ Deno.serve(async (request) => {
         id: string;
         name: string;
         address: string | null;
+        city: string | null;
         location: string | null;
         category: string | null;
         latitude: number | null;
@@ -597,7 +598,7 @@ Deno.serve(async (request) => {
         card_icon: string | null;
         card_logo: string | null;
       }>(
-        `SELECT v.id, v.name, v.address, v.location, v.category, v.latitude, v.longitude, v.pos_system, v.icon_url, v.logo_url,
+        `SELECT v.id, v.name, v.address, v.city, v.location, v.category, v.latitude, v.longitude, v.pos_system, v.icon_url, v.logo_url,
                 c.id AS card_id, d.type AS discount_type, d.value AS discount_value, d.discount_code,
                 d.starts_at, d.ends_at, d.boosted, c.icon_url AS card_icon, c.logo_url AS card_logo
          FROM vendors v
@@ -614,6 +615,7 @@ Deno.serve(async (request) => {
         id: row.id,
         name: row.name,
         address: row.address ?? row.location,
+        city: row.city,
         category: row.category,
         latitude: row.latitude,
         longitude: row.longitude,
@@ -643,7 +645,7 @@ Deno.serve(async (request) => {
     if (path === '/api/tickets' && request.method === 'GET') {
       const claims = authenticate(request);
       const userId = claims?.role === 'customer' ? claims.sub : null;
-      const rows = await dbQuery('SELECT id, name, barcode, allowed_uses, used_uses, status, created_at FROM tickets WHERE status = $1 AND (user_id IS NULL OR $2::uuid IS NULL OR user_id = $2) ORDER BY created_at DESC', ['active', userId]);
+      const rows = await dbQuery('SELECT id, name, barcode, allowed_uses, used_uses, status, user_id, created_at FROM tickets WHERE status = $1 AND (user_id IS NULL OR $2::uuid IS NULL OR user_id = $2) ORDER BY created_at DESC', ['active', userId]);
       return json(request, rows.map((row) => ({
         id: row.id,
         name: row.name,
@@ -652,6 +654,7 @@ Deno.serve(async (request) => {
         usedUses: row.used_uses,
         remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
         status: row.status,
+        userId: row.user_id,
         createdAt: row.created_at,
       })));
     }
@@ -669,6 +672,39 @@ Deno.serve(async (request) => {
         usedUses: row.used_uses,
         remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
         status: row.status,
+        createdAt: row.created_at,
+      });
+    }
+
+    // Enter a random drawing: assigns an unclaimed active ticket to the current member.
+    if (path === '/api/tickets/apply' && request.method === 'POST') {
+      const claims = requireRole(request, ['customer']);
+      if (claims instanceof Response) return claims;
+      const userId = claims.sub;
+      const rows = await dbQuery(
+        `UPDATE tickets
+         SET user_id = $1, updated_at = now()
+         WHERE id = (
+           SELECT id FROM tickets
+           WHERE status = 'active' AND user_id IS NULL
+           ORDER BY random()
+           LIMIT 1
+           FOR UPDATE SKIP LOCKED
+         )
+         RETURNING id, name, barcode, allowed_uses, used_uses, status, created_at`,
+        [userId],
+      );
+      if (rows.length === 0) return json(request, { error: 'No tickets available in the drawing' }, { status: 409 });
+      const row = rows[0];
+      return json(request, {
+        id: row.id,
+        name: row.name,
+        barcode: row.barcode,
+        allowedUses: row.allowed_uses,
+        usedUses: row.used_uses,
+        remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
+        status: row.status,
+        userId,
         createdAt: row.created_at,
       });
     }

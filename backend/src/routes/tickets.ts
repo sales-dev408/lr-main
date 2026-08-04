@@ -26,7 +26,7 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
     const userId = request.user?.role === 'customer' ? request.user.sub : null;
     const rows = await dbQuery(
       `
-        SELECT id, name, barcode, barcode_format, allowed_uses, used_uses, status, created_at
+        SELECT id, name, barcode, barcode_format, allowed_uses, used_uses, status, user_id, created_at
         FROM tickets
         WHERE status = 'active' AND (user_id IS NULL OR $1::uuid IS NULL OR user_id = $1)
         ORDER BY created_at DESC
@@ -42,6 +42,7 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
       usedUses: row.used_uses,
       remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
       status: row.status,
+      userId: row.user_id,
       createdAt: row.created_at,
     }));
   });
@@ -63,6 +64,41 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
       usedUses: row.used_uses,
       remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
       status: row.status,
+      createdAt: row.created_at,
+    };
+  });
+
+  // Enter a random drawing: assigns an unclaimed active ticket to the current member.
+  fastify.post('/api/tickets/apply', { preHandler: fastify.requireRole(['customer']), config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
+    const userId = request.user?.sub;
+    if (!userId) return reply.code(401).send({ error: 'Unauthorized' });
+    const rows = await dbQuery(
+      `
+        UPDATE tickets
+        SET user_id = $1, updated_at = now()
+        WHERE id = (
+          SELECT id FROM tickets
+          WHERE status = 'active' AND user_id IS NULL
+          ORDER BY random()
+          LIMIT 1
+          FOR UPDATE SKIP LOCKED
+        )
+        RETURNING id, name, barcode, barcode_format, allowed_uses, used_uses, status, created_at
+      `,
+      [userId],
+    );
+    if (rows.length === 0) return reply.code(409).send({ error: 'No tickets available in the drawing' });
+    const row = rows[0]!;
+    return {
+      id: row.id,
+      name: row.name,
+      barcode: row.barcode,
+      barcodeFormat: row.barcode_format,
+      allowedUses: row.allowed_uses,
+      usedUses: row.used_uses,
+      remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
+      status: row.status,
+      userId,
       createdAt: row.created_at,
     };
   });
