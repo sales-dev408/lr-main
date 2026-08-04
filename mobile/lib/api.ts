@@ -210,7 +210,7 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   return (await response.json()) as T;
 }
 
-export async function login(body: { firstName: string; lastName: string }) {
+export async function login(body: { email?: string; phone?: string; password: string }) {
   return apiRequest<AuthResponse<UserProfile>>('/auth/login', { method: 'POST', body: JSON.stringify(body) });
 }
 
@@ -219,6 +219,7 @@ export async function register(body: {
   lastName: string;
   email?: string;
   phone?: string;
+  password: string;
 }) {
   return apiRequest<AuthResponse<UserProfile>>('/auth/register', { method: 'POST', body: JSON.stringify(body) });
 }
@@ -349,8 +350,11 @@ export async function listTickets() {
   return apiRequest<Ticket[]>('/tickets');
 }
 
-export async function applyForTicket() {
-  return apiRequest<Ticket>('/tickets/apply', { method: 'POST' });
+export async function enterTicketDrawing(ticketId: string, requestedCount: number) {
+  return apiRequest<{ success: boolean; ticketId: string; requestedCount: number }>('/tickets/enter', {
+    method: 'POST',
+    body: JSON.stringify({ ticketId, requestedCount }),
+  });
 }
 
 export async function getTicket(id: string) {

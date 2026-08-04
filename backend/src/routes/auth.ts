@@ -12,15 +12,19 @@ const customerRegisterSchema = z.object({
   lastName: z.string().trim().min(1),
   email: z.string().email().optional(),
   phone: z.string().min(7).optional(),
+  password: z.string().min(8),
   city: z.string().optional(),
   captchaToken: z.string().optional(),
 });
 
-const customerLoginSchema = z.object({
-  firstName: z.string().trim().min(1),
-  lastName: z.string().trim().min(1),
-  captchaToken: z.string().optional(),
-});
+const customerLoginSchema = z
+  .object({
+    email: z.string().email().optional(),
+    phone: z.string().min(7).optional(),
+    password: z.string().min(1),
+    captchaToken: z.string().optional(),
+  })
+  .refine((data) => Boolean(data.email || data.phone), { message: 'Email or phone is required', path: ['email'] });
 
 const socialSchema = z.object({
   provider: z.string().min(1),
@@ -115,6 +119,7 @@ export async function registerAuthRoutes(fastify: FastifyInstance): Promise<void
       return reply.code(400).send({ error: 'Invalid phone number' });
     }
     const fullName = `${body.firstName} ${body.lastName}`.trim();
+    const passwordHash = await bcrypt.hash(body.password, 10);
     let rows: Array<{ id: string }>;
     try {
       rows = await withDbClient(async (client) => {
@@ -126,7 +131,7 @@ export async function registerAuthRoutes(fastify: FastifyInstance): Promise<void
               VALUES ($1, $2, $3, $4, $5, $6, $7)
               RETURNING id
             `,
-            [body.email ?? null, phone ?? null, null, fullName, body.firstName, body.lastName, body.city ?? null],
+            [body.email ?? null, phone ?? null, passwordHash, fullName, body.firstName, body.lastName, body.city ?? null],
           );
           await client.query('COMMIT');
           return result.rows;
@@ -137,7 +142,7 @@ export async function registerAuthRoutes(fastify: FastifyInstance): Promise<void
       });
     } catch (error) {
       if (isUniqueViolation(error)) {
-        return reply.code(409).send({ error: 'An account with this email or phone number already exists. Please sign in with your first and last name.' });
+        return reply.code(409).send({ error: 'An account with this email or phone number already exists. Please sign in.' });
       }
       throw error;
     }
@@ -153,25 +158,32 @@ export async function registerAuthRoutes(fastify: FastifyInstance): Promise<void
       return reply.code(400).send({ error: 'CAPTCHA failed' });
     }
 
+    const loginPhone = body.phone ? normalizePhone(body.phone) : null;
+    if (body.phone && !loginPhone) {
+      return reply.code(400).send({ error: 'Invalid phone number' });
+    }
+
     const rows = await dbQuery<{
       id: string;
       email: string | null;
       phone: string | null;
+      password_hash: string | null;
       status: string;
       full_name: string;
     }>(
       `
-        SELECT id, email::text AS email, phone, status, full_name
+        SELECT id, email::text AS email, phone, password_hash, status, full_name
         FROM users
-        WHERE first_name = $1 AND last_name = $2
+        WHERE ($1::text IS NOT NULL AND lower(email::text) = lower($1::text))
+           OR ($2::text IS NOT NULL AND phone = $2::text)
         ORDER BY created_at DESC
         LIMIT 1
       `,
-      [body.firstName, body.lastName],
+      [body.email ?? null, loginPhone ?? null],
     );
 
     const user = rows[0];
-    if (!user || user.status !== 'active') {
+    if (!user || user.status !== 'active' || !user.password_hash || !(await bcrypt.compare(body.password, user.password_hash))) {
       return reply.code(401).send({ error: 'Invalid credentials' });
     }
 

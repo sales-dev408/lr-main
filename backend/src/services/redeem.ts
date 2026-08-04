@@ -6,7 +6,8 @@ export interface RedeemInput {
   lookupToken?: string;
   cardId?: string;
   userId?: string;
-  vendorId: string;
+  vendorId?: string;
+  discountCode?: string;
   discountId?: string;
   city?: string | null;
   purchaseAmount?: number | null;
@@ -41,12 +42,45 @@ export async function redeemDiscount(input: RedeemInput): Promise<RedeemResult> 
           )
         : { rows: [] };
 
-      const userId = input.userId ?? lookupRow.rows[0]?.user_id ?? null;
-      const cardId = input.cardId ?? lookupRow.rows[0]?.card_id ?? null;
+      let userId = input.userId ?? lookupRow.rows[0]?.user_id ?? null;
+      let cardId = input.cardId ?? lookupRow.rows[0]?.card_id ?? null;
+      let vendorId = input.vendorId ?? null;
+      let discountId = input.discountId ?? null;
       const passId = lookupRow.rows[0]?.pass_id ?? null;
 
-      if (!cardId) {
-        throw new Error('cardId or lookupToken is required');
+      if (input.discountCode) {
+        const codeRows = await client.query<{
+          discount_id: string;
+          card_id: string;
+          vendor_id: string;
+          card_name: string;
+          vendor_name: string;
+          active: boolean;
+        }>(
+          `
+            SELECT d.id AS discount_id, d.card_id, d.vendor_id, c.name AS card_name, v.name AS vendor_name, d.active
+            FROM discounts d
+            JOIN cards c ON c.id = d.card_id
+            JOIN vendors v ON v.id = d.vendor_id
+            WHERE d.discount_code = $1 AND c.is_membership = true
+            LIMIT 1
+          `,
+          [input.discountCode],
+        );
+        const codeRow = codeRows.rows[0];
+        if (!codeRow || !codeRow.active) {
+          return await denyAndCommit(client, input, { valid: false, reason: 'Discount not found' }, userId, cardId, passId);
+        }
+        cardId = codeRow.card_id;
+        vendorId = codeRow.vendor_id;
+        discountId = codeRow.discount_id;
+        // Ensure the resolved ids are recorded in denied redemptions and metadata.
+        input.vendorId = codeRow.vendor_id;
+        input.discountId = codeRow.discount_id;
+      }
+
+      if (!cardId || !vendorId) {
+        throw new Error('cardId, vendorId, or discountCode is required');
       }
 
       const cardRows = await client.query<{
@@ -72,7 +106,7 @@ export async function redeemDiscount(input: RedeemInput): Promise<RedeemResult> 
 
       const vendorParticipation = await client.query<{ exists: boolean }>(
         'SELECT EXISTS (SELECT 1 FROM card_vendors WHERE card_id = $1 AND vendor_id = $2) AS exists',
-        [cardId, input.vendorId],
+        [cardId, vendorId],
       );
       if (!vendorParticipation.rows[0]?.exists) {
         return await denyAndCommit(client, input, { valid: false, reason: 'Vendor is not linked to this card' }, userId, cardId, passId);
@@ -96,10 +130,10 @@ export async function redeemDiscount(input: RedeemInput): Promise<RedeemResult> 
           FROM discounts
           WHERE card_id = $1
             AND vendor_id = $2
-            ${input.discountId ? 'AND id = $3' : ''}
+            ${discountId ? 'AND id = $3' : ''}
           FOR UPDATE
         `,
-        input.discountId ? [cardId, input.vendorId, input.discountId] : [cardId, input.vendorId],
+        discountId ? [cardId, vendorId, discountId] : [cardId, vendorId],
       );
 
       const discount = discountRows.rows[0];
@@ -135,6 +169,16 @@ export async function redeemDiscount(input: RedeemInput): Promise<RedeemResult> 
         }
       }
 
+      if (userId) {
+        const weekly = await client.query<{ count: string }>(
+          "SELECT COUNT(*)::text AS count FROM redemptions WHERE vendor_id = $1 AND user_id = $2 AND status = 'approved' AND redeemed_at >= now() - interval '7 days'",
+          [vendorId, userId],
+        );
+        if (Number(weekly.rows[0]?.count ?? '0') >= 1) {
+          return await denyAndCommit(client, input, { valid: false, reason: 'Weekly vendor limit reached. You can only use this vendor discount once per 7 days.' }, userId, cardId, passId);
+        }
+      }
+
       const cardUsage = await client.query<{ count: string }>(
         'SELECT COUNT(*)::text AS count FROM redemptions WHERE card_id = $1 AND status = \'approved\'',
         [cardId],
@@ -167,7 +211,7 @@ export async function redeemDiscount(input: RedeemInput): Promise<RedeemResult> 
           discount.id,
           input.giftCardId ?? null,
           cardId,
-          input.vendorId,
+          vendorId,
           userId,
           passId,
           computed.amountApplied,
@@ -197,7 +241,7 @@ export async function redeemDiscount(input: RedeemInput): Promise<RedeemResult> 
           JSON.stringify({
             discountId: discount.id,
             cardId,
-            vendorId: input.vendorId,
+            vendorId,
             amountApplied: computed.amountApplied,
             city: input.city ?? null,
           }),

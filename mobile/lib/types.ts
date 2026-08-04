@@ -264,6 +264,9 @@ export interface Ticket {
   usedUses: number;
   remainingUses: number;
   status: 'active' | 'used' | 'disabled';
+  drawingDeadline?: string | null;
+  drawingStatus?: 'open' | 'drawn' | 'closed';
+  entryCount?: number;
   userId?: string | null;
   createdAt?: string;
 }

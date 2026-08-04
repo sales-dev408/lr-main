@@ -189,6 +189,7 @@ export function AppButton({
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityHint={accessibilityHint}
+      tabIndex={-1}
       style={({ pressed }) => [
         styles.button,
         variant === 'primary' && styles.button_primary,
