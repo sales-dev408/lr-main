@@ -15,10 +15,10 @@ SET value = jsonb_set(
   (
     SELECT jsonb_agg(tab)
     FROM (
-      SELECT value AS tab
-      FROM app_settings,
-           jsonb_array_elements(value->'tabs') AS value
-      WHERE key = 'theme'
+      SELECT t.value AS tab
+      FROM app_settings a,
+           jsonb_array_elements(a.value->'tabs') AS t(value)
+      WHERE a.key = 'theme'
       UNION ALL
       SELECT '{"key":"events","label":"Events","color":"#9333ea","gradient":["#a855f7","#7e22ce"]}'::jsonb
     ) AS all_tabs

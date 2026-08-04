@@ -58,7 +58,7 @@ export default function ScanScreen() {
           </View>
         ) : (
           <View style={styles.overlay}>
-            <Text style={styles.hint}>Point the camera at the vendor’s in-store QR code.</Text>
+            <Text style={styles.hint}>Point the camera at the vendor’s in-store discount code.</Text>
             {scanned ? <ActivityIndicator color={colors.brand} /> : null}
           </View>
         )}
@@ -73,6 +73,15 @@ const styles = StyleSheet.create({
   permission: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 },
   permissionText: { textAlign: 'center' },
   overlay: { position: 'absolute', bottom: 40, left: 16, right: 16, alignItems: 'center', gap: 12 },
-  hint: { color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
+  hint: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+    ...Platform.select({
+      web: { textShadow: '0px 1px 4px rgba(0,0,0,0.6)' },
+      default: { textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
+    }),
+  },
   webOverlay: { position: 'absolute', bottom: 24, left: 16, right: 16, gap: 12 },
 });
