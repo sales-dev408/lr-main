@@ -16,6 +16,7 @@ import type {
   LookupResult,
   OnboardingResponse,
   PassDetail,
+  PushPreferences,
   RedeemResult,
   RssEvent,
   ThemeSettings,
@@ -377,8 +378,12 @@ export async function getMe(): Promise<UserProfile> {
   return apiRequest<UserProfile>('/me');
 }
 
-export async function updateMe(body: { city: string | null }): Promise<UserProfile> {
+export async function updateMe(body: { city?: string | null; pushPreferences?: PushPreferences }): Promise<UserProfile> {
   return apiRequest<UserProfile>('/me', { method: 'PATCH', body: JSON.stringify(body) });
+}
+
+export async function deleteMe(): Promise<void> {
+  return apiRequest('/me', { method: 'DELETE' });
 }
 
 // ---- In-app admin editing -------------------------------------------------

@@ -7,7 +7,7 @@ import { buildLookupDiscountView, generateDiscountCode, humanDiscountLabel } fro
 import { generateTempPassword } from '../utils/ids.js';
 import { writeTransactionAudit } from '../services/audit.js';
 import { sendVendorWelcomeEmail } from '../services/mailjet.js';
-import { getAllPushTokens, sendPushNotifications } from '../services/push.js';
+import { getPushTokensForNewVendor, sendPushNotifications } from '../services/push.js';
 import { qrCodeUrl } from '../services/quickchart.js';
 import { deleteDiscountFromVendorConnections, syncDiscountToVendorConnections } from '../services/pos.js';
 
@@ -202,7 +202,7 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
       ip: request.ip,
     });
 
-    void getAllPushTokens().then((tokens) =>
+    void getPushTokensForNewVendor().then((tokens) =>
       sendPushNotifications(
         tokens,
         'New vendor joined',

@@ -1,4 +1,4 @@
-import { Linking, ScrollView, Text, View } from 'react-native';
+import { Alert, Linking, ScrollView, Switch, Text, View } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Picker } from '@react-native-picker/picker';
 import { useCallback, useState } from 'react';
@@ -159,6 +159,42 @@ export default function ProfileScreen() {
         </Card>
 
         <Card>
+          <SectionTitle title="Notifications" subtitle="Choose what we notify you about" />
+          {auth.profile ? (
+            <View style={{ gap: 4 }}>
+              {[
+                { key: 'newVendor', label: 'New vendors' },
+                { key: 'expiringDeal', label: 'Expiring deals' },
+                { key: 'localEvent', label: 'Local events' },
+              ].map((item) => {
+                const key = item.key as keyof NonNullable<typeof auth.profile>['pushPreferences'];
+                const value = auth.profile?.pushPreferences?.[key] ?? true;
+                return (
+                  <View
+                    key={item.key}
+                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}
+                  >
+                    <Text style={{ color: colors.ink, fontSize: 16 }}>{item.label}</Text>
+                    <Switch
+                      value={value}
+                      onValueChange={(next) => {
+                        const nextPreferences = { ...(auth.profile?.pushPreferences ?? { newVendor: true, expiringDeal: true, localEvent: true }), [key]: next };
+                        void auth.updateProfile({ pushPreferences: nextPreferences });
+                      }}
+                      accessibilityLabel={`Toggle ${item.label}`}
+                      trackColor={{ false: colors.border, true: colors.brand }}
+                      thumbColor="#fff"
+                    />
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            <Banner tone="info">Sign in to manage notifications.</Banner>
+          )}
+        </Card>
+
+        <Card>
           <SectionTitle title="Session" subtitle="Account access" />
           <AppButton
             variant="danger"
@@ -167,6 +203,21 @@ export default function ProfileScreen() {
             }}
           >
             Log out
+          </AppButton>
+          <AppButton
+            variant="danger"
+            onPress={() =>
+              Alert.alert('Delete account', 'This permanently deletes your account and cannot be undone.', [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete',
+                  style: 'destructive',
+                  onPress: () => void auth.deleteAccount().then(() => router.replace('/auth')),
+                },
+              ])
+            }
+          >
+            Delete account
           </AppButton>
         </Card>
       </ScrollView>

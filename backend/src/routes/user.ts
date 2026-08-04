@@ -2,6 +2,57 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { dbQuery } from '../db/pool.js';
 import { savePushToken } from '../services/push.js';
+import type { PushPreferences, UserProfile } from '../types.js';
+
+type ProfileRow = {
+  id: string;
+  email: string | null;
+  phone: string | null;
+  full_name: string;
+  first_name: string | null;
+  last_name: string | null;
+  city: string | null;
+  status: string;
+  push_enabled_new_vendor: boolean;
+  push_enabled_expiring_deal: boolean;
+  push_enabled_local_event: boolean;
+};
+
+const profileColumns = `
+  id,
+  email::text AS email,
+  phone,
+  full_name,
+  first_name,
+  last_name,
+  city,
+  status,
+  push_enabled_new_vendor,
+  push_enabled_expiring_deal,
+  push_enabled_local_event
+`;
+
+function buildPushPreferences(row: Pick<ProfileRow, 'push_enabled_new_vendor' | 'push_enabled_expiring_deal' | 'push_enabled_local_event'>): PushPreferences {
+  return {
+    newVendor: row.push_enabled_new_vendor,
+    expiringDeal: row.push_enabled_expiring_deal,
+    localEvent: row.push_enabled_local_event,
+  };
+}
+
+function mapProfileRow(row: ProfileRow): UserProfile {
+  return {
+    id: row.id,
+    email: row.email,
+    phone: row.phone,
+    fullName: row.full_name,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    city: row.city,
+    status: row.status as UserProfile['status'],
+    pushPreferences: buildPushPreferences(row),
+  };
+}
 
 export async function registerUserRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get('/api/me/analytics', { preHandler: fastify.requireRole(['customer']) }, async (request) => {
@@ -48,46 +99,63 @@ export async function registerUserRoutes(fastify: FastifyInstance): Promise<void
 
   fastify.get('/api/me', { preHandler: fastify.requireRole(['customer']) }, async (request) => {
     const userId = request.user!.sub;
-    const rows = await dbQuery<{ id: string; email: string | null; phone: string | null; full_name: string; first_name: string | null; last_name: string | null; city: string | null; status: string }>(
-      `SELECT id, email::text AS email, phone, full_name, first_name, last_name, city, status FROM users WHERE id = $1 LIMIT 1`,
+    const rows = await dbQuery<ProfileRow>(
+      `SELECT ${profileColumns} FROM users WHERE id = $1 LIMIT 1`,
       [userId],
     );
     const user = rows[0];
     if (!user) return { error: 'User not found' };
-    return {
-      id: user.id,
-      email: user.email,
-      phone: user.phone,
-      fullName: user.full_name,
-      firstName: user.first_name,
-      lastName: user.last_name,
-      city: user.city,
-      status: user.status,
-    };
+    return mapProfileRow(user);
+  });
+
+  const pushPreferencesSchema = z.object({
+    newVendor: z.boolean().optional(),
+    expiringDeal: z.boolean().optional(),
+    localEvent: z.boolean().optional(),
   });
 
   fastify.patch(
     '/api/me',
     { preHandler: fastify.requireRole(['customer']), config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
     async (request, reply) => {
-      const body = z.object({ city: z.string().trim().min(1).optional() }).parse(request.body);
+      const body = z
+        .object({
+          city: z.string().trim().min(1).optional(),
+          pushPreferences: pushPreferencesSchema.optional(),
+        })
+        .parse(request.body);
       const userId = request.user!.sub;
-      const rows = await dbQuery<{ id: string; email: string | null; phone: string | null; full_name: string; first_name: string | null; last_name: string | null; city: string | null; status: string }>(
-        `UPDATE users SET city = COALESCE($2, city), updated_at = now() WHERE id = $1 RETURNING id, email::text AS email, phone, full_name, first_name, last_name, city, status`,
-        [userId, body.city ?? null],
+      const rows = await dbQuery<ProfileRow>(
+        `UPDATE users
+         SET city = COALESCE($2, city),
+             push_enabled_new_vendor = COALESCE($4, push_enabled_new_vendor),
+             push_enabled_expiring_deal = COALESCE($5, push_enabled_expiring_deal),
+             push_enabled_local_event = COALESCE($6, push_enabled_local_event),
+             updated_at = now()
+         WHERE id = $1
+         RETURNING ${profileColumns}`,
+        [
+          userId,
+          body.city ?? null,
+          null, // $3 unused placeholder
+          body.pushPreferences?.newVendor ?? null,
+          body.pushPreferences?.expiringDeal ?? null,
+          body.pushPreferences?.localEvent ?? null,
+        ],
       );
       const user = rows[0];
       if (!user) return reply.code(404).send({ error: 'User not found' });
-      return {
-        id: user.id,
-        email: user.email,
-        phone: user.phone,
-        fullName: user.full_name,
-        firstName: user.first_name,
-        lastName: user.last_name,
-        city: user.city,
-        status: user.status,
-      };
+      return mapProfileRow(user);
+    },
+  );
+
+  fastify.delete(
+    '/api/me',
+    { preHandler: fastify.requireRole(['customer']), config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const userId = request.user!.sub;
+      await dbQuery('DELETE FROM users WHERE id = $1', [userId]);
+      return reply.code(204).send();
     },
   );
 

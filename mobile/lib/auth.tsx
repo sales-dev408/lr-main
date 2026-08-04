@@ -1,10 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { login as loginRequest, register as registerRequest, updateMe } from './api';
+import { login as loginRequest, register as registerRequest, updateMe, deleteMe } from './api';
 import { initPushNotifications } from './notifications';
 import { getItem, removeItem, setItem } from './storage';
-import type { AuthResponse, UserProfile } from './types';
+import type { AuthResponse, PushPreferences, UserProfile } from './types';
 
 const AUTH_KEY = 'lr.mobile.auth';
+
+const defaultPushPreferences: PushPreferences = { newVendor: true, expiringDeal: true, localEvent: true };
 
 type AuthContextValue = {
   loading: boolean;
@@ -12,7 +14,8 @@ type AuthContextValue = {
   profile: UserProfile | null;
   signIn: (body: { firstName: string; lastName: string }) => Promise<void>;
   registerAccount: (body: { firstName: string; lastName: string; email?: string; phone?: string; city?: string }) => Promise<void>;
-  updateProfile: (profile: Partial<UserProfile>) => Promise<void>;
+  updateProfile: (profile: Partial<UserProfile> & { pushPreferences?: PushPreferences }) => Promise<void>;
+  deleteAccount: () => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -22,6 +25,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState<string | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+
+  function normalizeProfile(input: UserProfile): UserProfile {
+    return { ...input, pushPreferences: input.pushPreferences ?? defaultPushPreferences };
+  }
 
   useEffect(() => {
     let mounted = true;
@@ -34,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const parsed = JSON.parse(raw) as AuthResponse<UserProfile>;
           setToken(parsed.token);
-          setProfile(parsed.profile);
+          setProfile(normalizeProfile(parsed.profile));
           void initPushNotifications();
         } catch {
           await removeItem(AUTH_KEY);
@@ -48,27 +55,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  async function persist(auth: AuthResponse<UserProfile>) {
-    setToken(auth.token);
-    setProfile(auth.profile);
-    await setItem(AUTH_KEY, JSON.stringify(auth));
-    void initPushNotifications();
-  }
+  const persist = useCallback(
+    async (auth: AuthResponse<UserProfile>) => {
+      setToken(auth.token);
+      setProfile(normalizeProfile(auth.profile));
+      await setItem(AUTH_KEY, JSON.stringify(auth));
+      void initPushNotifications();
+    },
+    [],
+  );
 
   const updateProfile = useCallback(
-    async (update: Partial<UserProfile>) => {
-      const next = { ...(profile ?? ({} as UserProfile)), ...update } as UserProfile;
+    async (update: Partial<UserProfile> & { pushPreferences?: PushPreferences }) => {
+      const next = normalizeProfile({ ...(profile ?? ({} as UserProfile)), ...update } as UserProfile);
       setProfile(next);
       if (token) {
         await setItem(AUTH_KEY, JSON.stringify({ token, profile: next }));
       }
-      if ('city' in update) {
-        const refreshed = await updateMe({ city: update.city ?? null });
+      const body: { city?: string | null; pushPreferences?: PushPreferences } = {};
+      if ('city' in update) body.city = update.city ?? null;
+      if ('pushPreferences' in update) body.pushPreferences = update.pushPreferences;
+      if (Object.keys(body).length > 0) {
+        const refreshed = normalizeProfile(await updateMe(body));
         setProfile(refreshed);
         if (token) {
           await setItem(AUTH_KEY, JSON.stringify({ token, profile: refreshed }));
         }
-        void initPushNotifications();
+        if ('city' in body) {
+          void initPushNotifications();
+        }
       }
     },
     [profile, token],
@@ -90,13 +105,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updateProfile: async (update) => {
         await updateProfile(update);
       },
+      deleteAccount: async () => {
+        await deleteMe();
+        setToken(null);
+        setProfile(null);
+        await removeItem(AUTH_KEY);
+      },
       logout: async () => {
         setToken(null);
         setProfile(null);
         await removeItem(AUTH_KEY);
       },
     }),
-    [loading, profile, token, updateProfile],
+    [loading, persist, profile, token, updateProfile],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

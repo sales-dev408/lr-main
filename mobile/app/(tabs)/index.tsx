@@ -6,6 +6,7 @@ import { listCards } from '@/lib/api';
 import { scheduleDealNotifications } from '@/lib/notifications';
 import { useOnboarding } from '@/lib/onboarding';
 import { useThemeColors } from '@/lib/useThemeColors';
+import { useAuth } from '@/lib/auth';
 import type { CardSummary, CardTheme } from '@/lib/types';
 
 const THEMES: CardTheme[] = ['sports', 'entertainment', 'shops_restaurants'];
@@ -16,6 +17,7 @@ function prettyTheme(theme: CardTheme) {
 
 export default function BrowseScreen() {
   const colors = useThemeColors();
+  const auth = useAuth();
   const onboarding = useOnboarding();
   const [theme, setTheme] = useState<CardTheme>(onboarding.selection.theme ?? 'shops_restaurants');
   const [city, setCity] = useState(onboarding.selection.city ?? '');
@@ -32,7 +34,7 @@ export default function BrowseScreen() {
       listCards({ theme, city: city.trim() || undefined })
         .then((data) => {
           if (active) setCards(data);
-          void scheduleDealNotifications(data);
+          void scheduleDealNotifications(data, auth.profile?.pushPreferences);
         })
         .catch((err) => {
           if (active) setError(err instanceof Error ? err.message : 'Unable to load cards');
@@ -43,7 +45,7 @@ export default function BrowseScreen() {
       return () => {
         active = false;
       };
-    }, [theme, city]),
+    }, [theme, city, auth.profile?.pushPreferences]),
   );
 
   const applyCity = useCallback(() => {

@@ -21,7 +21,7 @@ export default function EventsScreen() {
     try {
       const data = await getEvents();
       setItems(data);
-      void scheduleEventNotifications(data, auth.profile?.city ?? '');
+      void scheduleEventNotifications(data, auth.profile?.city ?? '', auth.profile?.pushPreferences);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load events');
     }

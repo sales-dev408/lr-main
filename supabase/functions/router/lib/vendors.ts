@@ -4,7 +4,7 @@ import { uploadImageDataUrl } from './storage.ts';
 import { config } from './config.ts';
 import { sendVendorWelcomeEmail } from './mailjet.ts';
 import { qrCodeUrl } from './quickchart.ts';
-import { getAllPushTokens, sendPushNotifications } from './push.ts';
+import { getPushTokensForNewVendor, sendPushNotifications } from './push.ts';
 
 export type VendorCategory = 'Sports' | 'Dining' | 'Entertainment';
 
@@ -127,7 +127,7 @@ export async function createVendorWithDiscount(input: CreateVendorInput): Promis
         }
       }
 
-      void getAllPushTokens().then((tokens) =>
+      void getPushTokensForNewVendor().then((tokens) =>
         sendPushNotifications(
           tokens,
           'New vendor joined',

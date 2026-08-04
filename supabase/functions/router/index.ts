@@ -260,13 +260,28 @@ async function buildCustomerProfile(userId: string) {
     lastName: string | null;
     city: string | null;
     status: string;
+    pushEnabledNewVendor: boolean;
+    pushEnabledExpiringDeal: boolean;
+    pushEnabledLocalEvent: boolean;
   }>(
     `SELECT id, email::text AS email, phone, full_name AS "fullName",
-            first_name AS "firstName", last_name AS "lastName", city, status
+            first_name AS "firstName", last_name AS "lastName", city, status,
+            push_enabled_new_vendor AS "pushEnabledNewVendor",
+            push_enabled_expiring_deal AS "pushEnabledExpiringDeal",
+            push_enabled_local_event AS "pushEnabledLocalEvent"
      FROM users WHERE id = $1 LIMIT 1`,
     [userId],
   );
-  return rows[0] ?? null;
+  const user = rows[0];
+  if (!user) return null;
+  return {
+    ...user,
+    pushPreferences: {
+      newVendor: user.pushEnabledNewVendor,
+      expiringDeal: user.pushEnabledExpiringDeal,
+      localEvent: user.pushEnabledLocalEvent,
+    },
+  };
 }
 
 async function loadCardsWithBusinesses(filters: { id?: string; theme?: string; status?: string; city?: string }) {
@@ -1109,30 +1124,44 @@ Deno.serve(async (request) => {
     if (path === '/api/me' && request.method === 'GET') {
       const auth = requireRole(request, ['customer']);
       if (auth instanceof Response) return auth;
-      const rows = await dbQuery<{ id: string; email: string | null; phone: string | null; full_name: string; first_name: string | null; last_name: string | null; city: string | null; status: string }>(
-        `SELECT id, email::text AS email, phone, full_name, first_name, last_name, city, status FROM users WHERE id = $1 LIMIT 1`,
-        [auth.sub],
-      );
-      const user = rows[0];
-      if (!user) return json(request, { error: 'User not found' }, { status: 404 });
-      return json(request, {
-        id: user.id,
-        email: user.email,
-        phone: user.phone,
-        fullName: user.full_name,
-        firstName: user.first_name,
-        lastName: user.last_name,
-        city: user.city,
-        status: user.status,
-      });
+      const profile = await buildCustomerProfile(auth.sub);
+      if (!profile) return json(request, { error: 'User not found' }, { status: 404 });
+      return json(request, profile);
     }
     if (path === '/api/me' && request.method === 'PATCH') {
       const auth = requireRole(request, ['customer']);
       if (auth instanceof Response) return auth;
-      const body = z.object({ city: z.string().trim().min(1).optional() }).parse(await readJsonBody(request, {}));
-      const rows = await dbQuery<{ id: string; email: string | null; phone: string | null; full_name: string; first_name: string | null; last_name: string | null; city: string | null; status: string }>(
-        `UPDATE users SET city = COALESCE($2, city), updated_at = now() WHERE id = $1 RETURNING id, email::text AS email, phone, full_name, first_name, last_name, city, status`,
-        [auth.sub, body.city ?? null],
+      const body = z.object({
+        city: z.string().trim().min(1).optional(),
+        pushPreferences: z.object({
+          newVendor: z.boolean().optional(),
+          expiringDeal: z.boolean().optional(),
+          localEvent: z.boolean().optional(),
+        }).optional(),
+      }).parse(await readJsonBody(request, {}));
+      const rows = await dbQuery<{
+        id: string;
+        email: string | null;
+        phone: string | null;
+        full_name: string;
+        first_name: string | null;
+        last_name: string | null;
+        city: string | null;
+        status: string;
+        push_enabled_new_vendor: boolean;
+        push_enabled_expiring_deal: boolean;
+        push_enabled_local_event: boolean;
+      }>(
+        `UPDATE users
+         SET city = COALESCE($2, city),
+             push_enabled_new_vendor = COALESCE($4, push_enabled_new_vendor),
+             push_enabled_expiring_deal = COALESCE($5, push_enabled_expiring_deal),
+             push_enabled_local_event = COALESCE($6, push_enabled_local_event),
+             updated_at = now()
+         WHERE id = $1
+         RETURNING id, email::text AS email, phone, full_name, first_name, last_name, city, status,
+                   push_enabled_new_vendor, push_enabled_expiring_deal, push_enabled_local_event`,
+        [auth.sub, body.city ?? null, null, body.pushPreferences?.newVendor ?? null, body.pushPreferences?.expiringDeal ?? null, body.pushPreferences?.localEvent ?? null],
       );
       const user = rows[0];
       if (!user) return json(request, { error: 'User not found' }, { status: 404 });
@@ -1145,7 +1174,18 @@ Deno.serve(async (request) => {
         lastName: user.last_name,
         city: user.city,
         status: user.status,
+        pushPreferences: {
+          newVendor: user.push_enabled_new_vendor,
+          expiringDeal: user.push_enabled_expiring_deal,
+          localEvent: user.push_enabled_local_event,
+        },
       });
+    }
+    if (path === '/api/me' && request.method === 'DELETE') {
+      const auth = requireRole(request, ['customer']);
+      if (auth instanceof Response) return auth;
+      await dbQuery('DELETE FROM users WHERE id = $1', [auth.sub]);
+      return json(request, { deleted: true });
     }
     if (path === '/api/me/push-token' && request.method === 'POST') {
       const auth = requireRole(request, ['customer']);

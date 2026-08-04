@@ -16,6 +16,12 @@ export interface JwtClaims {
   email?: string | null;
 }
 
+export interface PushPreferences {
+  newVendor: boolean;
+  expiringDeal: boolean;
+  localEvent: boolean;
+}
+
 export interface UserProfile {
   id: string;
   email: string | null;
@@ -25,6 +31,7 @@ export interface UserProfile {
   lastName: string | null;
   city: string | null;
   status: UserStatus;
+  pushPreferences: PushPreferences;
 }
 
 export interface VendorProfile {

@@ -3,7 +3,7 @@ import * as Notifications from 'expo-notifications';
 import { SchedulableTriggerInputTypes } from 'expo-notifications';
 import Constants from 'expo-constants';
 import { registerPushToken } from './api';
-import type { CardSummary, RssEvent } from './types';
+import type { CardSummary, PushPreferences, RssEvent } from './types';
 
 export async function initPushNotifications(): Promise<string | null> {
   if (Platform.OS === 'web') return null;
@@ -56,8 +56,8 @@ async function cancelScheduledNotifications(prefix: string) {
   }
 }
 
-export async function scheduleDealNotifications(cards: CardSummary[]): Promise<void> {
-  if (Platform.OS === 'web') return;
+export async function scheduleDealNotifications(cards: CardSummary[], prefs?: PushPreferences): Promise<void> {
+  if (Platform.OS === 'web' || prefs?.expiringDeal === false) return;
   await cancelScheduledNotifications(DEAL_NOTIFICATION_PREFIX);
 
   const now = Date.now();
@@ -85,8 +85,8 @@ function eventMatchesCity(event: RssEvent, city: string): boolean {
   return haystack.includes(city.toLowerCase());
 }
 
-export async function scheduleEventNotifications(events: RssEvent[], city: string): Promise<void> {
-  if (Platform.OS === 'web' || !city) return;
+export async function scheduleEventNotifications(events: RssEvent[], city: string, prefs?: PushPreferences): Promise<void> {
+  if (Platform.OS === 'web' || !city || prefs?.localEvent === false) return;
   await cancelScheduledNotifications(EVENT_NOTIFICATION_PREFIX);
 
   const now = Date.now();

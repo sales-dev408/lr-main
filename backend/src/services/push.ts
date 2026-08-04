@@ -24,9 +24,16 @@ export async function getAllPushTokens(): Promise<string[]> {
   return rows.map((r) => r.expo_push_token);
 }
 
+export async function getPushTokensForNewVendor(): Promise<string[]> {
+  const rows = await dbQuery<{ expo_push_token: string }>(
+    "SELECT expo_push_token FROM users WHERE expo_push_token IS NOT NULL AND expo_push_token <> '' AND push_enabled_new_vendor = true",
+  );
+  return rows.map((r) => r.expo_push_token);
+}
+
 export async function getPushTokensByCity(city: string): Promise<string[]> {
   const rows = await dbQuery<{ expo_push_token: string }>(
-    "SELECT expo_push_token FROM users WHERE city ILIKE $1 AND expo_push_token IS NOT NULL AND expo_push_token <> ''",
+    "SELECT expo_push_token FROM users WHERE city ILIKE $1 AND expo_push_token IS NOT NULL AND expo_push_token <> '' AND push_enabled_local_event = true",
     [city.trim()],
   );
   return rows.map((r) => r.expo_push_token);

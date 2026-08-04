@@ -3,6 +3,12 @@ export type WalletPlatform = 'apple' | 'google';
 export type DiscountType = 'fixed' | 'percent' | 'bogo';
 export type CityOverrideMap = Record<string, { type?: DiscountType; value?: number }>;
 
+export interface PushPreferences {
+  newVendor: boolean;
+  expiringDeal: boolean;
+  localEvent: boolean;
+}
+
 export interface UserProfile {
   id: string;
   email: string | null;
@@ -12,6 +18,7 @@ export interface UserProfile {
   lastName?: string | null;
   city: string | null;
   status: 'active' | 'suspended' | 'deleted';
+  pushPreferences: PushPreferences;
 }
 
 export interface AdminAuthProfile {

@@ -5,7 +5,7 @@ import { dbQuery, withDbClient } from '../db/pool.js';
 import { verifyCaptcha } from '../services/captcha.js';
 import { signJwt } from '../services/jwt.js';
 import { normalizePhone } from '../utils/phone.js';
-import type { AdminProfile, UserProfile, VendorProfile } from '../types.js';
+import type { AdminProfile, PushPreferences, UserProfile, VendorProfile } from '../types.js';
 
 const customerRegisterSchema = z.object({
   firstName: z.string().trim().min(1),
@@ -44,14 +44,51 @@ const adminLoginSchema = z.object({
   captchaToken: z.string().optional(),
 });
 
+type ProfileRow = {
+  id: string;
+  email: string | null;
+  phone: string | null;
+  full_name: string;
+  first_name: string | null;
+  last_name: string | null;
+  city: string | null;
+  status: string;
+  push_enabled_new_vendor: boolean;
+  push_enabled_expiring_deal: boolean;
+  push_enabled_local_event: boolean;
+};
+
+function buildPushPreferences(row: Pick<ProfileRow, 'push_enabled_new_vendor' | 'push_enabled_expiring_deal' | 'push_enabled_local_event'>): PushPreferences {
+  return {
+    newVendor: row.push_enabled_new_vendor,
+    expiringDeal: row.push_enabled_expiring_deal,
+    localEvent: row.push_enabled_local_event,
+  };
+}
+
 async function buildCustomerProfile(userId: string): Promise<UserProfile | null> {
-  const rows = await dbQuery<UserProfile>(
-    `SELECT id, email::text AS email, phone, full_name AS "fullName",
-            first_name AS "firstName", last_name AS "lastName", city, status
+  const rows = await dbQuery<ProfileRow>(
+    `SELECT id, email::text AS email, phone, full_name,
+            first_name, last_name, city, status,
+            push_enabled_new_vendor,
+            push_enabled_expiring_deal,
+            push_enabled_local_event
      FROM users WHERE id = $1 LIMIT 1`,
     [userId],
   );
-  return rows[0] ?? null;
+  const user = rows[0];
+  if (!user) return null;
+  return {
+    id: user.id,
+    email: user.email,
+    phone: user.phone,
+    fullName: user.full_name,
+    firstName: user.first_name,
+    lastName: user.last_name,
+    city: user.city,
+    status: user.status as UserProfile['status'],
+    pushPreferences: buildPushPreferences(user),
+  };
 }
 
 async function issueProfileToken(role: 'customer' | 'vendor' | 'admin', id: string, email?: string | null) {

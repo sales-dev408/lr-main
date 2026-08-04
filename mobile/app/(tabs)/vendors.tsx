@@ -4,6 +4,7 @@ import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, FieldInput, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { listVendors } from '@/lib/api';
 import { barcodeUrl } from '@/lib/qr';
+import { shareDeal } from '@/lib/share';
 import { useThemeColors } from '@/lib/useThemeColors';
 import type { VendorListItem } from '@/lib/types';
 
@@ -169,6 +170,9 @@ export default function VendorsScreen() {
             <Link href="/(tabs)/passes" asChild>
               <AppButton variant="secondary">Open my membership pass</AppButton>
             </Link>
+            <AppButton variant="secondary" onPress={() => void shareDeal(selected)}>
+              Share this deal
+            </AppButton>
 
             {selected.discountCode ? (
               <View style={{ alignItems: 'center', gap: 8 }}>
