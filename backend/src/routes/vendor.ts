@@ -25,18 +25,24 @@ export async function registerVendorRoutes(fastify: FastifyInstance): Promise<vo
       discount_type: 'fixed' | 'percent' | 'bogo';
       discount_value: string;
       discount_code: string | null;
+      starts_at: string | null;
+      ends_at: string | null;
+      boosted: boolean;
       card_icon: string | null;
       card_logo: string | null;
     }>(
       `
         SELECT v.id, v.name, v.address, v.location, v.category, v.latitude, v.longitude, v.pos_system, v.icon_url, v.logo_url,
                c.id AS card_id, d.type AS discount_type, d.value AS discount_value, d.discount_code,
-               c.icon_url AS card_icon, c.logo_url AS card_logo
+               d.starts_at, d.ends_at, d.boosted, c.icon_url AS card_icon, c.logo_url AS card_logo
         FROM vendors v
         JOIN cards c ON c.is_membership = true AND c.status = 'active'
         JOIN discounts d ON d.vendor_id = v.id AND d.card_id = c.id AND d.active = true
-        WHERE v.status = 'approved' AND ($1::text = '' OR v.category = $1)
-        ORDER BY v.name
+        WHERE v.status = 'approved'
+          AND ($1::text = '' OR v.category = $1)
+          AND (d.starts_at IS NULL OR d.starts_at <= now())
+          AND (d.ends_at IS NULL OR d.ends_at >= now())
+        ORDER BY CASE WHEN d.boosted THEN 0 ELSE 1 END, v.name
       `,
       [category],
     );
@@ -56,6 +62,9 @@ export async function registerVendorRoutes(fastify: FastifyInstance): Promise<vo
         label: humanDiscountLabel(row.discount_type, Number(row.discount_value)),
       },
       discountCode: row.discount_code,
+      boosted: row.boosted,
+      startsAt: row.starts_at,
+      endsAt: row.ends_at,
       cardId: row.card_id,
       walletUrl: null,
     }));

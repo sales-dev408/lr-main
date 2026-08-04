@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Linking, Platform, ScrollView, Text, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import MapView, { Marker, Region } from 'react-native-maps';
+import MapView, { Marker, type Region } from '@/components/MapView';
 import * as Location from 'expo-location';
 import { AppButton, Banner, BrandHeader, Card, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { listVendors } from '@/lib/api';
+import { useThemeColors } from '@/lib/useThemeColors';
 import type { VendorListItem } from '@/lib/types';
 
 const CATEGORIES = ['All', 'Sports', 'Dining', 'Entertainment'] as const;
@@ -38,6 +39,7 @@ function initialRegion(vendors: VendorListItem[]): Region {
 }
 
 export default function MapScreen() {
+  const colors = useThemeColors();
   const router = useRouter();
   const params = useLocalSearchParams<{ category?: string }>();
   const [category, setCategory] = useState<(typeof CATEGORIES)[number]>(
@@ -160,7 +162,7 @@ export default function MapScreen() {
               <Card key={vendor.id}>
                 <SectionTitle title={vendor.name} subtitle={vendor.category ?? undefined} />
                 <Pill tone="success">{vendor.discount.label}</Pill>
-                {vendor.address ? <Text style={{ color: '#52617a' }}>{vendor.address}</Text> : null}
+                {vendor.address ? <Text style={{ color: colors.muted }}>{vendor.address}</Text> : null}
                 {vendor.latitude != null && vendor.longitude != null ? (
                   <AppButton
                     variant="secondary"

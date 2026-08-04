@@ -4,11 +4,13 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, FieldInput, Screen, SectionTitle } from '@/components/Ui';
 import { adminCreateContent, adminListContent, adminUpdateContent } from '@/lib/api';
 import { useAdmin } from '@/lib/admin';
+import { useThemeColors } from '@/lib/useThemeColors';
 import type { ContentKind } from '@/lib/types';
 
 const KINDS: ContentKind[] = ['text', 'article', 'image', 'file', 'embed'];
 
 export default function AdminContentScreen() {
+  const colors = useThemeColors();
   const router = useRouter();
   const admin = useAdmin();
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -84,7 +86,7 @@ export default function AdminContentScreen() {
         <Card>
           <SectionTitle title="Content" subtitle="Published items appear in the app's Discover tab." />
           {error ? <Banner tone="error">{error}</Banner> : null}
-          <Text style={{ color: '#52617a' }}>Type</Text>
+          <Text style={{ color: colors.muted }}>Type</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {KINDS.map((value) => (
               <AppButton key={value} variant={kind === value ? 'primary' : 'secondary'} onPress={() => setKind(value)}>

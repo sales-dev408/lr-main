@@ -4,6 +4,7 @@ import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import { AppButton, Banner, Card, FieldInput, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { getCard } from '@/lib/api';
 import { useOnboarding } from '@/lib/onboarding';
+import { useThemeColors } from '@/lib/useThemeColors';
 import type { CardDetail } from '@/lib/types';
 
 function themeLabel(theme: string) {
@@ -11,6 +12,7 @@ function themeLabel(theme: string) {
 }
 
 export default function CardDetailScreen() {
+  const colors = useThemeColors();
   const params = useLocalSearchParams<{ id?: string }>();
   const onboarding = useOnboarding();
   const [card, setCard] = useState<CardDetail | null>(null);
@@ -78,7 +80,7 @@ export default function CardDetailScreen() {
             <Card>
               <SectionTitle title={title} subtitle={themeLabel(card.theme)} />
               {card.image_url ? <Image source={{ uri: card.image_url }} style={{ width: '100%', height: 180, borderRadius: 16, backgroundColor: '#dfe7f3' }} /> : null}
-              <Text style={{ color: '#52617a' }}>{card.description ?? 'No description available.'}</Text>
+              <Text style={{ color: colors.muted }}>{card.description ?? 'No description available.'}</Text>
               <Pill tone="success">{card.status}</Pill>
               <FieldInput value={city} onChangeText={setCity} placeholder="City for local discounts (optional)" />
               <AppButton variant="secondary" onPress={() => void applyCity()}>
@@ -90,13 +92,13 @@ export default function CardDetailScreen() {
               <Card>
                 <SectionTitle title="Participating businesses" subtitle="Show your membership pass at checkout." />
                 {card.participatingBusinesses.map((business) => (
-                  <View key={business.id} style={{ borderWidth: 1, borderColor: '#e5ebf3', borderRadius: 14, padding: 12, gap: 6 }}>
-                    <Text style={{ fontWeight: '700', color: '#10223d' }}>{business.name}</Text>
-                    <Text style={{ color: '#52617a' }}>{business.city ?? 'City not listed'}</Text>
+                  <View key={business.id} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: 12, gap: 6 }}>
+                    <Text style={{ fontWeight: '700', color: colors.ink }}>{business.name}</Text>
+                    <Text style={{ color: colors.muted }}>{business.city ?? 'City not listed'}</Text>
                     {business.discount?.applied ? (
                       <Pill tone="success">{business.discount.applied.description}</Pill>
                     ) : (
-                      <Text style={{ color: '#52617a' }}>No discount configured</Text>
+                      <Text style={{ color: colors.muted }}>No discount configured</Text>
                     )}
                   </View>
                 ))}

@@ -6,6 +6,7 @@ import { AppButton, Banner, BrandHeader, Card, Screen, SectionTitle } from '@/co
 import { useAuth } from '@/lib/auth';
 import { getMyAnalytics } from '@/lib/api';
 import { PRIVACY_URL, TERMS_URL, EULA_URL, WEBSITE_URL } from '@/lib/theme';
+import { useThemeColors } from '@/lib/useThemeColors';
 import type { UserAnalytics } from '@/lib/types';
 
 const CITIES = [
@@ -41,6 +42,7 @@ const CITIES = [
 ];
 
 export default function ProfileScreen() {
+  const colors = useThemeColors();
   const router = useRouter();
   const auth = useAuth();
   const [analytics, setAnalytics] = useState<UserAnalytics | null>(null);
@@ -78,13 +80,13 @@ export default function ProfileScreen() {
           <SectionTitle title="Profile" subtitle="Signed-in customer details" />
           {auth.profile ? (
             <>
-              <Text style={{ fontWeight: '700', color: '#10223d', fontSize: 18 }}>{auth.profile.fullName}</Text>
-              <Text style={{ color: '#52617a' }}>{auth.profile.email ?? auth.profile.phone ?? 'No email or phone on file'}</Text>
+              <Text style={{ fontWeight: '700', color: colors.ink, fontSize: 18 }}>{auth.profile.fullName}</Text>
+              <Text style={{ color: colors.muted }}>{auth.profile.email ?? auth.profile.phone ?? 'No email or phone on file'}</Text>
               <View style={{ marginTop: 12, gap: 6 }}>
-                <Text style={{ color: '#10223d', fontWeight: '600' }} accessibilityLabel="City label">
+                <Text style={{ color: colors.ink, fontWeight: '600' }} accessibilityLabel="City label">
                   City
                 </Text>
-                <View style={{ borderWidth: 1, borderColor: '#dbe4f0', borderRadius: 12, overflow: 'hidden' }}>
+                <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 12, overflow: 'hidden' }}>
                   <Picker
                     selectedValue={city}
                     onValueChange={(itemValue) => void handleCityChange(itemValue)}
@@ -97,7 +99,7 @@ export default function ProfileScreen() {
                     ))}
                   </Picker>
                 </View>
-                <Text style={{ color: '#52617a', fontSize: 12 }}>Local events and deals are matched to this city.</Text>
+                <Text style={{ color: colors.muted, fontSize: 12 }}>Local events and deals are matched to this city.</Text>
               </View>
             </>
           ) : (
@@ -123,20 +125,20 @@ export default function ProfileScreen() {
           ) : null}
           {analytics ? (
             <View style={{ gap: 8 }}>
-              <Text style={{ color: '#10223d', fontSize: 18, fontWeight: '700' }}>
+              <Text style={{ color: colors.ink, fontSize: 18, fontWeight: '700' }}>
                 {analytics.totalRedemptions} total redemption{analytics.totalRedemptions === 1 ? '' : 's'}
               </Text>
               {analytics.byVendor.length > 0 ? (
                 <>
-                  <Text style={{ color: '#52617a' }}>By business:</Text>
+                  <Text style={{ color: colors.muted }}>By business:</Text>
                   {analytics.byVendor.map((item) => (
-                    <Text key={item.vendorId} style={{ color: '#52617a' }}>
+                    <Text key={item.vendorId} style={{ color: colors.muted }}>
                       {item.vendorName}: {item.redemptions}
                     </Text>
                   ))}
                 </>
               ) : (
-                <Text style={{ color: '#52617a' }}>No redemptions yet.</Text>
+                <Text style={{ color: colors.muted }}>No redemptions yet.</Text>
               )}
             </View>
           ) : null}

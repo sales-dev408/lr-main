@@ -3,9 +3,10 @@ import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-nativ
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router, Stack } from 'expo-router';
 import { AppButton, Banner, Card, FieldInput, Screen, SectionTitle } from '@/components/Ui';
-import { theme } from '@/lib/theme';
+import { useThemeColors } from '@/lib/useThemeColors';
 
 export default function ScanScreen() {
+  const colors = useThemeColors();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [manualCode, setManualCode] = useState('');
@@ -42,7 +43,7 @@ export default function ScanScreen() {
           />
         ) : (
           <View style={styles.permission}>
-            <Text style={styles.permissionText}>Camera permission is required to scan QR codes.</Text>
+            <Text style={[styles.permissionText, { color: colors.ink }]}>Camera permission is required to scan QR codes.</Text>
             <AppButton onPress={() => void requestPermission()}>Grant camera access</AppButton>
           </View>
         )}
@@ -58,7 +59,7 @@ export default function ScanScreen() {
         ) : (
           <View style={styles.overlay}>
             <Text style={styles.hint}>Point the camera at the vendor’s in-store QR code.</Text>
-            {scanned ? <ActivityIndicator color={theme.brand} /> : null}
+            {scanned ? <ActivityIndicator color={colors.brand} /> : null}
           </View>
         )}
       </View>
@@ -67,10 +68,10 @@ export default function ScanScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.bg },
+  container: { flex: 1 },
   camera: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   permission: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 },
-  permissionText: { color: theme.ink, textAlign: 'center' },
+  permissionText: { textAlign: 'center' },
   overlay: { position: 'absolute', bottom: 40, left: 16, right: 16, alignItems: 'center', gap: 12 },
   hint: { color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
   webOverlay: { position: 'absolute', bottom: 24, left: 16, right: 16, gap: 12 },

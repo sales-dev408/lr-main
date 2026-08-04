@@ -6,7 +6,7 @@ import { getMyPass, lookupDiscountByCode } from '@/lib/api';
 import { lookupBarcodeUrl } from '@/lib/passes';
 import { useAuth } from '@/lib/auth';
 import type { CreatePassResponse, DiscountLookup } from '@/lib/types';
-import { theme } from '@/lib/theme';
+import { useThemeColors } from '@/lib/useThemeColors';
 
 function CheckMark() {
   return (
@@ -17,6 +17,7 @@ function CheckMark() {
 }
 
 export default function DiscountScreen() {
+  const colors = useThemeColors();
   const { code } = useLocalSearchParams<{ code?: string }>();
   const auth = useAuth();
   const [lookup, setLookup] = useState<DiscountLookup | null>(null);
@@ -70,11 +71,11 @@ export default function DiscountScreen() {
             <Card>
               <CheckMark />
               <SectionTitle title="Membership confirmed" subtitle={`${lookup.cardName}`} />
-              <Text style={{ color: theme.ink2, textAlign: 'center' }}>
-                You&apos;re a member at <Text style={{ fontWeight: '700', color: theme.ink }}>{lookup.vendorName}</Text>.
+              <Text style={{ color: colors.ink2, textAlign: 'center' }}>
+                You&apos;re a member at <Text style={{ fontWeight: '700', color: colors.ink }}>{lookup.vendorName}</Text>.
               </Text>
               <Pill tone="success">{lookup.discountLabel}</Pill>
-              <Text style={{ color: theme.ink2, textAlign: 'center' }}>Show this screen at checkout to redeem your discount.</Text>
+              <Text style={{ color: colors.ink2, textAlign: 'center' }}>Show this screen at checkout to redeem your discount.</Text>
             </Card>
 
             {pass ? (
@@ -82,7 +83,7 @@ export default function DiscountScreen() {
                 <SectionTitle title="Your membership pass" subtitle="Show this barcode if staff asks for it." />
                 <View style={{ alignItems: 'center', gap: 8 }}>
                   <Image source={{ uri: lookupBarcodeUrl(pass.pass.lookupToken) }} style={{ width: 320, height: 120, borderRadius: 8, backgroundColor: '#fff' }} resizeMode="contain" />
-                  <Text selectable style={{ color: theme.ink, fontWeight: '700', letterSpacing: 1 }}>{pass.pass.lookupToken}</Text>
+                  <Text selectable style={{ color: colors.ink, fontWeight: '700', letterSpacing: 1 }}>{pass.pass.lookupToken}</Text>
                 </View>
               </Card>
             ) : (

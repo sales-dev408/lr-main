@@ -5,6 +5,7 @@ import { AppButton, Banner, BrandHeader, Card, FieldInput, Pill, Screen, Section
 import { listCards } from '@/lib/api';
 import { scheduleDealNotifications } from '@/lib/notifications';
 import { useOnboarding } from '@/lib/onboarding';
+import { useThemeColors } from '@/lib/useThemeColors';
 import type { CardSummary, CardTheme } from '@/lib/types';
 
 const THEMES: CardTheme[] = ['sports', 'entertainment', 'shops_restaurants'];
@@ -14,6 +15,7 @@ function prettyTheme(theme: CardTheme) {
 }
 
 export default function BrowseScreen() {
+  const colors = useThemeColors();
   const onboarding = useOnboarding();
   const [theme, setTheme] = useState<CardTheme>(onboarding.selection.theme ?? 'shops_restaurants');
   const [city, setCity] = useState(onboarding.selection.city ?? '');
@@ -86,7 +88,7 @@ export default function BrowseScreen() {
             {featured.image_url ? (
               <Image source={{ uri: featured.image_url }} style={{ width: '100%', height: 180, borderRadius: 16, backgroundColor: '#dfe7f3' }} />
             ) : null}
-            <Text style={{ color: '#52617a' }}>{featured.description ?? 'No description yet.'}</Text>
+            <Text style={{ color: colors.muted }}>{featured.description ?? 'No description yet.'}</Text>
             <Pill tone="success">{prettyTheme(featured.theme)}</Pill>
             <Link href={`/card/${featured.id}`} asChild>
               <AppButton>Open card</AppButton>
@@ -97,19 +99,19 @@ export default function BrowseScreen() {
         {cards.map((card) => (
           <Card key={card.id}>
             <SectionTitle title={card.name} subtitle={prettyTheme(card.theme)} />
-            <Text style={{ color: '#52617a' }}>{card.description ?? 'No description available.'}</Text>
+            <Text style={{ color: colors.muted }}>{card.description ?? 'No description available.'}</Text>
             <View style={{ gap: 8 }}>
               {card.participatingBusinesses.map((business) => (
-                <View key={business.id} style={{ borderWidth: 1, borderColor: '#e5ebf3', borderRadius: 14, padding: 12, gap: 6 }}>
+                <View key={business.id} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: 12, gap: 6 }}>
                   <Text style={{ fontWeight: '700' }}>{business.name}</Text>
-                  <Text style={{ color: '#52617a' }}>{business.city ?? 'City not listed'}</Text>
+                  <Text style={{ color: colors.muted }}>{business.city ?? 'City not listed'}</Text>
                   {business.discount ? (
-                    <Text style={{ color: '#10223d' }}>
+                    <Text style={{ color: colors.ink }}>
                       {business.discount.type} · {business.discount.value}
                       {business.discount.type === 'percent' ? '%' : '$'}
                     </Text>
                   ) : (
-                    <Text style={{ color: '#52617a' }}>No discount configured</Text>
+                    <Text style={{ color: colors.muted }}>No discount configured</Text>
                   )}
                 </View>
               ))}

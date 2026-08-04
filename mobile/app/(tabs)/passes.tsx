@@ -5,9 +5,11 @@ import { AppButton, Banner, BrandHeader, Card, Screen, SectionTitle, Spinner } f
 import { getCard, getMyPass } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { barcodeUrl } from '@/lib/qr';
+import { useThemeColors } from '@/lib/useThemeColors';
 import type { CardDetail, CreatePassResponse } from '@/lib/types';
 
 export default function PassesScreen() {
+  const colors = useThemeColors();
   const { token } = useAuth();
   const [pass, setPass] = useState<CreatePassResponse | null>(null);
   const [card, setCard] = useState<CardDetail | null>(null);
@@ -85,7 +87,7 @@ export default function PassesScreen() {
                 {pass.pass.barcodeValue}
               </Text>
             </View>
-            <Text style={{ color: '#52617a' }}>
+            <Text style={{ color: colors.muted }}>
               Show this barcode if a staff member asks for it, or scan a vendor&apos;s in-store discount code to confirm your discount.
             </Text>
 

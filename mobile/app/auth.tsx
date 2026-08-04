@@ -3,10 +3,12 @@ import { ScrollView, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { AppButton, Banner, Card, FieldInput, Screen, SectionTitle } from '@/components/Ui';
 import { useAuth } from '@/lib/auth';
+import { useThemeColors } from '@/lib/useThemeColors';
 
 type Mode = 'login' | 'register';
 
 export default function AuthScreen() {
+  const colors = useThemeColors();
   const router = useRouter();
   const params = useLocalSearchParams<{ mode?: string }>();
   const auth = useAuth();
@@ -89,7 +91,7 @@ export default function AuthScreen() {
 
         <Card>
           <SectionTitle title="What happens next" subtitle="One membership pass unlocks every participating business." />
-          <Text style={{ color: '#52617a' }}>
+          <Text style={{ color: colors.muted }}>
             After signing up we generate your personal membership pass. Show its QR code at any participating business and they apply their member discount at the
             register. Your phone number is stored securely and only used to contact you about your account.
           </Text>

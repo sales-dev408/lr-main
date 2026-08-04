@@ -4,6 +4,7 @@ import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { listTickets } from '@/lib/api';
 import { barcodeUrl } from '@/lib/qr';
+import { useThemeColors } from '@/lib/useThemeColors';
 import type { Ticket } from '@/lib/types';
 
 function ticketBarcodeUrl(text: string) {
@@ -11,6 +12,7 @@ function ticketBarcodeUrl(text: string) {
 }
 
 export default function TicketsScreen() {
+  const colors = useThemeColors();
   const router = useRouter();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,7 +62,7 @@ export default function TicketsScreen() {
             <SectionTitle title={ticket.name} subtitle={ticket.status === 'active' ? `${ticket.remainingUses} of ${ticket.allowedUses} uses left` : 'Used'} />
             <View style={{ alignItems: 'center', gap: 8, paddingVertical: 8 }}>
               <Image source={{ uri: ticketBarcodeUrl(ticket.barcode) }} style={{ width: 320, height: 120, borderRadius: 8, backgroundColor: '#fff' }} resizeMode="contain" />
-              <Text style={{ color: '#10223d', fontWeight: '700', letterSpacing: 1 }}>{ticket.barcode}</Text>
+              <Text style={{ color: colors.ink, fontWeight: '700', letterSpacing: 1 }}>{ticket.barcode}</Text>
             </View>
             <Banner tone="info">Show this barcode at the event entrance. Staff will scan it.</Banner>
           </Card>
