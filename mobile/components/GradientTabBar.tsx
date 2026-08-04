@@ -13,13 +13,15 @@ const MAX_FONT_MULTIPLIER = 1.3;
 type GradientTabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
 
 // Glyphs are drawn with text so the tab bar stays dependency-light while the
-// blue/red/green gradient plates carry the visual identity.
+// gradient plates carry the visual identity.
 const TAB_GLYPHS: Record<string, string> = {
-  vendors: '◆',
-  index: '▲',
+  index: '⌂',
+  browse: '◆',
   events: '★',
   discover: '✦',
-  passes: '❖',
+  scan: '◎',
+  mypass: '❖',
+  tickets: '♦',
   profile: '●',
 };
 

@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Linking, RefreshControl, ScrollView, Text } from 'react-native';
-import { Stack, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { getEvents } from '@/lib/api';
 import { scheduleEventNotifications } from '@/lib/notifications';
@@ -48,7 +48,6 @@ export default function EventsScreen() {
 
   return (
     <Screen>
-      <Stack.Screen options={{ headerShown: true, title: 'Events' }} />
       <ScrollView
         contentContainerStyle={{ gap: 14, paddingBottom: 24 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}

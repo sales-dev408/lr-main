@@ -1,128 +1,138 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Image, ScrollView, Text, View } from 'react-native';
+import { Image, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { Link, useFocusEffect } from 'expo-router';
-import { AppButton, Banner, BrandHeader, Card, FieldInput, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
-import { listCards } from '@/lib/api';
-import { scheduleDealNotifications } from '@/lib/notifications';
-import { useOnboarding } from '@/lib/onboarding';
-import { useThemeColors } from '@/lib/useThemeColors';
+import { LinearGradient } from 'expo-linear-gradient';
+import { AppButton, Banner, Card, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { useAuth } from '@/lib/auth';
-import type { CardSummary, CardTheme } from '@/lib/types';
+import { getMyAnalytics, listVendors } from '@/lib/api';
+import { useThemeColors } from '@/lib/useThemeColors';
+import type { UserAnalytics, VendorListItem } from '@/lib/types';
 
-const THEMES: CardTheme[] = ['sports', 'entertainment', 'shops_restaurants'];
-
-function prettyTheme(theme: CardTheme) {
-  return theme.replace('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+function StatPill({ label, value, color }: { label: string; value: string | number; color: string }) {
+  const colors = useThemeColors();
+  return (
+    <View style={{ flex: 1, alignItems: 'center', gap: 4, padding: 16, backgroundColor: colors.panel, borderRadius: 16, borderWidth: 1, borderColor: colors.border }}>
+      <Text style={{ fontSize: 28, fontWeight: '800', color }}>{value}</Text>
+      <Text style={{ fontSize: 13, fontWeight: '600', color: colors.muted, textAlign: 'center' }}>{label}</Text>
+    </View>
+  );
 }
 
-export default function BrowseScreen() {
+export default function HomeScreen() {
   const colors = useThemeColors();
+  const { width } = useWindowDimensions();
   const auth = useAuth();
-  const onboarding = useOnboarding();
-  const [theme, setTheme] = useState<CardTheme>(onboarding.selection.theme ?? 'shops_restaurants');
-  const [city, setCity] = useState(onboarding.selection.city ?? '');
-  const [cityInput, setCityInput] = useState(city);
-  const [cards, setCards] = useState<CardSummary[]>([]);
+  const [analytics, setAnalytics] = useState<UserAnalytics | null>(null);
+  const [vendors, setVendors] = useState<VendorListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setError(null);
+    try {
+      const [analyticsData, vendorsData] = await Promise.all([getMyAnalytics(), listVendors()]);
+      setAnalytics(analyticsData);
+      setVendors(vendorsData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to load home data');
+    }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
       setLoading(true);
-      setError(null);
-      listCards({ theme, city: city.trim() || undefined })
-        .then((data) => {
-          if (active) setCards(data);
-          void scheduleDealNotifications(data, auth.profile?.pushPreferences);
-        })
-        .catch((err) => {
-          if (active) setError(err instanceof Error ? err.message : 'Unable to load cards');
-        })
-        .finally(() => {
-          if (active) setLoading(false);
-        });
+      void load().finally(() => {
+        if (active) setLoading(false);
+      });
       return () => {
         active = false;
       };
-    }, [theme, city, auth.profile?.pushPreferences]),
+    }, [load]),
   );
 
-  const applyCity = useCallback(() => {
-    setCity(cityInput.trim());
-  }, [cityInput]);
+  const greeting = useMemo(() => {
+    const name = auth.profile?.fullName?.split(' ')[0];
+    return name ? `Welcome back, ${name}` : 'Welcome to Light Rail Deals';
+  }, [auth.profile?.fullName]);
 
-  const featured = useMemo(() => cards[0] ?? null, [cards]);
+  const activeDeals = useMemo(() => vendors.filter((v) => v.discount.label && (!v.endsAt || new Date(v.endsAt) > new Date())).length, [vendors]);
+  const topVendor = useMemo(() => analytics?.byVendor[0], [analytics]);
 
   return (
     <Screen>
       <ScrollView contentContainerStyle={{ gap: 14, paddingBottom: 24 }}>
-        <BrandHeader subtitle="Browse cards" />
-        <Card>
-          <SectionTitle title="Browse cards" subtitle="Active cards and participating businesses." />
-          {onboarding.selection.code ? (
-            <Banner tone="success">
-              Loaded from onboarding code: {onboarding.selection.cardName} · {onboarding.selection.vendorName}
-            </Banner>
-          ) : null}
-          <FieldInput
-            value={cityInput}
-            onChangeText={setCityInput}
-            onBlur={applyCity}
-            placeholder="City (optional)"
-            autoCapitalize="words"
-          />
-          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-            {THEMES.map((value) => (
-              <AppButton key={value} variant={theme === value ? 'primary' : 'secondary'} onPress={() => setTheme(value)}>
-                {prettyTheme(value)}
-              </AppButton>
-            ))}
+        <LinearGradient
+          colors={['#0d9488', '#6366f1']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{ borderRadius: 24, padding: 24, gap: 8 }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Image source={require('@/assets/images/logo.png')} style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: '#fff' }} resizeMode="contain" />
+            <Text style={{ color: '#fff', fontSize: 22, fontWeight: '800' }}>Light Rail Deals</Text>
           </View>
-        </Card>
+          <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600', opacity: 0.9 }}>{greeting}</Text>
+        </LinearGradient>
 
         {loading ? <Spinner /> : null}
         {error ? <Banner tone="error">{error}</Banner> : null}
 
-        {featured ? (
+        {!loading && analytics ? (
           <Card>
-            <SectionTitle title="Featured card" subtitle={featured.name} />
-            {featured.image_url ? (
-              <Image source={{ uri: featured.image_url }} style={{ width: '100%', height: 180, borderRadius: 16, backgroundColor: '#dfe7f3' }} />
+            <SectionTitle title="Your stats" subtitle="Membership activity at a glance" />
+            <View style={{ flexDirection: width < 360 ? 'column' : 'row', gap: 12 }}>
+              <StatPill label="Total redemptions" value={analytics.totalRedemptions} color="#10b981" />
+              <StatPill label="Active deals" value={activeDeals} color="#f43f5e" />
+            </View>
+            {topVendor ? (
+              <Text style={{ color: colors.muted, textAlign: 'center' }}>
+                Favorite spot: <Text style={{ fontWeight: '700', color: colors.ink }}>{topVendor.vendorName}</Text> ({topVendor.redemptions})
+              </Text>
             ) : null}
-            <Text style={{ color: colors.muted }}>{featured.description ?? 'No description yet.'}</Text>
-            <Pill tone="success">{prettyTheme(featured.theme)}</Pill>
-            <Link href={`/card/${featured.id}`} asChild>
-              <AppButton>Open card</AppButton>
-            </Link>
           </Card>
         ) : null}
 
-        {cards.map((card) => (
-          <Card key={card.id}>
-            <SectionTitle title={card.name} subtitle={prettyTheme(card.theme)} />
-            <Text style={{ color: colors.muted }}>{card.description ?? 'No description available.'}</Text>
-            <View style={{ gap: 8 }}>
-              {card.participatingBusinesses.map((business) => (
-                <View key={business.id} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: 12, gap: 6 }}>
-                  <Text style={{ fontWeight: '700' }}>{business.name}</Text>
-                  <Text style={{ color: colors.muted }}>{business.city ?? 'City not listed'}</Text>
-                  {business.discount ? (
-                    <Text style={{ color: colors.ink }}>
-                      {business.discount.type} · {business.discount.value}
-                      {business.discount.type === 'percent' ? '%' : '$'}
-                    </Text>
-                  ) : (
-                    <Text style={{ color: colors.muted }}>No discount configured</Text>
-                  )}
-                </View>
-              ))}
+        <Card>
+          <SectionTitle title="Quick actions" subtitle="Jump to the most used features" />
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            <View style={{ width: '48%', minWidth: 140 }}>
+              <Link href="/(tabs)/browse" asChild>
+                <AppButton>Browse discounts</AppButton>
+              </Link>
             </View>
-            <Link href={`/card/${card.id}`} asChild>
-              <AppButton variant="secondary">View details</AppButton>
+            <View style={{ width: '48%', minWidth: 140 }}>
+              <Link href="/(tabs)/mypass" asChild>
+                <AppButton>My membership card</AppButton>
+              </Link>
+            </View>
+            <View style={{ width: '48%', minWidth: 140 }}>
+              <Link href="/(tabs)/scan" asChild>
+                <AppButton>Scan code</AppButton>
+              </Link>
+            </View>
+            <View style={{ width: '48%', minWidth: 140 }}>
+              <Link href="/(tabs)/profile" asChild>
+                <AppButton variant="secondary">Profile / Settings</AppButton>
+              </Link>
+            </View>
+          </View>
+        </Card>
+
+        <Card>
+          <SectionTitle title="More" subtitle="Explore events, tickets, and curated content" />
+          <View style={{ gap: 10 }}>
+            <Link href="/(tabs)/events" asChild>
+              <AppButton variant="secondary">Local events</AppButton>
             </Link>
-          </Card>
-        ))}
+            <Link href="/(tabs)/tickets" asChild>
+              <AppButton variant="secondary">Event tickets & drawings</AppButton>
+            </Link>
+            <Link href="/(tabs)/discover" asChild>
+              <AppButton variant="secondary">Discover content</AppButton>
+            </Link>
+          </View>
+        </Card>
       </ScrollView>
     </Screen>
   );

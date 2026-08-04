@@ -100,11 +100,13 @@ export const DEFAULT_THEME_SETTINGS: ThemeSettings = {
   brand: '#0d9488',
   primaryGradient: ['#0d9488', '#6366f1'],
   tabs: [
-    { key: 'vendors', label: 'Deals', color: '#0d9488', gradient: ['#14b8a6', '#0d9488'] },
-    { key: 'index', label: 'Browse', color: '#f43f5e', gradient: ['#fb7185', '#e11d48'] },
+    { key: 'index', label: 'Home', color: '#0d9488', gradient: ['#14b8a6', '#0d9488'] },
+    { key: 'browse', label: 'Browse', color: '#f43f5e', gradient: ['#fb7185', '#e11d48'] },
     { key: 'events', label: 'Events', color: '#8b5cf6', gradient: ['#a78bfa', '#7c3aed'] },
     { key: 'discover', label: 'Discover', color: '#10b981', gradient: ['#34d399', '#059669'] },
-    { key: 'passes', label: 'My Pass', color: '#6366f1', gradient: ['#818cf8', '#4f46e5'] },
+    { key: 'scan', label: 'Scan', color: '#f59e0b', gradient: ['#fbbf24', '#d97706'] },
+    { key: 'mypass', label: 'My Pass', color: '#6366f1', gradient: ['#818cf8', '#4f46e5'] },
+    { key: 'tickets', label: 'Tickets', color: '#ec4899', gradient: ['#f472b6', '#db2777'] },
     { key: 'profile', label: 'Profile', color: '#0ea5e9', gradient: ['#38bdf8', '#0284c7'] },
   ],
 };

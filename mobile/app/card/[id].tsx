@@ -107,7 +107,7 @@ export default function CardDetailScreen() {
 
             <Card>
               <SectionTitle title="Your membership pass" subtitle="One card unlocks every participating business." />
-              <Link href="/(tabs)/passes" asChild>
+              <Link href="/(tabs)/mypass" asChild>
                 <AppButton>View my membership card</AppButton>
               </Link>
             </Card>

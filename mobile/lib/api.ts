@@ -229,6 +229,7 @@ function normalizeVendor(input: Record<string, unknown>): VendorListItem {
     id: String(input.id),
     name: String(input.name),
     address: (input.address as string | null | undefined) ?? null,
+    city: (input.city as string | null | undefined) ?? null,
     category: (input.category as string | null | undefined) ?? null,
     latitude: input.latitude == null ? null : Number(input.latitude),
     longitude: input.longitude == null ? null : Number(input.longitude),
@@ -346,6 +347,10 @@ export async function redeem(body: {
 
 export async function listTickets() {
   return apiRequest<Ticket[]>('/tickets');
+}
+
+export async function applyForTicket() {
+  return apiRequest<Ticket>('/tickets/apply', { method: 'POST' });
 }
 
 export async function getTicket(id: string) {

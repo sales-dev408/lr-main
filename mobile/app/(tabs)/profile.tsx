@@ -1,87 +1,84 @@
 import { Alert, Linking, ScrollView, Switch, Text, View } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Picker } from '@react-native-picker/picker';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { AppButton, Banner, BrandHeader, Card, Screen, SectionTitle } from '@/components/Ui';
 import { useAuth } from '@/lib/auth';
-import { getMyAnalytics } from '@/lib/api';
+import { getMyAnalytics, listVendors } from '@/lib/api';
+import { useAppColorScheme } from '@/lib/colorScheme';
 import { PRIVACY_URL, TERMS_URL, EULA_URL, WEBSITE_URL } from '@/lib/theme';
 import { useThemeColors } from '@/lib/useThemeColors';
-import type { UserAnalytics } from '@/lib/types';
-
-const CITIES = [
-  'Phoenix',
-  'Tempe',
-  'Mesa',
-  'Scottsdale',
-  'Chandler',
-  'Gilbert',
-  'Glendale',
-  'Peoria',
-  'Surprise',
-  'Goodyear',
-  'Avondale',
-  'Tolleson',
-  'Laveen',
-  'Paradise Valley',
-  'Fountain Hills',
-  'Cave Creek',
-  'Carefree',
-  'Queen Creek',
-  'San Tan Valley',
-  'Apache Junction',
-  'Gold Canyon',
-  'Florence',
-  'Casa Grande',
-  'Maricopa',
-  'Yuma',
-  'Flagstaff',
-  'Prescott',
-  'Sedona',
-  'Tucson',
-];
+import type { UserAnalytics, VendorListItem } from '@/lib/types';
 
 export default function ProfileScreen() {
   const colors = useThemeColors();
   const router = useRouter();
   const auth = useAuth();
+  const { scheme, setScheme, highContrast, setHighContrast } = useAppColorScheme();
   const [analytics, setAnalytics] = useState<UserAnalytics | null>(null);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+  const [vendors, setVendors] = useState<VendorListItem[]>([]);
 
-  const loadAnalytics = useCallback(async () => {
+  const cities = useMemo(() => {
+    const set = new Set<string>();
+    for (const v of vendors) {
+      if (v.city?.trim()) set.add(v.city.trim());
+    }
+    return Array.from(set).sort();
+  }, [vendors]);
+
+  const load = useCallback(async () => {
     try {
       setAnalyticsError(null);
       setAnalytics(await getMyAnalytics());
+      setVendors(await listVendors());
     } catch (err) {
-      setAnalyticsError(err instanceof Error ? err.message : 'Unable to load analytics');
+      setAnalyticsError(err instanceof Error ? err.message : 'Unable to load profile data');
     }
   }, []);
 
   useFocusEffect(
     useCallback(() => {
       if (auth.token) {
-        void loadAnalytics();
+        void load();
       }
-    }, [auth.token, loadAnalytics]),
+    }, [auth.token, load]),
   );
 
   async function handleCityChange(next: string) {
     await auth.updateProfile({ city: next });
   }
 
+  const sectionLabel = { color: colors.ink, fontSize: 16, fontWeight: '600' } as const;
+  const valueLabel = { color: colors.muted, fontSize: 14 } as const;
+
   return (
     <Screen>
       <ScrollView contentContainerStyle={{ gap: 14, paddingBottom: 24 }}>
-        <BrandHeader subtitle="Your account" />
+        <BrandHeader subtitle="Profile & Settings" />
 
         <Card>
           <SectionTitle title="Profile" subtitle="Signed-in customer details" />
           {auth.profile ? (
-            <>
-              <Text style={{ fontWeight: '700', color: colors.ink, fontSize: 18 }}>{auth.profile.fullName}</Text>
-              <Text style={{ color: colors.muted }}>{auth.profile.email ?? auth.profile.phone ?? 'No email or phone on file'}</Text>
-              <View style={{ marginTop: 12, gap: 6 }}>
-                <Text style={{ color: colors.ink, fontWeight: '600' }} accessibilityLabel="City label">
+            <View style={{ gap: 10 }}>
+              <View>
+                <Text style={sectionLabel}>Name</Text>
+                <Text style={valueLabel}>{auth.profile.fullName}</Text>
+              </View>
+              {auth.profile.email ? (
+                <View>
+                  <Text style={sectionLabel}>Email</Text>
+                  <Text style={valueLabel}>{auth.profile.email}</Text>
+                </View>
+              ) : null}
+              {auth.profile.phone ? (
+                <View>
+                  <Text style={sectionLabel}>Phone</Text>
+                  <Text style={valueLabel}>{auth.profile.phone}</Text>
+                </View>
+              ) : null}
+              <View style={{ marginTop: 4, gap: 6 }}>
+                <Text style={sectionLabel} accessibilityLabel="City label">
                   City
                 </Text>
                 <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 12, overflow: 'hidden' }}>
@@ -92,27 +89,41 @@ export default function ProfileScreen() {
                     accessibilityRole="combobox"
                   >
                     <Picker.Item label="Select a city" value="" />
-                    {CITIES.map((name) => (
+                    {cities.map((name) => (
                       <Picker.Item key={name} label={name} value={name} />
                     ))}
                   </Picker>
                 </View>
                 <Text style={{ color: colors.muted, fontSize: 12 }}>Local events and deals are matched to this city.</Text>
               </View>
-            </>
+            </View>
           ) : (
             <Banner tone="info">No customer profile is signed in.</Banner>
           )}
         </Card>
 
         <Card>
-          <SectionTitle title="Membership & tickets" subtitle="Passes and event tickets" />
-          <AppButton variant="secondary" onPress={() => router.push('/(tabs)/passes')}>
-            My membership pass
-          </AppButton>
-          <AppButton variant="secondary" onPress={() => router.push('/tickets')}>
-            My event tickets
-          </AppButton>
+          <SectionTitle title="Appearance" subtitle="Choose how the app looks" />
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}>
+            <Text style={{ color: colors.ink, fontSize: 16 }}>Dark mode</Text>
+            <Switch
+              value={scheme === 'dark'}
+              onValueChange={(on) => setScheme(on ? 'dark' : 'light')}
+              trackColor={{ false: colors.border, true: colors.brand }}
+              thumbColor="#fff"
+              accessibilityLabel="Toggle dark mode"
+            />
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}>
+            <Text style={{ color: colors.ink, fontSize: 16 }}>High contrast mode</Text>
+            <Switch
+              value={highContrast}
+              onValueChange={setHighContrast}
+              trackColor={{ false: colors.border, true: colors.brand }}
+              thumbColor="#fff"
+              accessibilityLabel="Toggle high contrast mode"
+            />
+          </View>
         </Card>
 
         <Card>
@@ -143,6 +154,16 @@ export default function ProfileScreen() {
         </Card>
 
         <Card>
+          <SectionTitle title="Membership & tickets" subtitle="Passes and event tickets" />
+          <AppButton variant="secondary" onPress={() => router.push('/(tabs)/mypass')}>
+            My membership pass
+          </AppButton>
+          <AppButton variant="secondary" onPress={() => router.push('/(tabs)/tickets')}>
+            My event tickets
+          </AppButton>
+        </Card>
+
+        <Card>
           <SectionTitle title="About & Legal" subtitle="Website, terms, and privacy" />
           <AppButton variant="secondary" onPress={() => void Linking.openURL(WEBSITE_URL)}>
             Open website
@@ -151,47 +172,11 @@ export default function ProfileScreen() {
             Terms of Use
           </AppButton>
           <AppButton variant="secondary" onPress={() => void Linking.openURL(PRIVACY_URL)}>
-            Privacy Policy - Light Rail Deals
+            Privacy Policy
           </AppButton>
           <AppButton variant="secondary" onPress={() => void Linking.openURL(EULA_URL)}>
             EULA
           </AppButton>
-        </Card>
-
-        <Card>
-          <SectionTitle title="Notifications" subtitle="Choose what we notify you about" />
-          {auth.profile ? (
-            <View style={{ gap: 4 }}>
-              {[
-                { key: 'newVendor', label: 'New vendors' },
-                { key: 'expiringDeal', label: 'Expiring deals' },
-                { key: 'localEvent', label: 'Local events' },
-              ].map((item) => {
-                const key = item.key as keyof NonNullable<typeof auth.profile>['pushPreferences'];
-                const value = auth.profile?.pushPreferences?.[key] ?? true;
-                return (
-                  <View
-                    key={item.key}
-                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}
-                  >
-                    <Text style={{ color: colors.ink, fontSize: 16 }}>{item.label}</Text>
-                    <Switch
-                      value={value}
-                      onValueChange={(next) => {
-                        const nextPreferences = { ...(auth.profile?.pushPreferences ?? { newVendor: true, expiringDeal: true, localEvent: true }), [key]: next };
-                        void auth.updateProfile({ pushPreferences: nextPreferences });
-                      }}
-                      accessibilityLabel={`Toggle ${item.label}`}
-                      trackColor={{ false: colors.border, true: colors.brand }}
-                      thumbColor="#fff"
-                    />
-                  </View>
-                );
-              })}
-            </View>
-          ) : (
-            <Banner tone="info">Sign in to manage notifications.</Banner>
-          )}
         </Card>
 
         <Card>
@@ -205,7 +190,7 @@ export default function ProfileScreen() {
             Log out
           </AppButton>
           <AppButton
-            variant="danger"
+            variant="ghost"
             onPress={() =>
               Alert.alert('Delete account', 'This permanently deletes your account and cannot be undone.', [
                 { text: 'Cancel', style: 'cancel' },

@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Image, ScrollView, Text, View } from 'react-native';
+import { Image, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { Link, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { AppButton, Banner, Card, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { getMyPass, lookupDiscountByCode } from '@/lib/api';
@@ -18,6 +18,7 @@ function CheckMark() {
 
 export default function DiscountScreen() {
   const colors = useThemeColors();
+  const { width } = useWindowDimensions();
   const { code } = useLocalSearchParams<{ code?: string }>();
   const auth = useAuth();
   const [lookup, setLookup] = useState<DiscountLookup | null>(null);
@@ -59,6 +60,8 @@ export default function DiscountScreen() {
     }, [code, auth.token]),
   );
 
+  const barcodeWidth = Math.min(width - 64, 360);
+
   return (
     <Screen>
       <Stack.Screen options={{ headerShown: true, title: 'Discount confirmed' }} />
@@ -82,15 +85,28 @@ export default function DiscountScreen() {
               <Card>
                 <SectionTitle title="Your membership pass" subtitle="Show this barcode if staff asks for it." />
                 <View style={{ alignItems: 'center', gap: 8 }}>
-                  <Image source={{ uri: lookupBarcodeUrl(pass.pass.lookupToken) }} style={{ width: 320, height: 120, borderRadius: 8, backgroundColor: '#fff' }} resizeMode="contain" />
-                  <Text selectable style={{ color: colors.ink, fontWeight: '700', letterSpacing: 1 }}>{pass.pass.lookupToken}</Text>
+                  {auth.profile?.fullName ? (
+                    <Text style={{ color: colors.ink, fontSize: 16, fontWeight: '700' }}>{auth.profile.fullName}</Text>
+                  ) : null}
+                  <Text style={{ color: colors.muted, fontSize: 12, letterSpacing: 0.5 }}>CUSTOM MEMBER ID</Text>
+                  <Text selectable style={{ color: colors.ink, fontWeight: '700', letterSpacing: 1 }}>
+                    {pass.pass.barcodeValue}
+                  </Text>
+                  <Image
+                    source={{ uri: lookupBarcodeUrl(pass.pass.lookupToken) }}
+                    style={{ width: barcodeWidth, height: 120, borderRadius: 8, backgroundColor: '#fff' }}
+                    resizeMode="contain"
+                  />
+                  <Text selectable style={{ color: colors.ink, fontWeight: '700', letterSpacing: 1 }}>
+                    {pass.pass.lookupToken}
+                  </Text>
                 </View>
               </Card>
             ) : (
               <Banner tone="info">Sign in to view your membership pass barcode.</Banner>
             )}
 
-            <Link href="/(tabs)/passes" asChild>
+            <Link href="/(tabs)/mypass" asChild>
               <AppButton>View full membership pass</AppButton>
             </Link>
           </>
