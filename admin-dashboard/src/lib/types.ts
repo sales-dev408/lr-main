@@ -116,6 +116,7 @@ export interface TicketRecord {
   remainingUses: number;
   status: 'active' | 'used' | 'disabled';
   userId: string | null;
+  drawingDate: string | null;
   createdAt?: string;
 }
 
