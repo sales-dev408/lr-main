@@ -1154,14 +1154,14 @@ Deno.serve(async (request) => {
       }>(
         `UPDATE users
          SET city = COALESCE($2, city),
-             push_enabled_new_vendor = COALESCE($4, push_enabled_new_vendor),
-             push_enabled_expiring_deal = COALESCE($5, push_enabled_expiring_deal),
-             push_enabled_local_event = COALESCE($6, push_enabled_local_event),
+             push_enabled_new_vendor = COALESCE($3, push_enabled_new_vendor),
+             push_enabled_expiring_deal = COALESCE($4, push_enabled_expiring_deal),
+             push_enabled_local_event = COALESCE($5, push_enabled_local_event),
              updated_at = now()
          WHERE id = $1
          RETURNING id, email::text AS email, phone, full_name, first_name, last_name, city, status,
                    push_enabled_new_vendor, push_enabled_expiring_deal, push_enabled_local_event`,
-        [auth.sub, body.city ?? null, null, body.pushPreferences?.newVendor ?? null, body.pushPreferences?.expiringDeal ?? null, body.pushPreferences?.localEvent ?? null],
+        [auth.sub, body.city ?? null, body.pushPreferences?.newVendor ?? null, body.pushPreferences?.expiringDeal ?? null, body.pushPreferences?.localEvent ?? null],
       );
       const user = rows[0];
       if (!user) return json(request, { error: 'User not found' }, { status: 404 });
