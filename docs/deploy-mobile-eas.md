@@ -84,21 +84,33 @@ changes — still require a fresh `eas build`.
 
 ## 5. Store review checklist for this app
 
-- Privacy Policy and Terms are in `mobile/lib/legal.ts` and rendered at
-  `/legal`; both stores require publicly reachable URLs too, so host the same
-  text (the admin site or the marketing site is fine) and paste the links into
-  App Store Connect / Play Console.
+- Privacy Policy and Terms links are in `mobile/lib/theme.ts` (`PRIVACY_URL`,
+  `TERMS_URL`, `EULA_URL`) and surfaced in the Profile screen; both stores also
+  require publicly reachable URLs, so host the same text on the marketing site
+  and paste the links into App Store Connect / Play Console.
 - Account deletion: Apple requires an in-app path to delete an account for apps
-  with sign-up. The Profile screen must link to it before submission.
+  with sign-up. Add a delete-account flow in the Profile screen before store
+  submission.
+- Location: the app requests location permission to show nearby participating
+  stores on the map (`expo-location` plugin). Declare the `NSLocationWhenInUseUsageDescription`
+  purpose string in `app.json`.
+- Push notifications: the app registers for Expo push tokens and uses local
+  notifications for expiring deals and city-matched events (`expo-notifications`).
+  Configure the Apple Push Key / FCM credentials in EAS for remote pushes.
+- Camera: the scan screen uses `expo-camera` to read vendor onboarding QR codes.
 - Data safety / privacy nutrition labels: declare name, email, phone number, and
   identifiers (the membership pass token), all tied to the user's identity.
 - Wallet passes are generated server-side by Passcreator, so no Apple Wallet
   entitlement is required for the app itself.
 
-## 6. Web build (admin/marketing preview)
+## 6. Web build
 
-The Expo web export is separate and already wired to Cloudflare Pages:
+The Expo web export is configured for Metro static rendering:
 
 ```bash
-npm run export:web        # writes mobile/dist
+cd mobile
+npx expo export -p web    # writes mobile/dist
 ```
+
+The map screen uses `react-native-maps`; the web build renders a placeholder.
+Native map views are used on iOS and Android.

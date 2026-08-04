@@ -1,9 +1,9 @@
-# NFC + QR Flows
+# NFC + Barcode Flows
 
-Two QR purposes and one NFC purpose:
+Two barcode purposes and one NFC purpose:
 
 1. **Onboarding QR** (on business posters) → drives app install + auto-select.
-2. **Redemption QR** (in the wallet pass) → carries the `lookup_token`.
+2. **Redemption barcode** (in the wallet pass and event tickets) → carries the `lookup_token` as a Code128 barcode.
 3. **NFC tap** (Apple VAS) → transmits the same `lookup_token` contactlessly.
 
 ## 1. Onboarding QR (poster → app → auto-select)
@@ -28,21 +28,21 @@ App pre-selects the theme + business, then prompts sign-up.
 `CODE` is an opaque short encoding of `(vendorId, cardId)`. Generate the PNG via
 `GET /api/qr/onboarding.png?vendorId=&cardId=`.
 
-## 2. Redemption QR (wallet pass barcode)
+## 2. Redemption barcode (wallet pass / event tickets)
 
-The wallet pass embeds a **QR barcode** whose message is the pass's
+The wallet pass and event tickets embed a **Code128 barcode** whose message is the
 `lookup_token` (opaque; not the customer's identity). Apple `pass.json`:
 
 ```jsonc
 "barcodes": [
-  { "format": "PKBarcodeFormatQR",
+  { "format": "PKBarcodeFormatCode128",
     "message": "<lookup_token>",
     "messageEncoding": "iso-8859-1",
     "altText": "<short human code>" }
 ]
 ```
 
-At the register the vendor scans it → `GET /api/lookup/:lookupToken` → `POST
+At the register the vendor scans the Code128 barcode → `GET /api/lookup/:lookupToken` → `POST
 /api/redeem`. The token is opaque, single-purpose, and every use is audited, so
 a leaked screenshot only risks a bounded, rule-limited discount — not account
 access.

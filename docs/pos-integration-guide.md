@@ -7,8 +7,8 @@ Stripe, Clover, Toast, or even a paper receipt.
 
 ## The universal flow (every POS)
 
-1. The customer **taps their phone (NFC)** or **shows a QR code** (from Apple/
-   Google Wallet), or reads out a **discount code**.
+1. The customer **taps their phone (NFC)** or **shows a Code128 barcode** (from
+   the app, Apple/Google Wallet, or an event ticket), or reads out a **discount code**.
 2. The cashier uses the **Vendor Portal "Redeem" screen** on a tablet or phone
    to scan the QR / enter the code.
 3. The system checks the discount is valid (not expired, within limits, correct
@@ -19,7 +19,7 @@ Stripe, Clover, Toast, or even a paper receipt.
 That's it. No POS plugin, no menu changes, no certification.
 
 ```
-Customer taps NFC / shows QR  ─▶  Vendor tablet scans  ─▶  Backend validates
+Customer taps NFC / shows barcode  ─▶  Vendor tablet scans  ─▶  Backend validates
         │                                                        │
         └──────────────  "15% off, apply $6.30"  ◀───────────────┘
                                    │
