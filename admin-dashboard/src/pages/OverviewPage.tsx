@@ -11,6 +11,7 @@ export function OverviewPage() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [city, setCity] = useState('');
+  const [selectedVendorId, setSelectedVendorId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -23,7 +24,7 @@ export function OverviewPage() {
         const [analyticsData, cardsData, vendorsData] = await Promise.all([
           getAdminAnalytics({ ...(from ? { from } : {}), ...(to ? { to } : {}), ...(city ? { city } : {}) }),
           listAdminCards(),
-          listAdminVendors({ status: 'approved' }),
+          listAdminVendors({}),
         ]);
         if (!active) return;
         setAnalytics(analyticsData);
@@ -44,6 +45,12 @@ export function OverviewPage() {
 
   const activeCards = useMemo(() => cards.filter((card) => card.status === 'active').length, [cards]);
   const activeVendors = useMemo(() => vendors.filter((vendor) => vendor.status === 'approved').length, [vendors]);
+
+  const vendorRows = useMemo(() => {
+    if (!analytics) return [];
+    if (!selectedVendorId) return analytics.usageByVendor;
+    return analytics.usageByVendor.filter((row) => row.vendorId === selectedVendorId);
+  }, [analytics, selectedVendorId]);
 
   return (
     <div className="stack">
@@ -106,26 +113,34 @@ export function OverviewPage() {
               )}
             </PageCard>
 
-            <PageCard title="By card">
-              {analytics.usageByCard.length > 0 ? (
+            <PageCard title="By vendor">
+              <div className="form-row">
+                <select className="input" value={selectedVendorId} onChange={(event) => setSelectedVendorId(event.target.value)}>
+                  <option value="">All vendors</option>
+                  {vendors.map((vendor) => (
+                    <option key={vendor.id} value={vendor.id}>{vendor.name}</option>
+                  ))}
+                </select>
+              </div>
+              {vendorRows.length > 0 ? (
                 <table className="table">
                   <thead>
                     <tr>
-                      <th>Card</th>
+                      <th>Business</th>
                       <th>Redemptions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {analytics.usageByCard.map((row) => (
-                      <tr key={row.cardId}>
-                        <td>{row.cardName}</td>
+                    {vendorRows.map((row) => (
+                      <tr key={row.vendorId}>
+                        <td>{row.vendorName}</td>
                         <td>{row.redemptions}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               ) : (
-                <EmptyState title="No card data" description="Create redemptions to populate this table." />
+                <EmptyState title="No vendor data" description="No redemptions for the selected vendor in this date range." />
               )}
             </PageCard>
           </div>

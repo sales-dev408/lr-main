@@ -4,10 +4,43 @@ import { createAdminTicket, deleteAdminTicket, listAdminTickets, updateAdminTick
 import { scanImageToText } from '../lib/ocr';
 import type { TicketRecord } from '../lib/types';
 
+const BARCODE_FORMATS = [
+  'Codabar',
+  'Code 11',
+  'Code 128',
+  'Code 39',
+  'Extended Code 39',
+  'Code 93',
+  'EAN-13',
+  'EAN-8',
+  'Industrial 2 of 5',
+  'Interleaved 2 of 5',
+  'ITF-14',
+  'MSI (MSI Plessey)',
+  'Plessey',
+  'SCC-14',
+  'Standard 2 of 5',
+  'UCC/EAN-128',
+  'UCC/EAN Shipping Container Code',
+  'UPC-A',
+  'Australia Postal Code',
+  'Aztec Code',
+  'Composite Code',
+  'DataMatrix',
+  'Maxicode',
+  'PDF-417',
+  'Postnet',
+  'QR Code',
+];
+
 function barcodeFromScanText(text: string): string {
   const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   const code = lines.find((line) => /^[A-Z0-9-]{4,}$/i.test(line));
   return code ?? lines[0] ?? '';
+}
+
+function isInvalid(ticket: TicketRecord): boolean {
+  return ticket.usedUses >= ticket.allowedUses || ticket.status === 'used' || ticket.status === 'disabled';
 }
 
 export function TicketsPage() {
@@ -18,6 +51,7 @@ export function TicketsPage() {
 
   const [name, setName] = useState('Event Ticket');
   const [barcode, setBarcode] = useState('');
+  const [barcodeFormat, setBarcodeFormat] = useState('Code 128');
   const [allowedUses, setAllowedUses] = useState('1');
   const [scanning, setScanning] = useState(false);
 
@@ -61,10 +95,12 @@ export function TicketsPage() {
     try {
       await createAdminTicket({
         barcode: barcode.trim(),
+        barcodeFormat,
         name: name.trim() || 'Event Ticket',
         allowedUses: Number(allowedUses) || 1,
       });
       setBarcode('');
+      setBarcodeFormat('Code 128');
       setName('Event Ticket');
       setAllowedUses('1');
       await load();
@@ -78,6 +114,8 @@ export function TicketsPage() {
     try {
       await updateAdminTicket(updated.id, {
         name: updated.name,
+        barcode: updated.barcode,
+        barcodeFormat: updated.barcodeFormat,
         allowedUses: updated.allowedUses,
         usedUses: updated.usedUses,
         status: updated.status,
@@ -108,16 +146,35 @@ export function TicketsPage() {
 
   return (
     <div className="stack">
-      <PageCard title="Event Tickets" subtitle="Add tickets by scanning or typing the barcode. Set how many times each ticket can be used.">
+      <PageCard title="Ticket editor" subtitle="Add tickets by scanning or typing the barcode. Choose a barcode format and set max uses.">
         {error ? <ErrorBanner message={error} /> : null}
-        <form className="form grid-2" onSubmit={handleCreate}>
-          <Input placeholder="Ticket name" value={name} onChange={(e) => setName(e.target.value)} required />
-          <Input placeholder="Barcode" value={barcode} onChange={(e) => setBarcode(e.target.value)} required />
-          <Input type="number" min={1} value={allowedUses} onChange={(e) => setAllowedUses(e.target.value)} required />
+        <form className="form" onSubmit={handleCreate}>
+          <div className="grid-2">
+            <label>
+              Ticket name
+              <Input placeholder="Ticket name" value={name} onChange={(e) => setName(e.target.value)} required />
+            </label>
+            <label>
+              Max uses
+              <Input type="number" min={1} value={allowedUses} onChange={(e) => setAllowedUses(e.target.value)} required />
+            </label>
+          </div>
+          <div className="grid-2">
+            <label>
+              Barcode
+              <Input placeholder="Barcode" value={barcode} onChange={(e) => setBarcode(e.target.value)} required />
+            </label>
+            <label>
+              Barcode format
+              <Select value={barcodeFormat} onChange={(e) => setBarcodeFormat(e.target.value)}>
+                {BARCODE_FORMATS.map((format) => (
+                  <option key={format} value={format}>{format}</option>
+                ))}
+              </Select>
+            </label>
+          </div>
           <div className="inline-row">
-            <Button type="submit" disabled={scanning}>
-              Add ticket
-            </Button>
+            <Button type="submit" disabled={scanning}>Add ticket</Button>
             <label className="btn btn-secondary" style={{ cursor: 'pointer' }}>
               {scanning ? 'Scanning…' : 'Scan barcode image'}
               <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleScan} />
@@ -126,7 +183,7 @@ export function TicketsPage() {
         </form>
       </PageCard>
 
-      <PageCard title="All tickets" subtitle="Active tickets appear in the app automatically.">
+      <PageCard title="All tickets" subtitle="A ticket is invalid once it reaches its max uses.">
         {loading ? <Spinner /> : null}
         {!loading && tickets.length === 0 ? <EmptyState title="No tickets" description="Add a ticket above or scan a barcode to get started." /> : null}
         {!loading && tickets.length > 0 ? (
@@ -136,6 +193,7 @@ export function TicketsPage() {
                 <tr>
                   <th>Name</th>
                   <th>Barcode</th>
+                  <th>Format</th>
                   <th>Uses</th>
                   <th>Status</th>
                   <th>Actions</th>
@@ -145,23 +203,20 @@ export function TicketsPage() {
                 {tickets.map((ticket) => (
                   <tr key={ticket.id}>
                     <td>{ticket.name}</td>
+                    <td><code>{ticket.barcode}</code></td>
+                    <td>{ticket.barcodeFormat ?? '—'}</td>
+                    <td>{ticket.usedUses} / {ticket.allowedUses}</td>
                     <td>
-                      <code>{ticket.barcode}</code>
-                    </td>
-                    <td>
-                      {ticket.usedUses} / {ticket.allowedUses}
-                    </td>
-                    <td>
-                      <Badge tone={statusTone[ticket.status]}>{ticket.status}</Badge>
+                      {isInvalid(ticket) ? (
+                        <Badge tone="danger">invalid</Badge>
+                      ) : (
+                        <Badge tone={statusTone[ticket.status]}>{ticket.status}</Badge>
+                      )}
                     </td>
                     <td>
                       <div className="row-actions">
-                        <Button variant="secondary" onClick={() => setEditing(ticket)}>
-                          Edit
-                        </Button>
-                        <Button variant="danger" onClick={() => void handleDelete(ticket.id)}>
-                          Delete
-                        </Button>
+                        <Button variant="secondary" onClick={() => setEditing(ticket)}>Edit</Button>
+                        <Button variant="danger" onClick={() => void handleDelete(ticket.id)}>Delete</Button>
                       </div>
                     </td>
                   </tr>
@@ -186,6 +241,18 @@ export function TicketsPage() {
               <Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} required />
             </label>
             <label>
+              Barcode
+              <Input value={editing.barcode} onChange={(e) => setEditing({ ...editing, barcode: e.target.value })} required />
+            </label>
+            <label>
+              Barcode format
+              <Select value={editing.barcodeFormat ?? 'Code 128'} onChange={(e) => setEditing({ ...editing, barcodeFormat: e.target.value })}>
+                {BARCODE_FORMATS.map((format) => (
+                  <option key={format} value={format}>{format}</option>
+                ))}
+              </Select>
+            </label>
+            <label>
               Allowed uses
               <Input type="number" min={editing.usedUses} value={editing.allowedUses} onChange={(e) => setEditing({ ...editing, allowedUses: Number(e.target.value) })} required />
             </label>
@@ -203,9 +270,7 @@ export function TicketsPage() {
             </label>
             <div className="row-actions">
               <Button type="submit">Save</Button>
-              <Button variant="ghost" onClick={() => setEditing(null)}>
-                Cancel
-              </Button>
+              <Button variant="ghost" onClick={() => setEditing(null)}>Cancel</Button>
             </div>
           </form>
         ) : null}

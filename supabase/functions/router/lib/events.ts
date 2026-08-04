@@ -1,6 +1,13 @@
 import { dbQuery } from './db.ts';
+import { z } from 'npm:zod';
 
-const EVENTS_KEY = 'events_rss_urls';
+const adminEventSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().optional(),
+  eventDate: z.string().optional(),
+});
+
+export { adminEventSchema };
 
 export interface RssEvent {
   id: string;
@@ -11,20 +18,86 @@ export interface RssEvent {
   sourceName: string | null;
 }
 
-export async function getEventsRssUrls(): Promise<string[]> {
-  const rows = await dbQuery<{ value: string[] }>(`SELECT value FROM app_settings WHERE key = $1 LIMIT 1`, [EVENTS_KEY]);
+export interface AdminEvent {
+  id: string;
+  title: string;
+  description: string | null;
+  eventDate: string | null;
+  createdAt: string;
+}
+
+async function getEventsRssUrls(): Promise<string[]> {
+  const rows = await dbQuery<{ value: string[] }>(`SELECT value FROM app_settings WHERE key = $1 LIMIT 1`, ['events_rss_urls']);
   const value = rows[0]?.value;
   return Array.isArray(value) ? value.filter((url) => typeof url === 'string' && url.length > 0) : [];
 }
 
-export async function saveEventsRssUrls(urls: string[]): Promise<string[]> {
+async function saveEventsRssUrls(urls: string[]): Promise<string[]> {
   const clean = urls.map((url) => url.trim()).filter(Boolean);
   await dbQuery(
     `INSERT INTO app_settings (key, value, updated_at) VALUES ($1, $2::jsonb, now())
      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
-    [EVENTS_KEY, JSON.stringify(clean)],
+    ['events_rss_urls', JSON.stringify(clean)],
   );
   return clean;
+}
+
+export async function listAdminEvents(): Promise<AdminEvent[]> {
+  const rows = await dbQuery<{ id: string; title: string; description: string | null; event_date: string | null; created_at: string }>(
+    'SELECT id, title, description, event_date, created_at FROM admin_events ORDER BY event_date DESC NULLS LAST, created_at DESC',
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    eventDate: row.event_date ? new Date(row.event_date).toISOString().slice(0, 10) : null,
+    createdAt: row.created_at,
+  }));
+}
+
+export async function createAdminEvent(input: { title: string; description?: string; eventDate?: string }): Promise<AdminEvent> {
+  const rows = await dbQuery<{ id: string; title: string; description: string | null; event_date: string | null; created_at: string }>(
+    'INSERT INTO admin_events (title, description, event_date) VALUES ($1, $2, $3) RETURNING id, title, description, event_date, created_at',
+    [input.title, input.description ?? null, input.eventDate ?? null],
+  );
+  const row = rows[0]!;
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    eventDate: row.event_date ? new Date(row.event_date).toISOString().slice(0, 10) : null,
+    createdAt: row.created_at,
+  };
+}
+
+export async function updateAdminEvent(
+  id: string,
+  input: Partial<{ title: string; description: string | null; eventDate: string | null }>,
+): Promise<AdminEvent | null> {
+  const rows = await dbQuery<{ id: string; title: string; description: string | null; event_date: string | null; created_at: string }>(
+    `UPDATE admin_events
+     SET title = COALESCE($2, title),
+         description = COALESCE($3, description),
+         event_date = COALESCE($4, event_date),
+         updated_at = now()
+     WHERE id = $1
+     RETURNING id, title, description, event_date, created_at`,
+    [id, input.title ?? null, input.description ?? null, input.eventDate ?? null],
+  );
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    eventDate: row.event_date ? new Date(row.event_date).toISOString().slice(0, 10) : null,
+    createdAt: row.created_at,
+  };
+}
+
+export async function deleteAdminEvent(id: string): Promise<boolean> {
+  const rows = await dbQuery<{ id: string }>('DELETE FROM admin_events WHERE id = $1 RETURNING id', [id]);
+  return rows.length > 0;
 }
 
 const NAMED_ENTITIES: Record<string, string> = {
@@ -104,7 +177,7 @@ async function fetchRssItems(url: string): Promise<RssEvent[]> {
   });
 }
 
-export async function fetchEventsFromRss(): Promise<RssEvent[]> {
+async function fetchEventsFromRss(): Promise<RssEvent[]> {
   const urls = await getEventsRssUrls();
   if (urls.length === 0) return [];
 
@@ -126,3 +199,26 @@ export async function fetchEventsFromRss(): Promise<RssEvent[]> {
     return a.title.localeCompare(b.title);
   });
 }
+
+export async function fetchPublicEvents(): Promise<RssEvent[]> {
+  const [rssEvents, adminEvents] = await Promise.all([fetchEventsFromRss(), listAdminEvents()]);
+  const customEvents: RssEvent[] = adminEvents.map((event) => ({
+    id: `custom::${event.id}`,
+    title: event.title,
+    description: event.description,
+    link: null,
+    pubDate: event.eventDate,
+    sourceName: 'Manual',
+  }));
+  const all = [...rssEvents, ...customEvents];
+  return all.sort((a, b) => {
+    const aTime = a.pubDate ? new Date(a.pubDate).getTime() : 0;
+    const bTime = b.pubDate ? new Date(b.pubDate).getTime() : 0;
+    if (aTime && bTime) return bTime - aTime;
+    if (aTime) return -1;
+    if (bTime) return 1;
+    return a.title.localeCompare(b.title);
+  });
+}
+
+export { getEventsRssUrls, saveEventsRssUrls };

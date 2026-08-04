@@ -1,5 +1,6 @@
 import type {
   AdminAnalyticsResponse,
+  AdminEvent,
   AdminProfile,
   AdminSettings,
   AuthResponse,
@@ -185,6 +186,7 @@ function normalizeCard(input: Record<string, unknown>): CardSummary {
   return {
     id: String(input.id),
     name: String(input.name),
+    is_membership: Boolean(input.is_membership ?? input.isMembership),
     theme: String(input.theme) as CardSummary['theme'],
     description: (input.description as string | null | undefined) ?? null,
     image_url: (input.image_url as string | null | undefined) ?? (input.imageUrl as string | null | undefined) ?? null,
@@ -243,6 +245,7 @@ export async function listAdminVendors(params: { status?: string; city?: string;
 
 export async function createAdminVendor(body: {
   name: string;
+  ownerName?: string;
   address?: string;
   category: 'Sports' | 'Dining' | 'Entertainment';
   email?: string;
@@ -264,6 +267,7 @@ export async function updateAdminVendor(
   id: string,
   body: {
     name?: string;
+    ownerName?: string;
     address?: string;
     category?: 'Sports' | 'Dining' | 'Entertainment';
     email?: string;
@@ -291,6 +295,16 @@ export async function regenerateVendorQr(id: string): Promise<{ discountCode: st
 
 export async function getVendorActivity(id: string): Promise<VendorActivityRecord[]> {
   return apiRequest(`/admin/vendors/${id}/activity`);
+}
+
+export interface VendorAnalyticsResponse {
+  totals: { redemptions: number; uniqueCustomers: number };
+  daily: Array<{ day: string; redemptions: number }>;
+  byCard: Array<{ cardId: string; cardName: string; redemptions: number; uniqueCustomers: number }>;
+}
+
+export async function getVendorAnalytics(id: string): Promise<VendorAnalyticsResponse> {
+  return apiRequest<VendorAnalyticsResponse>(`/admin/vendors/${id}/analytics`);
 }
 
 export async function listAdminCards(): Promise<CardSummary[]> {
@@ -365,13 +379,13 @@ export async function listAdminTickets(): Promise<TicketRecord[]> {
   return apiRequest<TicketRecord[]>('/admin/tickets');
 }
 
-export async function createAdminTicket(body: { barcode: string; name: string; allowedUses?: number; userId?: string }): Promise<{ id: string }> {
+export async function createAdminTicket(body: { barcode: string; barcodeFormat?: string; name: string; allowedUses?: number; userId?: string }): Promise<{ id: string }> {
   return apiRequest('/admin/tickets', { method: 'POST', body: jsonBody(body) });
 }
 
 export async function updateAdminTicket(
   id: string,
-  body: Partial<{ name: string; allowedUses: number; usedUses: number; status: 'active' | 'used' | 'disabled'; userId: string | null }>,
+  body: Partial<{ name: string; barcode: string; barcodeFormat: string | null; allowedUses: number; usedUses: number; status: 'active' | 'used' | 'disabled'; userId: string | null }>,
 ): Promise<TicketRecord> {
   return apiRequest(`/admin/tickets/${id}`, { method: 'PATCH', body: jsonBody(body) });
 }
@@ -421,12 +435,24 @@ export async function saveTheme(theme: ThemeSettings): Promise<ThemeSettings> {
 
 // ---- Events RSS feeds ------------------------------------------------------
 
-export async function getEventsRssUrls(): Promise<{ urls: string[] }> {
-  return apiRequest<{ urls: string[] }>('/admin/events');
+export async function getEventsRssUrls(): Promise<{ urls: string[]; events: AdminEvent[] }> {
+  return apiRequest<{ urls: string[]; events: AdminEvent[] }>('/admin/events');
 }
 
 export async function saveEventsRssUrls(urls: string[]): Promise<{ urls: string[] }> {
   return apiRequest<{ urls: string[] }>('/admin/events', { method: 'PATCH', body: jsonBody({ urls }) });
+}
+
+export async function createAdminEvent(body: { title: string; description?: string; eventDate?: string }): Promise<AdminEvent> {
+  return apiRequest<AdminEvent>('/admin/events/custom', { method: 'POST', body: jsonBody(body) });
+}
+
+export async function updateAdminEvent(id: string, body: Partial<{ title: string; description: string | null; eventDate: string | null }>): Promise<AdminEvent> {
+  return apiRequest<AdminEvent>(`/admin/events/custom/${id}`, { method: 'PATCH', body: jsonBody(body) });
+}
+
+export async function deleteAdminEvent(id: string): Promise<void> {
+  return apiRequest<void>(`/admin/events/custom/${id}`, { method: 'DELETE' });
 }
 
 export interface PublicEvent {

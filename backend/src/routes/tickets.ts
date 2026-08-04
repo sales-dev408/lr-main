@@ -4,6 +4,7 @@ import { dbQuery } from '../db/pool.js';
 
 const ticketCreateSchema = z.object({
   barcode: z.string().min(1),
+  barcodeFormat: z.string().optional(),
   name: z.string().min(1).default('Event Ticket'),
   allowedUses: z.coerce.number().int().positive().default(1),
   userId: z.string().uuid().optional(),
@@ -11,6 +12,8 @@ const ticketCreateSchema = z.object({
 
 const ticketUpdateSchema = z.object({
   name: z.string().min(1).optional(),
+  barcode: z.string().min(1).optional(),
+  barcodeFormat: z.string().optional(),
   allowedUses: z.coerce.number().int().positive().optional(),
   usedUses: z.coerce.number().int().min(0).optional(),
   status: z.enum(['active', 'used', 'disabled']).optional(),
@@ -23,7 +26,7 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
     const userId = request.user?.role === 'customer' ? request.user.sub : null;
     const rows = await dbQuery(
       `
-        SELECT id, name, barcode, allowed_uses, used_uses, status, created_at
+        SELECT id, name, barcode, barcode_format, allowed_uses, used_uses, status, created_at
         FROM tickets
         WHERE status = 'active' AND (user_id IS NULL OR $1::uuid IS NULL OR user_id = $1)
         ORDER BY created_at DESC
@@ -34,6 +37,7 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
       id: row.id,
       name: row.name,
       barcode: row.barcode,
+      barcodeFormat: row.barcode_format,
       allowedUses: row.allowed_uses,
       usedUses: row.used_uses,
       remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
@@ -45,7 +49,7 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
   fastify.get('/api/tickets/:id', { config: { rateLimit: { max: 100, timeWindow: '1 minute' } } }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const rows = await dbQuery(
-      'SELECT id, name, barcode, allowed_uses, used_uses, status, created_at FROM tickets WHERE id = $1 LIMIT 1',
+      'SELECT id, name, barcode, barcode_format, allowed_uses, used_uses, status, created_at FROM tickets WHERE id = $1 LIMIT 1',
       [id],
     );
     if (rows.length === 0) return reply.code(404).send({ error: 'Ticket not found' });
@@ -54,6 +58,7 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
       id: row.id,
       name: row.name,
       barcode: row.barcode,
+      barcodeFormat: row.barcode_format,
       allowedUses: row.allowed_uses,
       usedUses: row.used_uses,
       remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
@@ -72,7 +77,7 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
             status = CASE WHEN used_uses + 1 >= allowed_uses THEN 'used' ELSE status END,
             updated_at = now()
         WHERE id = $1 AND status = 'active' AND used_uses < allowed_uses
-        RETURNING id, name, barcode, allowed_uses, used_uses, status
+        RETURNING id, name, barcode, barcode_format, allowed_uses, used_uses, status
       `,
       [id],
     ).then((rows) => {
@@ -82,6 +87,7 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
         id: row.id,
         name: row.name,
         barcode: row.barcode,
+        barcodeFormat: row.barcode_format,
         allowedUses: row.allowed_uses,
         usedUses: row.used_uses,
         remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
@@ -93,13 +99,14 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
   // Admin CRUD.
   fastify.get('/api/admin/tickets', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async () => {
     const rows = await dbQuery(
-      'SELECT id, name, barcode, allowed_uses, used_uses, status, user_id, created_at FROM tickets ORDER BY created_at DESC',
+      'SELECT id, name, barcode, barcode_format, allowed_uses, used_uses, status, user_id, created_at FROM tickets ORDER BY created_at DESC',
       [],
     );
     return rows.map((row) => ({
       id: row.id,
       name: row.name,
       barcode: row.barcode,
+      barcodeFormat: row.barcode_format,
       allowedUses: row.allowed_uses,
       usedUses: row.used_uses,
       remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
@@ -112,8 +119,8 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
   fastify.post('/api/admin/tickets', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (request, reply) => {
     const body = ticketCreateSchema.parse(request.body);
     const rows = await dbQuery<{ id: string }>(
-      'INSERT INTO tickets (barcode, name, allowed_uses, user_id) VALUES ($1, $2, $3, $4) RETURNING id',
-      [body.barcode, body.name, body.allowedUses, body.userId ?? null],
+      'INSERT INTO tickets (barcode, barcode_format, name, allowed_uses, user_id) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+      [body.barcode, body.barcodeFormat ?? null, body.name, body.allowedUses, body.userId ?? null],
     );
     return reply.code(201).send({ id: rows[0]!.id });
   });
@@ -125,15 +132,17 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
       `
         UPDATE tickets
         SET name = COALESCE($2, name),
-            allowed_uses = COALESCE($3, allowed_uses),
-            used_uses = COALESCE($4, used_uses),
-            status = COALESCE($5, status),
-            user_id = COALESCE($6, user_id),
+            barcode = COALESCE($3, barcode),
+            barcode_format = COALESCE($4, barcode_format),
+            allowed_uses = COALESCE($5, allowed_uses),
+            used_uses = COALESCE($6, used_uses),
+            status = COALESCE($7, status),
+            user_id = COALESCE($8, user_id),
             updated_at = now()
         WHERE id = $1
         RETURNING *
       `,
-      [id, body.name ?? null, body.allowedUses ?? null, body.usedUses ?? null, body.status ?? null, body.userId === undefined ? null : body.userId],
+      [id, body.name ?? null, body.barcode ?? null, body.barcodeFormat ?? null, body.allowedUses ?? null, body.usedUses ?? null, body.status ?? null, body.userId === undefined ? null : body.userId],
     );
     return rows[0] ?? {};
   });
