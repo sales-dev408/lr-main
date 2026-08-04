@@ -55,6 +55,7 @@ export function TicketsPage() {
   const [barcode, setBarcode] = useState('');
   const [barcodeFormat, setBarcodeFormat] = useState('Code 128');
   const [allowedUses, setAllowedUses] = useState('1');
+  const [drawingDate, setDrawingDate] = useState('');
   const [scanning, setScanning] = useState(false);
 
   useEffect(() => {
@@ -100,11 +101,13 @@ export function TicketsPage() {
         barcodeFormat,
         name: name.trim() || 'Event Ticket',
         allowedUses: Number(allowedUses) || 1,
+        drawingDate: drawingDate.trim() || null,
       });
       setBarcode('');
       setBarcodeFormat('Code 128');
       setName('Event Ticket');
       setAllowedUses('1');
+      setDrawingDate('');
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to create ticket');
@@ -121,6 +124,7 @@ export function TicketsPage() {
         allowedUses: updated.allowedUses,
         usedUses: updated.usedUses,
         status: updated.status,
+        drawingDate: updated.drawingDate,
       });
       setEditing(null);
       await load();
@@ -175,6 +179,13 @@ export function TicketsPage() {
               </Select>
             </label>
           </div>
+          <div className="grid-2">
+            <label>
+              Drawing date (optional)
+              <Input type="date" value={drawingDate} onChange={(e) => setDrawingDate(e.target.value)} />
+            </label>
+            <div />
+          </div>
           <div className="inline-row">
             <Button type="submit" disabled={scanning}>Add ticket</Button>
             <label className="btn btn-secondary" style={{ cursor: 'pointer' }}>
@@ -196,6 +207,7 @@ export function TicketsPage() {
                   <th>Name</th>
                   <th>Barcode</th>
                   <th>Format</th>
+                  <th>Drawing date</th>
                   <th>Uses</th>
                   <th>Status</th>
                   <th>Actions</th>
@@ -207,6 +219,7 @@ export function TicketsPage() {
                     <td>{ticket.name}</td>
                     <td><code>{ticket.barcode}</code></td>
                     <td>{ticket.barcodeFormat ?? '—'}</td>
+                    <td>{ticket.drawingDate ?? '—'}</td>
                     <td>{ticket.usedUses} / {ticket.allowedUses}</td>
                     <td>
                       {isInvalid(ticket) ? (
@@ -276,6 +289,10 @@ export function TicketsPage() {
             <label>
               Used uses
               <Input type="number" min={0} value={editing.usedUses} onChange={(e) => setEditing({ ...editing, usedUses: Number(e.target.value) })} required />
+            </label>
+            <label>
+              Drawing date
+              <Input type="date" value={editing.drawingDate ?? ''} onChange={(e) => setEditing({ ...editing, drawingDate: e.target.value || null })} />
             </label>
             <label>
               Status

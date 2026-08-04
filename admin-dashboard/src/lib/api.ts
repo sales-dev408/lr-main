@@ -379,13 +379,13 @@ export async function listAdminTickets(): Promise<TicketRecord[]> {
   return apiRequest<TicketRecord[]>('/admin/tickets');
 }
 
-export async function createAdminTicket(body: { barcode: string; barcodeFormat?: string; name: string; allowedUses?: number; userId?: string }): Promise<{ id: string }> {
+export async function createAdminTicket(body: { barcode: string; barcodeFormat?: string; name: string; allowedUses?: number; drawingDate?: string | null; userId?: string }): Promise<{ id: string }> {
   return apiRequest('/admin/tickets', { method: 'POST', body: jsonBody(body) });
 }
 
 export async function updateAdminTicket(
   id: string,
-  body: Partial<{ name: string; barcode: string; barcodeFormat: string | null; allowedUses: number; usedUses: number; status: 'active' | 'used' | 'disabled'; userId: string | null }>,
+  body: Partial<{ name: string; barcode: string; barcodeFormat: string | null; allowedUses: number; usedUses: number; status: 'active' | 'used' | 'disabled'; drawingDate: string | null; userId: string | null }>,
 ): Promise<TicketRecord> {
   return apiRequest(`/admin/tickets/${id}`, { method: 'PATCH', body: jsonBody(body) });
 }

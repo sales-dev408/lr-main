@@ -7,6 +7,7 @@ const ticketCreateSchema = z.object({
   barcodeFormat: z.string().optional(),
   name: z.string().min(1).default('Event Ticket'),
   allowedUses: z.coerce.number().int().positive().default(1),
+  drawingDate: z.string().optional(),
   userId: z.string().uuid().optional(),
 });
 
@@ -17,6 +18,7 @@ const ticketUpdateSchema = z.object({
   allowedUses: z.coerce.number().int().positive().optional(),
   usedUses: z.coerce.number().int().min(0).optional(),
   status: z.enum(['active', 'used', 'disabled']).optional(),
+  drawingDate: z.string().optional().nullable(),
   userId: z.string().uuid().optional().nullable(),
 });
 
@@ -135,7 +137,7 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
   // Admin CRUD.
   fastify.get('/api/admin/tickets', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async () => {
     const rows = await dbQuery(
-      'SELECT id, name, barcode, barcode_format, allowed_uses, used_uses, status, user_id, created_at FROM tickets ORDER BY created_at DESC',
+      'SELECT id, name, barcode, barcode_format, allowed_uses, used_uses, status, drawing_date, user_id, created_at FROM tickets ORDER BY created_at DESC',
       [],
     );
     return rows.map((row) => ({
@@ -147,6 +149,7 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
       usedUses: row.used_uses,
       remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
       status: row.status,
+      drawingDate: row.drawing_date,
       userId: row.user_id,
       createdAt: row.created_at,
     }));
@@ -154,9 +157,10 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
 
   fastify.post('/api/admin/tickets', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (request, reply) => {
     const body = ticketCreateSchema.parse(request.body);
+    const drawingDate = body.drawingDate?.trim() || null;
     const rows = await dbQuery<{ id: string }>(
-      'INSERT INTO tickets (barcode, barcode_format, name, allowed_uses, user_id) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-      [body.barcode, body.barcodeFormat ?? null, body.name, body.allowedUses, body.userId ?? null],
+      'INSERT INTO tickets (barcode, barcode_format, name, allowed_uses, drawing_date, user_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
+      [body.barcode, body.barcodeFormat ?? null, body.name, body.allowedUses, drawingDate, body.userId ?? null],
     );
     return reply.code(201).send({ id: rows[0]!.id });
   });
@@ -164,6 +168,7 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
   fastify.patch('/api/admin/tickets/:id', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (request) => {
     const id = (request.params as { id: string }).id;
     const body = ticketUpdateSchema.parse(request.body);
+    const drawingDate = body.drawingDate === undefined ? null : (body.drawingDate?.trim() || null);
     const rows = await dbQuery(
       `
         UPDATE tickets
@@ -173,12 +178,13 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
             allowed_uses = COALESCE($5, allowed_uses),
             used_uses = COALESCE($6, used_uses),
             status = COALESCE($7, status),
-            user_id = COALESCE($8, user_id),
+            drawing_date = CASE WHEN $8 = '' OR $8 IS NULL THEN NULL ELSE $8::date END,
+            user_id = COALESCE($9, user_id),
             updated_at = now()
         WHERE id = $1
         RETURNING *
       `,
-      [id, body.name ?? null, body.barcode ?? null, body.barcodeFormat ?? null, body.allowedUses ?? null, body.usedUses ?? null, body.status ?? null, body.userId === undefined ? null : body.userId],
+      [id, body.name ?? null, body.barcode ?? null, body.barcodeFormat ?? null, body.allowedUses ?? null, body.usedUses ?? null, body.status ?? null, drawingDate, body.userId === undefined ? null : body.userId],
     );
     return rows[0] ?? {};
   });
