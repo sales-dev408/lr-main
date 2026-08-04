@@ -77,6 +77,7 @@ function toTicketRow(row: Record<string, unknown>) {
     status: row.status,
     drawingDeadline: row.drawing_deadline,
     drawingStatus: row.drawing_status,
+    drawingDate: row.drawing_date,
     userId: row.user_id,
     createdAt: row.created_at,
   };
@@ -84,7 +85,7 @@ function toTicketRow(row: Record<string, unknown>) {
 
 export async function registerTicketRoutes(fastify: FastifyInstance): Promise<void> {
   // Public customer-facing list (scoped to a user when authenticated).
-  fastify.get('/api/tickets', { config: { rateLimit: { max: 100, timeWindow: '1 minute' } } }, async (request, _reply) => {
+  fastify.get('/api/tickets', { config: { rateLimit: { max: 100, timeWindow: '1 minute' } } }, async (request) => {
     const userId = request.user?.role === 'customer' ? request.user.sub : null;
 
     await withDbClient(async (client) => {
@@ -101,7 +102,7 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
     const rows = await dbQuery(
       `
         SELECT t.id, t.name, t.barcode, t.barcode_format, t.allowed_uses, t.used_uses, t.status,
-               t.drawing_deadline, t.drawing_status, t.user_id, t.created_at,
+               t.drawing_deadline, t.drawing_status, t.drawing_date, t.user_id, t.created_at,
                (SELECT COALESCE(SUM(requested_count), 0)::int FROM ticket_entries te WHERE te.ticket_id = t.id AND te.user_id = $1::uuid) AS entry_count
         FROM tickets t
         WHERE t.status = 'active'
@@ -123,7 +124,7 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
   fastify.get('/api/tickets/:id', { config: { rateLimit: { max: 100, timeWindow: '1 minute' } } }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const rows = await dbQuery(
-      'SELECT id, name, barcode, barcode_format, allowed_uses, used_uses, status, drawing_deadline, drawing_status, user_id, created_at FROM tickets WHERE id = $1 LIMIT 1',
+      'SELECT id, name, barcode, barcode_format, allowed_uses, used_uses, status, drawing_deadline, drawing_status, drawing_date, user_id, created_at FROM tickets WHERE id = $1 LIMIT 1',
       [id],
     );
     if (rows.length === 0) return reply.code(404).send({ error: 'Ticket not found' });
@@ -173,7 +174,7 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
             status = CASE WHEN used_uses + 1 >= allowed_uses THEN 'used' ELSE status END,
             updated_at = now()
         WHERE id = $1 AND status = 'active' AND used_uses < allowed_uses
-        RETURNING id, name, barcode, barcode_format, allowed_uses, used_uses, status, drawing_deadline, drawing_status, user_id, created_at
+        RETURNING id, name, barcode, barcode_format, allowed_uses, used_uses, status, drawing_deadline, drawing_status, drawing_date, user_id, created_at
       `,
       [id],
     ).then((rows) => {
@@ -185,36 +186,26 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
   // Admin CRUD.
   fastify.get('/api/admin/tickets', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async () => {
     const rows = await dbQuery(
-      'SELECT id, name, barcode, barcode_format, allowed_uses, used_uses, status, drawing_deadline, drawing_status, user_id, created_at FROM tickets ORDER BY created_at DESC',
+      'SELECT id, name, barcode, barcode_format, allowed_uses, used_uses, status, drawing_deadline, drawing_status, drawing_date, user_id, created_at FROM tickets ORDER BY created_at DESC',
       [],
     );
     return rows.map(toTicketRow);
-      'SELECT id, name, barcode, barcode_format, allowed_uses, used_uses, status, drawing_date, user_id, created_at FROM tickets ORDER BY created_at DESC',
-      [],
-    );
-    return rows.map((row) => ({
-      id: row.id,
-      name: row.name,
-      barcode: row.barcode,
-      barcodeFormat: row.barcode_format,
-      allowedUses: row.allowed_uses,
-      usedUses: row.used_uses,
-      remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
-      status: row.status,
-      drawingDate: row.drawing_date,
-      userId: row.user_id,
-      createdAt: row.created_at,
-    }));
   });
 
   fastify.post('/api/admin/tickets', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (request, reply) => {
     const body = ticketCreateSchema.parse(request.body);
     const drawingDate = body.drawingDate?.trim() || null;
     const rows = await dbQuery<{ id: string }>(
-      'INSERT INTO tickets (barcode, barcode_format, name, allowed_uses, drawing_deadline, user_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
-      [body.barcode, body.barcodeFormat ?? null, body.name, body.allowedUses, body.drawingDeadline ?? null, body.userId ?? null],
-      'INSERT INTO tickets (barcode, barcode_format, name, allowed_uses, drawing_date, user_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
-      [body.barcode, body.barcodeFormat ?? null, body.name, body.allowedUses, drawingDate, body.userId ?? null],
+      'INSERT INTO tickets (barcode, barcode_format, name, allowed_uses, drawing_deadline, drawing_date, user_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+      [
+        body.barcode,
+        body.barcodeFormat ?? null,
+        body.name,
+        body.allowedUses,
+        body.drawingDeadline ?? null,
+        drawingDate,
+        body.userId ?? null,
+      ],
     );
     return reply.code(201).send({ id: rows[0]!.id });
   });
@@ -222,7 +213,8 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
   fastify.patch('/api/admin/tickets/:id', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (request) => {
     const id = (request.params as { id: string }).id;
     const body = ticketUpdateSchema.parse(request.body);
-    const drawingDate = body.drawingDate === undefined ? null : (body.drawingDate?.trim() || null);
+    const drawingDate = body.drawingDate === undefined ? undefined : (body.drawingDate?.trim() || null);
+
     const rows = await dbQuery(
       `
         UPDATE tickets
@@ -234,12 +226,11 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
             status = COALESCE($7, status),
             drawing_deadline = COALESCE($8, drawing_deadline),
             drawing_status = COALESCE($9, drawing_status),
-            user_id = COALESCE($10, user_id),
-            drawing_date = CASE WHEN $8 = '' OR $8 IS NULL THEN NULL ELSE $8::date END,
-            user_id = COALESCE($9, user_id),
+            drawing_date = CASE WHEN $10 = '' OR $10 IS NULL THEN NULL ELSE $10::date END,
+            user_id = COALESCE($11, user_id),
             updated_at = now()
         WHERE id = $1
-        RETURNING id, name, barcode, barcode_format, allowed_uses, used_uses, status, drawing_deadline, drawing_status, user_id, created_at
+        RETURNING id, name, barcode, barcode_format, allowed_uses, used_uses, status, drawing_deadline, drawing_status, drawing_date, user_id, created_at
       `,
       [
         id,
@@ -251,9 +242,9 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
         body.status ?? null,
         body.drawingDeadline === undefined ? null : body.drawingDeadline,
         body.drawingStatus ?? null,
+        drawingDate ?? null,
         body.userId === undefined ? null : body.userId,
       ],
-      [id, body.name ?? null, body.barcode ?? null, body.barcodeFormat ?? null, body.allowedUses ?? null, body.usedUses ?? null, body.status ?? null, drawingDate, body.userId === undefined ? null : body.userId],
     );
     return toTicketRow(rows[0] ?? {});
   });
