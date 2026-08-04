@@ -1,10 +1,12 @@
 import type { ComponentProps } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/lib/appTheme';
-import { theme } from '@/lib/theme';
+import { useThemeColors } from '@/lib/useThemeColors';
+
+const MAX_FONT_MULTIPLIER = 1.3;
 
 // Expo Router vendors its own copy of react-navigation, so derive the tab bar
 // props from the navigator rather than importing them from a build path.
@@ -21,9 +23,68 @@ const TAB_GLYPHS: Record<string, string> = {
   profile: '●',
 };
 
+function useTabStyles() {
+  const colors = useThemeColors();
+  const { fontScale } = useWindowDimensions();
+
+  return {
+    colors,
+    multiplier: Math.min(fontScale, MAX_FONT_MULTIPLIER),
+    styles: StyleSheet.create({
+      bar: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        alignItems: 'flex-end',
+        backgroundColor: colors.panel,
+        borderTopWidth: 1,
+        borderTopColor: colors.border,
+        paddingTop: 10,
+        paddingHorizontal: 6,
+        paddingBottom: 8,
+      },
+      tab: {
+        flex: 1,
+        alignItems: 'center',
+        gap: 4,
+      },
+      icon: {
+        width: 38,
+        height: 38,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: colors.ink,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 10,
+        elevation: 6,
+      },
+      iconFocused: {
+        opacity: 1,
+        transform: [{ scale: 1.05 }],
+      },
+      iconIdle: {
+        opacity: 0.55,
+        transform: [{ scale: 0.94 }],
+      },
+      glyph: {
+        color: '#ffffff',
+        fontSize: 16,
+        fontWeight: '800',
+      },
+      label: {
+        fontSize: 12,
+        fontWeight: '700',
+        marginTop: 3,
+      },
+    }),
+  };
+}
+
 export function GradientTabBar({ state, descriptors, navigation }: GradientTabBarProps) {
   const insets = useSafeAreaInsets();
   const { tabFor } = useAppTheme();
+  const { styles, colors, multiplier } = useTabStyles();
 
   return (
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
@@ -53,9 +114,11 @@ export function GradientTabBar({ state, descriptors, navigation }: GradientTabBa
               end={{ x: 1, y: 1 }}
               style={[styles.icon, focused ? styles.iconFocused : styles.iconIdle]}
             >
-              <Text style={styles.glyph}>{TAB_GLYPHS[route.name] ?? '•'}</Text>
+              <Text style={[styles.glyph, { fontSize: 16 * multiplier }]} maxFontSizeMultiplier={MAX_FONT_MULTIPLIER}>
+                {TAB_GLYPHS[route.name] ?? '•'}
+              </Text>
             </LinearGradient>
-            <Text style={[styles.label, { color: focused ? tab.color : theme.subtle }]} numberOfLines={1}>
+            <Text style={[styles.label, { color: focused ? tab.color : colors.subtle, fontSize: 12 * multiplier }]} numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_MULTIPLIER}>
               {label}
             </Text>
           </Pressable>
@@ -64,52 +127,3 @@ export function GradientTabBar({ state, descriptors, navigation }: GradientTabBa
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  bar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'flex-end',
-    backgroundColor: theme.panel,
-    borderTopWidth: 1,
-    borderTopColor: theme.border,
-    paddingTop: 10,
-    paddingHorizontal: 6,
-    paddingBottom: 8,
-  },
-  tab: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-  },
-  icon: {
-    width: 38,
-    height: 38,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: theme.ink,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  iconFocused: {
-    opacity: 1,
-    transform: [{ scale: 1.05 }],
-  },
-  iconIdle: {
-    opacity: 0.55,
-    transform: [{ scale: 0.94 }],
-  },
-  glyph: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: '700',
-    marginTop: 3,
-  },
-});

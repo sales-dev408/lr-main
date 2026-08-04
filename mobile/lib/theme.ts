@@ -1,11 +1,43 @@
 import type { ThemeSettings } from './types';
 
+export interface ThemeColors {
+  brand: string;
+  brandDark: string;
+  brandSoft: string;
+  infoSoft: string;
+  successSoft: string;
+  warningSoft: string;
+  dangerSoft: string;
+  ink: string;
+  ink2: string;
+  bg: string;
+  panel: string;
+  border: string;
+  muted: string;
+  subtle: string;
+  danger: string;
+  success: string;
+  warning: string;
+  radius: number;
+  shadow: {
+    shadowColor: string;
+    shadowOffset: { width: number; height: number };
+    shadowOpacity: number;
+    shadowRadius: number;
+    elevation: number;
+  };
+}
+
 // Light Rail Deals brand theme. These values mirror the admin console palette
 // and are consumed by the shared UI components so screens stay consistent.
-export const theme = {
+export const theme: ThemeColors = {
   brand: '#0d9488',
   brandDark: '#0f766e',
   brandSoft: '#ccfbf1',
+  infoSoft: '#ccfbf1',
+  successSoft: '#dcfce7',
+  warningSoft: '#fef3c7',
+  dangerSoft: '#fee2e2',
   ink: '#0f172a',
   ink2: '#1e293b',
   bg: '#f8fafc',
@@ -24,7 +56,35 @@ export const theme = {
     shadowRadius: 30,
     elevation: 10,
   },
-} as const;
+};
+
+export const darkTheme: ThemeColors = {
+  brand: '#14b8a6',
+  brandDark: '#2dd4bf',
+  brandSoft: '#134e4a',
+  infoSoft: '#134e4a',
+  successSoft: '#064e3b',
+  warningSoft: '#78350f',
+  dangerSoft: '#7f1d1d',
+  ink: '#f8fafc',
+  ink2: '#e2e8f0',
+  bg: '#0f172a',
+  panel: '#1e293b',
+  border: '#334155',
+  muted: '#94a3b8',
+  subtle: '#64748b',
+  danger: '#f87171',
+  success: '#34d399',
+  warning: '#fbbf24',
+  radius: 20,
+  shadow: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 30,
+    elevation: 10,
+  },
+};
 
 export const APPLE_TRADEMARK_NOTICE =
   'Apple, the Apple logo, and Apple Wallet are trademarks of Apple Inc., registered in the U.S. and other countries.';

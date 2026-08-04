@@ -3,11 +3,13 @@ import { Image, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { listVendors } from '@/lib/api';
+import { useThemeColors } from '@/lib/useThemeColors';
 import type { VendorListItem } from '@/lib/types';
 
 const CATEGORIES = ['All', 'Sports', 'Dining', 'Entertainment'] as const;
 
 export default function VendorsScreen() {
+  const colors = useThemeColors();
   const router = useRouter();
   const [vendors, setVendors] = useState<VendorListItem[]>([]);
   const [category, setCategory] = useState<(typeof CATEGORIES)[number]>('All');
@@ -113,7 +115,7 @@ export default function VendorsScreen() {
             ) : null}
             <SectionTitle title={selected.name} subtitle={selected.category ?? undefined} />
             <Pill tone="success">{selected.discount.label}</Pill>
-            {selected.address ? <Text style={{ color: '#52617a' }}>{selected.address}</Text> : null}
+            {selected.address ? <Text style={{ color: colors.muted }}>{selected.address}</Text> : null}
 
             <Link href="/scan" asChild>
               <AppButton>Scan this vendor&apos;s QR code</AppButton>
