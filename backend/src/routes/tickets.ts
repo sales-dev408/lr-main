@@ -196,7 +196,9 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
     const body = ticketCreateSchema.parse(request.body);
     const drawingDate = body.drawingDate?.trim() || null;
     const rows = await dbQuery<{ id: string }>(
-      'INSERT INTO tickets (barcode, barcode_format, name, allowed_uses, drawing_deadline, drawing_date, user_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+      `INSERT INTO tickets (barcode, barcode_format, name, allowed_uses, drawing_deadline, drawing_date, user_id)
+       VALUES ($1, $2, $3, $4, COALESCE($5::timestamptz, ($6::date + interval '23 hours 59 minutes')::timestamptz, now() + interval '7 days'), $6, $7)
+       RETURNING id`,
       [
         body.barcode,
         body.barcodeFormat ?? null,
@@ -224,7 +226,7 @@ export async function registerTicketRoutes(fastify: FastifyInstance): Promise<vo
             allowed_uses = COALESCE($5, allowed_uses),
             used_uses = COALESCE($6, used_uses),
             status = COALESCE($7, status),
-            drawing_deadline = COALESCE($8, drawing_deadline),
+            drawing_deadline = COALESCE($8::timestamptz, (CASE WHEN $10 = '' OR $10 IS NULL THEN NULL ELSE $10::date END + interval '23 hours 59 minutes')::timestamptz, drawing_deadline),
             drawing_status = COALESCE($9, drawing_status),
             drawing_date = CASE WHEN $10 = '' OR $10 IS NULL THEN NULL ELSE $10::date END,
             user_id = COALESCE($11, user_id),

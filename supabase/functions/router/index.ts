@@ -821,7 +821,12 @@ Deno.serve(async (request) => {
       if (auth instanceof Response) return auth;
       const body = ticketCreateSchema.parse(await readJsonBody(request, {}));
       const drawingDate = body.drawingDate?.trim() || null;
-      const rows = await dbQuery<{ id: string }>('INSERT INTO tickets (barcode, barcode_format, name, allowed_uses, drawing_date, user_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id', [body.barcode, body.barcodeFormat ?? null, body.name, body.allowedUses, drawingDate, body.userId ?? null]);
+      const rows = await dbQuery<{ id: string }>(
+        `INSERT INTO tickets (barcode, barcode_format, name, allowed_uses, drawing_deadline, drawing_date, user_id)
+         VALUES ($1, $2, $3, $4, COALESCE($5::timestamptz, ($6::date + interval '23 hours 59 minutes')::timestamptz, now() + interval '7 days'), $6, $7)
+         RETURNING id`,
+        [body.barcode, body.barcodeFormat ?? null, body.name, body.allowedUses, body.drawingDeadline ?? null, drawingDate, body.userId ?? null],
+      );
       return json(request, { id: rows[0]!.id }, { status: 201 });
     }
 
@@ -839,12 +844,14 @@ Deno.serve(async (request) => {
              allowed_uses = COALESCE($5, allowed_uses),
              used_uses = COALESCE($6, used_uses),
              status = COALESCE($7, status),
-             drawing_date = CASE WHEN $8 = '' OR $8 IS NULL THEN NULL ELSE $8::date END,
-             user_id = COALESCE($9, user_id),
+             drawing_deadline = COALESCE($8::timestamptz, (CASE WHEN $10 = '' OR $10 IS NULL THEN NULL ELSE $10::date END + interval '23 hours 59 minutes')::timestamptz, drawing_deadline),
+             drawing_status = COALESCE($9, drawing_status),
+             drawing_date = CASE WHEN $10 = '' OR $10 IS NULL THEN NULL ELSE $10::date END,
+             user_id = COALESCE($11, user_id),
              updated_at = now()
          WHERE id = $1
          RETURNING *`,
-        [id, body.name ?? null, body.barcode ?? null, body.barcodeFormat ?? null, body.allowedUses ?? null, body.usedUses ?? null, body.status ?? null, drawingDate, body.userId === undefined ? null : body.userId],
+        [id, body.name ?? null, body.barcode ?? null, body.barcodeFormat ?? null, body.allowedUses ?? null, body.usedUses ?? null, body.status ?? null, body.drawingDeadline === undefined ? null : body.drawingDeadline, body.drawingStatus ?? null, drawingDate, body.userId === undefined ? null : body.userId],
       );
       return json(request, rows[0] ?? {});
     }
