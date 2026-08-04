@@ -92,7 +92,7 @@ export default function AuthScreen() {
         <Card>
           <SectionTitle title="What happens next" subtitle="One membership pass unlocks every participating business." />
           <Text style={{ color: colors.muted }}>
-            After signing up we generate your personal membership pass. Show its QR code at any participating business and they apply their member discount at the
+            After signing up we generate your personal membership pass. Show its barcode at any participating business and they apply their member discount at the
             register. Your phone number is stored securely and only used to contact you about your account.
           </Text>
         </Card>

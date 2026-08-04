@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Image, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { Image, Linking, Platform, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
-import { AppButton, Banner, BrandHeader, Card, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
+import { AppButton, Banner, BrandHeader, Card, FieldInput, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { listVendors } from '@/lib/api';
 import { barcodeUrl } from '@/lib/qr';
 import { useThemeColors } from '@/lib/useThemeColors';
@@ -30,6 +30,7 @@ export default function VendorsScreen() {
   const [vendors, setVendors] = useState<VendorListItem[]>([]);
   const [category, setCategory] = useState<(typeof CATEGORIES)[number]>('All');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +69,14 @@ export default function VendorsScreen() {
     setRefreshing(false);
   }
 
-  const selected = useMemo(() => vendors.find((v) => v.id === selectedId) ?? null, [vendors, selectedId]);
+  const filteredVendors = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return term
+      ? vendors.filter((v) => v.name.toLowerCase().includes(term) || (v.category ?? '').toLowerCase().includes(term))
+      : vendors;
+  }, [vendors, search]);
+
+  const selected = useMemo(() => filteredVendors.find((v) => v.id === selectedId) ?? null, [filteredVendors, selectedId]);
 
   return (
     <Screen>
@@ -87,8 +95,9 @@ export default function VendorsScreen() {
               </AppButton>
             ))}
           </View>
+          <FieldInput placeholder="Search vendors…" value={search} onChangeText={setSearch} />
           <Link href="/scan" asChild>
-            <AppButton>Scan vendor QR code</AppButton>
+            <AppButton>Scan vendor discount code</AppButton>
           </Link>
           <AppButton
             variant="secondary"
@@ -106,9 +115,9 @@ export default function VendorsScreen() {
 
         {vendors.length > 0 ? (
           <Card>
-            <SectionTitle title="Vendors" subtitle="Tap to select" />
+            <SectionTitle title="Vendors" subtitle={search ? `${filteredVendors.length} match${filteredVendors.length === 1 ? '' : 'es'}` : 'Tap to select'} />
             <View style={{ gap: 8 }}>
-              {vendors.map((vendor) => {
+              {filteredVendors.map((vendor) => {
                 const active = vendor.id === selectedId;
                 const remaining = formatTimeRemaining(vendor.endsAt);
                 return (
@@ -138,6 +147,29 @@ export default function VendorsScreen() {
             </View>
             {selected.address ? <Text style={{ color: colors.muted }}>{selected.address}</Text> : null}
 
+            {(() => {
+              const address = selected.address;
+              return address ? (
+                <AppButton
+                  variant="secondary"
+                  onPress={() =>
+                    void Linking.openURL(
+                      Platform.select({
+                        ios: `maps:?q=${encodeURIComponent(address)}`,
+                        android: `geo:0,0?q=${encodeURIComponent(address)}`,
+                        default: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
+                      }) ?? '',
+                    )
+                  }
+                >
+                  Get directions
+                </AppButton>
+              ) : null;
+            })()}
+            <Link href="/(tabs)/passes" asChild>
+              <AppButton variant="secondary">Open my membership pass</AppButton>
+            </Link>
+
             {selected.discountCode ? (
               <View style={{ alignItems: 'center', gap: 8 }}>
                 <Image
@@ -152,9 +184,6 @@ export default function VendorsScreen() {
             ) : null}
             <Link href="/scan" asChild>
               <AppButton>Scan this vendor&apos;s discount code</AppButton>
-            </Link>
-            <Link href="/(tabs)/passes" asChild>
-              <AppButton variant="secondary">Open my membership pass</AppButton>
             </Link>
           </Card>
         ) : null}
