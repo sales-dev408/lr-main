@@ -92,7 +92,7 @@ export default function PassesScreen() {
             </Text>
 
             <Link href="/scan" asChild>
-              <AppButton>Scan vendor QR code</AppButton>
+              <AppButton>Scan vendor discount code</AppButton>
             </Link>
             <Link href="/(tabs)/vendors" asChild>
               <AppButton variant="secondary">See participating businesses</AppButton>

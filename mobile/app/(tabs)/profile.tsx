@@ -47,7 +47,6 @@ export default function ProfileScreen() {
   const auth = useAuth();
   const [analytics, setAnalytics] = useState<UserAnalytics | null>(null);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
-  const [city, setCity] = useState(auth.profile?.city ?? '');
 
   const loadAnalytics = useCallback(async () => {
     try {
@@ -67,7 +66,6 @@ export default function ProfileScreen() {
   );
 
   async function handleCityChange(next: string) {
-    setCity(next);
     await auth.updateProfile({ city: next });
   }
 
@@ -88,7 +86,7 @@ export default function ProfileScreen() {
                 </Text>
                 <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 12, overflow: 'hidden' }}>
                   <Picker
-                    selectedValue={city}
+                    selectedValue={auth.profile?.city ?? ''}
                     onValueChange={(itemValue) => void handleCityChange(itemValue)}
                     accessibilityLabel="Select your city"
                     accessibilityRole="combobox"

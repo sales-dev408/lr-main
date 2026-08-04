@@ -3,6 +3,7 @@ import { Image, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { listVendors } from '@/lib/api';
+import { barcodeUrl } from '@/lib/qr';
 import { useThemeColors } from '@/lib/useThemeColors';
 import type { VendorListItem } from '@/lib/types';
 
@@ -78,7 +79,7 @@ export default function VendorsScreen() {
         <BrandHeader subtitle="Discounts along the line" />
         <Card>
           <SectionTitle title="Participating businesses" subtitle="Your membership card works at every business below." />
-          <Banner tone="info">Tap a business, then scan its in-store QR code to confirm your discount.</Banner>
+          <Banner tone="info">Tap a business, then scan its in-store discount code to confirm your discount.</Banner>
           <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
             {CATEGORIES.map((value) => (
               <AppButton key={value} variant={category === value ? 'primary' : 'secondary'} onPress={() => setCategory(value)}>
@@ -137,8 +138,20 @@ export default function VendorsScreen() {
             </View>
             {selected.address ? <Text style={{ color: colors.muted }}>{selected.address}</Text> : null}
 
+            {selected.discountCode ? (
+              <View style={{ alignItems: 'center', gap: 8 }}>
+                <Image
+                  source={{ uri: barcodeUrl(selected.discountCode, 320, 120) }}
+                  style={{ width: 320, height: 120, borderRadius: 8, backgroundColor: '#fff' }}
+                  resizeMode="contain"
+                />
+                <Text selectable style={{ color: colors.ink, fontWeight: '700', letterSpacing: 0.5 }}>
+                  {selected.discountCode}
+                </Text>
+              </View>
+            ) : null}
             <Link href="/scan" asChild>
-              <AppButton>Scan this vendor&apos;s QR code</AppButton>
+              <AppButton>Scan this vendor&apos;s discount code</AppButton>
             </Link>
             <Link href="/(tabs)/passes" asChild>
               <AppButton variant="secondary">Open my membership pass</AppButton>
