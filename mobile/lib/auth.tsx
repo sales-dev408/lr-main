@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { login as loginRequest, register as registerRequest, updateMe } from './api';
 import { initPushNotifications } from './notifications';
 import { getItem, removeItem, setItem } from './storage';
