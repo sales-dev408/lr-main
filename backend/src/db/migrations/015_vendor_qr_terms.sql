@@ -13,7 +13,7 @@ ALTER TABLE vendors
   ADD COLUMN IF NOT EXISTS discount_terms text;
 
 UPDATE vendors
-  SET discount_terms = 'Cannot be applied with any other offer\nNot redeemable for cash\nCan be used 1 time per week'
+  SET discount_terms = E'Cannot be applied with any other offer\nNot redeemable for cash\nCan be used 1 time per week'
   WHERE discount_terms IS NULL;
 
 -- Optional per-discount description (required for BOGO)

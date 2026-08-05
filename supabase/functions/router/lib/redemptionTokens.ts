@@ -1,7 +1,7 @@
 import type { PoolClient } from './db.ts';
 import { withDbClient } from './db.ts';
 import { generateOpaqueToken } from './ids.ts';
-import { redeemDiscount } from './redeem.ts';
+import { redeemDiscountWithClient } from './redeem.ts';
 import { toAppliedDiscount, humanDiscountLabel } from './discounts.ts';
 import { config } from './config.ts';
 import type { RedeemResult } from './types.ts';
@@ -126,7 +126,7 @@ export async function redeemByToken(token: string, ip?: string | null): Promise<
         return { ok: false, error: 'This redemption code has expired or already been used' };
       }
 
-      const result = await redeemDiscount({
+      const result = await redeemDiscountWithClient(client, {
         userId: row.user_id,
         cardId: row.card_id,
         vendorId: row.vendor_id,
@@ -192,7 +192,7 @@ export async function affirmRedemptionToken(token: string, userId: string, affir
         return { ok: false, error: 'This redemption code has expired or already been used' };
       }
 
-      const result = await redeemDiscount({
+      const result = await redeemDiscountWithClient(client, {
         userId: row.user_id,
         cardId: row.card_id,
         vendorId: row.vendor_id,
