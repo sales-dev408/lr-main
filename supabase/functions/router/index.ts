@@ -1652,6 +1652,9 @@ Deno.serve(async (request) => {
 
     return notFound(request);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return json(request, { error: 'Validation error', issues: error.issues }, { status: 400 });
+    }
     return json(request, { error: error instanceof Error ? error.message : 'Internal Server Error' }, { status: 500 });
   }
 });
