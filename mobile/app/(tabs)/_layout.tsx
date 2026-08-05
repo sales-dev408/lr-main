@@ -21,6 +21,7 @@ export default function TabLayout() {
           tabBar={useSidebar ? () => null : (props) => <GradientTabBar {...props} />}
         >
           <Tabs.Screen name="index" options={{ title: 'Home' }} />
+          <Tabs.Screen name="live" options={{ title: 'Live' }} />
           <Tabs.Screen name="browse" options={{ title: 'Browse' }} />
           <Tabs.Screen name="events" options={{ title: 'Events' }} />
           <Tabs.Screen name="discover" options={{ title: 'Discover' }} />
