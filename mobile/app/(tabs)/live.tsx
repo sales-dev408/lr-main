@@ -3,26 +3,38 @@ import { Image, ScrollView, Text, useWindowDimensions, View } from 'react-native
 import { BrandHeader, Card, Screen, SectionTitle } from '@/components/Ui';
 import { useDynamicType } from '@/lib/dynamicType';
 import { useThemeColors } from '@/lib/useThemeColors';
+import { SCHEDULES, type DayType, type Direction } from '@/lib/liveSchedules';
 
 const SIDEBAR_BREAKPOINT = 600;
 
-type LineInfo = {
+type ScheduleLineInfo = {
+  name: string;
+  color: string;
+  map: any;
+  line: 'a' | 'b';
+  direction: Direction;
+  stations: string[];
+};
+
+type SimulatedLineInfo = {
   name: string;
   color: string;
   map: any;
   stations: string[];
   segmentMinutes: number[];
   firstDeparture: { hour: number; minute: number };
+  loop?: boolean;
 };
 
-// Station names and segment travel times derived from the eTransit PDF:
-// A Line eastbound (page 4 first complete trip starting at 5:26 a.m.)
-// B Line northbound (page 16 first complete trip starting at 4:58 a.m.)
+type LineInfo = ScheduleLineInfo | SimulatedLineInfo;
+
 const LINES: LineInfo[] = [
   {
     name: 'A Line',
     color: '#0d9488',
-    map: require('@/assets/images/aline_map.png'),
+    map: require('@/assets/images/aline_map.jpeg'),
+    line: 'a',
+    direction: 'eastbound',
     stations: [
       'DOWNTOWN PHX HUB/JEFFERSON ST',
       '3RD ST/JEFFERSON',
@@ -38,13 +50,13 @@ const LINES: LineInfo[] = [
       'MESA DR/MAIN ST',
       'GILBERT RD/MAIN ST',
     ],
-    segmentMinutes: [3, 7, 8, 2, 3, 9, 4, 5, 8, 6, 5, 6],
-    firstDeparture: { hour: 5, minute: 26 },
   },
   {
     name: 'B Line',
     color: '#6366f1',
-    map: require('@/assets/images/bline_map.png'),
+    map: require('@/assets/images/bline_map.jpeg'),
+    line: 'b',
+    direction: 'northbound',
     stations: [
       'BASELINE/CENTRAL AVE',
       'SOUTHERN/CENTRAL AVE',
@@ -63,8 +75,30 @@ const LINES: LineInfo[] = [
       '19TH AVE/DUNLAP',
       'METRO PKWY',
     ],
-    segmentMinutes: [2, 5, 5, 6, 1, 1, 4, 5, 4, 5, 5, 2, 4, 7, 10],
-    firstDeparture: { hour: 4, minute: 58 },
+  },
+  {
+    name: 'Streetcar',
+    color: '#f97316',
+    map: require('@/assets/images/streetcar_map.jpeg'),
+    stations: [
+      'Dorsey/Apache',
+      'Rural/Apache',
+      'Paseo Del Saber/Apache',
+      'College Ave/Apache',
+      '11th St/Mill',
+      '9th St/Mill',
+      '6th St/Mill',
+      '3rd St/Mill',
+      'University Dr/Ash',
+      '5th St/Ash',
+      '3rd St/Ash',
+      'Tempe Beach Park/Rio Salado',
+      'Hayden Ferry/Rio Salado',
+      'Marina Heights/Rio Salado',
+    ],
+    segmentMinutes: [1, 2, 2, 3, 2, 2, 2, 2, 2, 2, 3, 2, 2],
+    firstDeparture: { hour: 6, minute: 0 },
+    loop: true,
   },
 ];
 
@@ -80,7 +114,135 @@ function minutesSinceMidnight(date: Date) {
   return date.getHours() * 60 + date.getMinutes() + date.getSeconds() / 60;
 }
 
-function getLineStatus(line: LineInfo, now: Date): LineStatus {
+function dayType(date: Date): DayType {
+  const day = date.getDay();
+  if (day === 0) return 'sunday';
+  if (day === 6) return 'saturday';
+  return 'weekday';
+}
+
+function scheduleFor(date: Date, line: 'a' | 'b', direction: Direction) {
+  const day = dayType(date);
+  const lineSchedules = SCHEDULES[line];
+  if (!lineSchedules) return null;
+  const daySchedule = lineSchedules[day];
+  if (!daySchedule) return null;
+  return daySchedule[direction] ?? null;
+}
+
+function firstValidIndex(trip: number[]) {
+  for (let i = 0; i < trip.length; i += 1) {
+    if (trip[i] !== -1) return i;
+  }
+  return -1;
+}
+
+function lastValidIndex(trip: number[]) {
+  for (let i = trip.length - 1; i >= 0; i -= 1) {
+    if (trip[i] !== -1) return i;
+  }
+  return -1;
+}
+
+function getScheduleStatus(line: ScheduleLineInfo, now: Date): LineStatus {
+  const nowMinutes = minutesSinceMidnight(now);
+  const schedule = scheduleFor(now, line.line, line.direction);
+
+  if (!schedule || schedule.trips.length === 0) {
+    return { current: '—', next: '—', minutes: 0, segmentDuration: 0, progress: 0 };
+  }
+
+  // Try the current day; if no active trip, look ahead to the next day's schedule.
+  const candidate = findBestTrip(schedule.trips, nowMinutes, line.stations);
+  if (candidate) return candidate;
+
+  const nextDay = new Date(now);
+  nextDay.setDate(now.getDate() + 1);
+  const nextSchedule = scheduleFor(nextDay, line.line, line.direction) ?? schedule;
+  const nextTrips = nextSchedule?.trips ?? schedule.trips;
+  const nextDayCandidate = findBestTrip(nextTrips, nowMinutes + 1440, line.stations);
+  if (nextDayCandidate) return nextDayCandidate;
+
+  const fallbackTrip = schedule.trips[0];
+  return statusFromTrip(fallbackTrip, line.stations, nowMinutes);
+}
+
+function findBestTrip(trips: number[][], nowMinutes: number, stations: string[]): LineStatus | null {
+  let best: { nextArrival: number; status: LineStatus } | null = null;
+  for (const trip of trips) {
+    const status = statusFromTrip(trip, stations, nowMinutes);
+    if (status.next === '—') continue;
+    const nextArrival = nowMinutes + status.minutes;
+    if (!best || nextArrival < best.nextArrival) {
+      best = { nextArrival, status };
+    }
+  }
+  return best?.status ?? null;
+}
+
+function statusFromTrip(trip: number[], stations: string[], nowMinutes: number): LineStatus {
+  const startIdx = firstValidIndex(trip);
+  const endIdx = lastValidIndex(trip);
+
+  if (startIdx === -1) {
+    return { current: '—', next: '—', minutes: 0, segmentDuration: 0, progress: 0 };
+  }
+
+  // If the train hasn't started yet, show first station and next departure.
+  if (nowMinutes < trip[startIdx]) {
+    let nextIdx = startIdx + 1;
+    while (nextIdx <= endIdx && trip[nextIdx] === -1) nextIdx += 1;
+    const nextTime = trip[nextIdx] ?? trip[endIdx];
+    const segmentDuration = Math.max(1, nextTime - trip[startIdx]);
+    return {
+      current: stations[startIdx],
+      next: stations[nextIdx] ?? stations[endIdx],
+      minutes: Math.max(0, Math.ceil(nextTime - nowMinutes)),
+      segmentDuration,
+      progress: 0,
+    };
+  }
+
+  // If the train has already finished, show the terminal as current.
+  if (nowMinutes >= trip[endIdx]) {
+    return {
+      current: stations[endIdx],
+      next: stations[endIdx],
+      minutes: 0,
+      segmentDuration: 0,
+      progress: 1,
+    };
+  }
+
+  // Find the station the train has most recently passed and the next stop.
+  let currentIdx = startIdx;
+  let nextIdx = endIdx;
+  for (let i = startIdx; i < endIdx; i += 1) {
+    if (trip[i] === -1) continue;
+    let j = i + 1;
+    while (j <= endIdx && trip[j] === -1) j += 1;
+    if (j > endIdx) continue;
+    if (nowMinutes >= trip[i] && nowMinutes < trip[j]) {
+      currentIdx = i;
+      nextIdx = j;
+    }
+  }
+
+  const segmentDuration = Math.max(1, trip[nextIdx] - trip[currentIdx]);
+  const elapsed = Math.max(0, nowMinutes - trip[currentIdx]);
+  const minutesToNext = Math.max(0, Math.ceil(trip[nextIdx] - nowMinutes));
+  const progress = Math.min(1, Math.max(0, elapsed / segmentDuration));
+
+  return {
+    current: stations[currentIdx],
+    next: stations[nextIdx],
+    minutes: minutesToNext,
+    segmentDuration,
+    progress,
+  };
+}
+
+function getSimulatedStatus(line: SimulatedLineInfo, now: Date): LineStatus {
   const totalMinutes = line.segmentMinutes.reduce((a, b) => a + b, 0);
   const start = line.firstDeparture.hour * 60 + line.firstDeparture.minute;
   let elapsed = minutesSinceMidnight(now) - start;
@@ -104,7 +266,7 @@ function getLineStatus(line: LineInfo, now: Date): LineStatus {
   const elapsedInSegment = intoCycle - accumulated;
   const minutesToNext = Math.max(0, Math.ceil(segmentDuration - elapsedInSegment));
   const progress = Math.min(1, Math.max(0, elapsedInSegment / segmentDuration));
-  const nextIndex = (currentIndex + 1) % line.stations.length;
+  const nextIndex = line.loop ? (currentIndex + 1) % line.stations.length : Math.min(currentIndex + 1, line.stations.length - 1);
 
   return {
     current: line.stations[currentIndex],
@@ -113,6 +275,10 @@ function getLineStatus(line: LineInfo, now: Date): LineStatus {
     segmentDuration,
     progress,
   };
+}
+
+function getLineStatus(line: LineInfo, now: Date): LineStatus {
+  return 'line' in line ? getScheduleStatus(line, now) : getSimulatedStatus(line, now);
 }
 
 function formatTime(date: Date) {
@@ -205,13 +371,13 @@ export default function LiveTrainsScreen() {
           alignItems: compact ? 'center' : 'stretch',
         }}
       >
-        <BrandHeader subtitle={`Live trains · ${formatTime(now)}`} />
+        <BrandHeader subtitle={`Live train times · ${formatTime(now)}`} />
 
         <Card>
           <SectionTitle title="Current trains" subtitle="Next stop and estimated arrival" />
-          <View style={{ flexDirection: compact ? 'column' : 'row', gap: 14, justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: compact ? 'column' : 'row', gap: 14, justifyContent: 'space-between', alignItems: compact ? 'center' : 'stretch' }}>
             {LINES.map((line, index) => (
-              <View key={line.name} style={{ flex: 1 }}>
+              <View key={line.name} style={{ flex: 1, width: '100%' }}>
                 <LineCard line={line} status={lineStatuses[index]} compact={compact} />
               </View>
             ))}
@@ -229,7 +395,7 @@ export default function LiveTrainsScreen() {
           }}
           allowFontScaling={false}
         >
-          Live positions are estimated from the published PDF schedule and may be inaccurate due to construction, traffic, and service changes.
+          Live positions are estimated from the published schedule and may be inaccurate due to construction, traffic, and service changes.
         </Text>
       </ScrollView>
     </Screen>
