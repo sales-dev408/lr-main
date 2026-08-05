@@ -1,12 +1,11 @@
 import type { ComponentProps } from 'react';
-import { Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/lib/appTheme';
 import { useThemeColors } from '@/lib/useThemeColors';
-
-const MAX_FONT_MULTIPLIER = 1.3;
+import { useDynamicType } from '@/lib/dynamicType';
 
 // Expo Router vendors its own copy of react-navigation, so derive the tab bar
 // props from the navigator rather than importing them from a build path.
@@ -26,11 +25,12 @@ const TAB_GLYPHS: Record<string, string> = {
 
 function useTabStyles() {
   const colors = useThemeColors();
-  const { fontScale } = useWindowDimensions();
+  const { effectiveScale } = useDynamicType();
+  const multiplier = effectiveScale;
 
   return {
     colors,
-    multiplier: Math.min(fontScale, MAX_FONT_MULTIPLIER),
+    multiplier,
     styles: StyleSheet.create({
       bar: {
         flexDirection: 'row',
@@ -49,8 +49,8 @@ function useTabStyles() {
         gap: 4,
       },
       icon: {
-        width: 38,
-        height: 38,
+        width: 38 * multiplier,
+        height: 38 * multiplier,
         borderRadius: 14,
         alignItems: 'center',
         justifyContent: 'center',
@@ -115,11 +115,11 @@ export function GradientTabBar({ state, descriptors, navigation }: GradientTabBa
               end={{ x: 1, y: 1 }}
               style={[styles.icon, styles.iconShadow, focused ? styles.iconFocused : styles.iconIdle]}
             >
-              <Text style={[styles.glyph, { fontSize: 16 * multiplier }]} maxFontSizeMultiplier={MAX_FONT_MULTIPLIER}>
+              <Text style={[styles.glyph, { fontSize: 16 * multiplier }]} allowFontScaling={false}>
                 {TAB_GLYPHS[route.name] ?? '•'}
               </Text>
             </LinearGradient>
-            <Text style={[styles.label, { color: focused ? tab.color : colors.subtle, fontSize: 12 * multiplier }]} numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_MULTIPLIER}>
+            <Text style={[styles.label, { color: focused ? tab.color : colors.subtle, fontSize: 12 * multiplier }]} numberOfLines={1} allowFontScaling={false}>
               {label}
             </Text>
           </Pressable>

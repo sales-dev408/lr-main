@@ -5,18 +5,20 @@ import { enterTicketDrawing, listTickets } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { barcodeUrl } from '@/lib/qr';
 import { useThemeColors } from '@/lib/useThemeColors';
+import { useDynamicType } from '@/lib/dynamicType';
 import { AppButton, Banner, BrandHeader, Card, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import type { Ticket } from '@/lib/types';
 
 function TicketCard({ ticket, colors }: { ticket: Ticket; colors: ReturnType<typeof useThemeColors> }) {
   const { width } = useWindowDimensions();
+  const { effectiveScale } = useDynamicType();
   const barcodeWidth = Math.min(width - 64, 360);
   return (
     <Card>
       <SectionTitle title={ticket.name} subtitle={ticket.status === 'active' ? `${ticket.remainingUses} of ${ticket.allowedUses} uses left` : 'Used'} />
       <View style={{ alignItems: 'center', gap: 8, paddingVertical: 8 }}>
         <Image source={{ uri: barcodeUrl(ticket.barcode, barcodeWidth, 120) }} style={{ width: barcodeWidth, height: 120, borderRadius: 8, backgroundColor: '#fff' }} resizeMode="contain" />
-        <Text style={{ color: colors.ink, fontWeight: '700', letterSpacing: 1 }}>{ticket.barcode}</Text>
+        <Text style={{ color: colors.ink, fontWeight: '700', letterSpacing: 1, fontSize: 14 * effectiveScale }} allowFontScaling={false}>{ticket.barcode}</Text>
       </View>
       <Pill tone={ticket.status === 'active' ? 'success' : 'neutral'}>{ticket.status}</Pill>
       <Banner tone="info">Show this barcode at the event entrance. Staff will scan it.</Banner>
@@ -33,6 +35,7 @@ function formatDeadline(value: string | null | undefined) {
 
 export default function TicketsScreen() {
   const colors = useThemeColors();
+  const { effectiveScale } = useDynamicType();
   const auth = useAuth();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,19 +127,19 @@ export default function TicketsScreen() {
             {open.map((ticket) => (
               <View key={ticket.id} style={{ padding: 14, borderRadius: 16, backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border, gap: 10 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={{ color: colors.ink, fontWeight: '700', fontSize: 16 }}>{ticket.name}</Text>
+                  <Text style={{ color: colors.ink, fontWeight: '700', fontSize: 16 * effectiveScale }} allowFontScaling={false}>{ticket.name}</Text>
                   <Pill tone={ticket.entryCount ? 'success' : 'neutral'}>{ticket.entryCount ? `${ticket.entryCount} entries` : 'Not entered'}</Pill>
                 </View>
-                {ticket.drawingDeadline ? <Text style={{ color: colors.muted }}>Deadline: {formatDeadline(ticket.drawingDeadline)}</Text> : null}
+                {ticket.drawingDeadline ? <Text style={{ color: colors.muted, fontSize: 14 * effectiveScale }} allowFontScaling={false}>Deadline: {formatDeadline(ticket.drawingDeadline)}</Text> : null}
 
                 {selectedTicketId === ticket.id ? (
                   <View style={{ gap: 10 }}>
-                    <Text style={{ color: colors.ink }}>Number of tickets to request (1–4)</Text>
+                    <Text style={{ color: colors.ink, fontSize: 14 * effectiveScale }} allowFontScaling={false}>Number of tickets to request (1–4)</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
                       <AppButton variant="secondary" onPress={() => adjustCount(-1)} style={{ width: 50 }}>
                         –
                       </AppButton>
-                      <Text style={{ color: colors.ink, fontSize: 22, fontWeight: '800', minWidth: 32, textAlign: 'center' }}>{count}</Text>
+                      <Text style={{ color: colors.ink, fontSize: 22 * effectiveScale, fontWeight: '800', minWidth: 32, textAlign: 'center' }} allowFontScaling={false}>{count}</Text>
                       <AppButton variant="secondary" onPress={() => adjustCount(1)} style={{ width: 50 }}>
                         +
                       </AppButton>

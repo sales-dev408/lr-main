@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Image, Linking, Platform, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { Image, Linking, Platform, Pressable, RefreshControl, ScrollView, Switch, Text, View } from 'react-native';
 import { Link, useFocusEffect } from 'expo-router';
 import * as Location from 'expo-location';
 import { AppButton, Banner, BrandHeader, Card, FieldInput, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { listVendors } from '@/lib/api';
 import { shareDeal } from '@/lib/share';
 import { useThemeColors } from '@/lib/useThemeColors';
+import { useDynamicType } from '@/lib/dynamicType';
+import { useFavorites } from '@/lib/favorites';
 import MapView, { Marker, type Region } from '@/components/MapView';
 import type { VendorListItem } from '@/lib/types';
 
@@ -53,6 +55,8 @@ function initialRegion(vendors: VendorListItem[]): Region {
 
 export default function BrowseScreen() {
   const colors = useThemeColors();
+  const { effectiveScale } = useDynamicType();
+  const { favorites, toggle: toggleFavorite, isFavorite } = useFavorites();
   const [vendors, setVendors] = useState<VendorListItem[]>([]);
   const [category, setCategory] = useState<(typeof CATEGORIES)[number]>('All');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -63,6 +67,7 @@ export default function BrowseScreen() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [locationPermission, setLocationPermission] = useState<boolean | null>(null);
   const [region, setRegion] = useState<Region | null>(null);
+  const [sortByFavorites, setSortByFavorites] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -75,6 +80,10 @@ export default function BrowseScreen() {
       setError(err instanceof Error ? err.message : 'Unable to load vendors');
     }
   }, [category, region]);
+
+  async function handleToggleFavorite(id: string) {
+    await toggleFavorite(id);
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -124,21 +133,34 @@ export default function BrowseScreen() {
   }, [vendors, search]);
 
   const sortedVendors = useMemo(() => {
-    if (!location) return filteredVendors;
-    return filteredVendors
-      .filter((v) => v.latitude != null && v.longitude != null)
-      .sort(
-        (a, b) =>
+    const list = [...filteredVendors];
+    const favoriteSet = new Set(favorites);
+    list.sort((a, b) => {
+      if (sortByFavorites) {
+        const af = favoriteSet.has(a.id) ? -1 : 1;
+        const bf = favoriteSet.has(b.id) ? -1 : 1;
+        if (af !== bf) return af - bf;
+      }
+      if (!location) return a.name.localeCompare(b.name);
+      const aHasCoords = a.latitude != null && a.longitude != null;
+      const bHasCoords = b.latitude != null && b.longitude != null;
+      if (aHasCoords && bHasCoords) {
+        return (
           distanceKm(location.coords.latitude, location.coords.longitude, a.latitude!, a.longitude!) -
-          distanceKm(location.coords.latitude, location.coords.longitude, b.latitude!, b.longitude!),
-      );
-  }, [filteredVendors, location]);
+          distanceKm(location.coords.latitude, location.coords.longitude, b.latitude!, b.longitude!)
+        );
+      }
+      if (aHasCoords !== bHasCoords) return aHasCoords ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+    return list;
+  }, [filteredVendors, location, sortByFavorites, favorites]);
 
   const selected = useMemo(() => sortedVendors.find((v) => v.id === selectedId) ?? filteredVendors.find((v) => v.id === selectedId) ?? null, [filteredVendors, selectedId, sortedVendors]);
 
   const mappedVendors = useMemo(() => {
-    return sortedVendors.length > 0 ? sortedVendors : filteredVendors;
-  }, [filteredVendors, sortedVendors]);
+    return sortedVendors.filter((v) => v.latitude != null && v.longitude != null);
+  }, [sortedVendors]);
 
   return (
     <Screen>
@@ -158,6 +180,16 @@ export default function BrowseScreen() {
             ))}
           </View>
           <FieldInput placeholder="Search vendors…" value={search} onChangeText={setSearch} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}>
+            <Text style={{ color: colors.ink, fontSize: 14 * effectiveScale }} allowFontScaling={false}>Sort favorites first</Text>
+            <Switch
+              value={sortByFavorites}
+              onValueChange={setSortByFavorites}
+              trackColor={{ false: colors.border, true: colors.brand }}
+              thumbColor="#fff"
+              accessibilityLabel="Sort favorites first"
+            />
+          </View>
           {locationPermission === false ? (
             <Banner tone="info">Location permission denied. Enable it in settings to see nearby shops sorted by distance.</Banner>
           ) : null}
@@ -195,22 +227,38 @@ export default function BrowseScreen() {
         {error ? <Banner tone="error">{error}</Banner> : null}
         {!loading && vendors.length === 0 ? <Banner tone="info">No vendors available yet.</Banner> : null}
 
-        {filteredVendors.length > 0 ? (
+        {sortedVendors.length > 0 ? (
           <Card>
-            <SectionTitle title="Participating businesses" subtitle={search ? `${filteredVendors.length} match${filteredVendors.length === 1 ? '' : 'es'}` : 'Tap to select'} />
+            <SectionTitle title="Participating businesses" subtitle={search ? `${sortedVendors.length} match${sortedVendors.length === 1 ? '' : 'es'}` : 'Tap to select'} />
             <View style={{ gap: 8 }}>
-              {filteredVendors.map((vendor) => {
+              {sortedVendors.map((vendor) => {
                 const active = vendor.id === selectedId;
                 const remaining = formatTimeRemaining(vendor.endsAt);
                 const dist = location && vendor.latitude != null && vendor.longitude != null
                   ? distanceKm(location.coords.latitude, location.coords.longitude, vendor.latitude, vendor.longitude)
                   : null;
+                const favorite = isFavorite(vendor.id);
                 return (
-                  <AppButton key={vendor.id} variant={active ? 'primary' : 'secondary'} onPress={() => setSelectedId(vendor.id)}>
-                    {vendor.boosted ? 'Flash: ' : ''}{vendor.name} · {vendor.discount.label}
-                    {remaining ? ` · ${remaining}` : ''}
-                    {dist != null ? ` · ${formatDistance(dist)}` : ''}
-                  </AppButton>
+                  <View key={vendor.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <AppButton
+                      variant={active ? 'primary' : 'secondary'}
+                      onPress={() => setSelectedId(vendor.id)}
+                      style={{ flex: 1 }}
+                    >
+                      {vendor.boosted ? 'Flash: ' : ''}{vendor.name} · {vendor.discount.label}
+                      {remaining ? ` · ${remaining}` : ''}
+                      {dist != null ? ` · ${formatDistance(dist)}` : ''}
+                    </AppButton>
+                    <Pressable
+                      onPress={() => void handleToggleFavorite(vendor.id)}
+                      accessibilityLabel={favorite ? 'Remove from favorites' : 'Add to favorites'}
+                      style={{ padding: 8 }}
+                    >
+                      <Text style={{ fontSize: 24 * effectiveScale, color: colors.brand }} allowFontScaling={false}>
+                        {favorite ? '♥' : '♡'}
+                      </Text>
+                    </Pressable>
+                  </View>
                 );
               })}
             </View>
@@ -226,17 +274,30 @@ export default function BrowseScreen() {
                 resizeMode="contain"
               />
             ) : null}
-            <SectionTitle title={selected.name} subtitle={selected.category ?? undefined} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <SectionTitle title={selected.name} subtitle={selected.category ?? undefined} />
+              </View>
+              <Pressable
+                onPress={() => void handleToggleFavorite(selected.id)}
+                accessibilityLabel={isFavorite(selected.id) ? 'Remove from favorites' : 'Add to favorites'}
+                style={{ padding: 8 }}
+              >
+                <Text style={{ fontSize: 28 * effectiveScale, color: colors.brand }} allowFontScaling={false}>
+                  {isFavorite(selected.id) ? '♥' : '♡'}
+                </Text>
+              </Pressable>
+            </View>
             <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
               <Pill tone="success">{selected.discount.label}</Pill>
               {selected.boosted ? <Pill tone="warning">Flash deal</Pill> : null}
               {formatTimeRemaining(selected.endsAt) ? <Pill tone="neutral">{formatTimeRemaining(selected.endsAt)}</Pill> : null}
             </View>
-            {selected.address ? <Text style={{ color: colors.muted }}>{selected.address}</Text> : null}
+            {selected.address ? <Text style={{ color: colors.muted, fontSize: 14 * effectiveScale, lineHeight: 20 * effectiveScale }} allowFontScaling={false}>{selected.address}</Text> : null}
             {selected.discountDescription ? (
-              <Text style={{ color: colors.ink, fontSize: 14, lineHeight: 20 }}>{selected.discountDescription}</Text>
+              <Text style={{ color: colors.ink, fontSize: 14 * effectiveScale, lineHeight: 20 * effectiveScale }} allowFontScaling={false}>{selected.discountDescription}</Text>
             ) : null}
-            <Text style={{ color: colors.muted, fontSize: 8, lineHeight: 12 }}>{selected.discountTerms}</Text>
+            <Text style={{ color: colors.muted, fontSize: 8 * effectiveScale, lineHeight: 12 * effectiveScale }} allowFontScaling={false}>{selected.discountTerms}</Text>
 
             {selected.address ? (
               <AppButton

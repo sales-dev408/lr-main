@@ -8,6 +8,7 @@ import { getMyAnalytics, listVendors } from '@/lib/api';
 import { useAppColorScheme } from '@/lib/colorScheme';
 import { PRIVACY_URL, TERMS_URL, EULA_URL, WEBSITE_URL } from '@/lib/theme';
 import { useThemeColors } from '@/lib/useThemeColors';
+import { useDynamicType, TEXT_SCALE_OPTIONS } from '@/lib/dynamicType';
 import type { UserAnalytics, VendorListItem } from '@/lib/types';
 
 export default function ProfileScreen() {
@@ -15,6 +16,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const auth = useAuth();
   const { scheme, setScheme, highContrast, setHighContrast } = useAppColorScheme();
+  const { effectiveScale, textScale, setTextScale } = useDynamicType();
   const [analytics, setAnalytics] = useState<UserAnalytics | null>(null);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
   const [vendors, setVendors] = useState<VendorListItem[]>([]);
@@ -49,8 +51,8 @@ export default function ProfileScreen() {
     await auth.updateProfile({ city: next });
   }
 
-  const sectionLabel = { color: colors.ink, fontSize: 16, fontWeight: '600' } as const;
-  const valueLabel = { color: colors.muted, fontSize: 14 } as const;
+  const sectionLabel = { color: colors.ink, fontSize: 16 * effectiveScale, fontWeight: '600' } as const;
+  const valueLabel = { color: colors.muted, fontSize: 14 * effectiveScale } as const;
 
   return (
     <Screen>
@@ -94,7 +96,7 @@ export default function ProfileScreen() {
                     ))}
                   </Picker>
                 </View>
-                <Text style={{ color: colors.muted, fontSize: 12 }}>Local events and deals are matched to this city.</Text>
+                <Text style={{ color: colors.muted, fontSize: 12 * effectiveScale }} allowFontScaling={false}>Local events and deals are matched to this city.</Text>
               </View>
             </View>
           ) : (
@@ -105,7 +107,7 @@ export default function ProfileScreen() {
         <Card>
           <SectionTitle title="Appearance" subtitle="Choose how the app looks" />
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}>
-            <Text style={{ color: colors.ink, fontSize: 16 }}>Dark mode</Text>
+            <Text style={{ color: colors.ink, fontSize: 16 * effectiveScale }} allowFontScaling={false}>Dark mode</Text>
             <Switch
               value={scheme === 'dark'}
               onValueChange={(on) => setScheme(on ? 'dark' : 'light')}
@@ -115,7 +117,7 @@ export default function ProfileScreen() {
             />
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}>
-            <Text style={{ color: colors.ink, fontSize: 16 }}>High contrast mode</Text>
+            <Text style={{ color: colors.ink, fontSize: 16 * effectiveScale }} allowFontScaling={false}>High contrast mode</Text>
             <Switch
               value={highContrast}
               onValueChange={setHighContrast}
@@ -134,23 +136,39 @@ export default function ProfileScreen() {
           ) : null}
           {analytics ? (
             <View style={{ gap: 8 }}>
-              <Text style={{ color: colors.ink, fontSize: 18, fontWeight: '700' }}>
+              <Text style={{ color: colors.ink, fontSize: 18 * effectiveScale, fontWeight: '700' }} allowFontScaling={false}>
                 {analytics.totalRedemptions} total redemption{analytics.totalRedemptions === 1 ? '' : 's'}
               </Text>
               {analytics.byVendor.length > 0 ? (
                 <>
-                  <Text style={{ color: colors.muted }}>By business:</Text>
+                  <Text style={{ color: colors.muted, fontSize: 14 * effectiveScale }} allowFontScaling={false}>By business:</Text>
                   {analytics.byVendor.map((item) => (
-                    <Text key={item.vendorId} style={{ color: colors.muted }}>
+                    <Text key={item.vendorId} style={{ color: colors.muted, fontSize: 14 * effectiveScale }} allowFontScaling={false}>
                       {item.vendorName}: {item.redemptions}
                     </Text>
                   ))}
                 </>
               ) : (
-                <Text style={{ color: colors.muted }}>No redemptions yet.</Text>
+                <Text style={{ color: colors.muted, fontSize: 14 * effectiveScale }} allowFontScaling={false}>No redemptions yet.</Text>
               )}
             </View>
           ) : null}
+        </Card>
+
+        <Card>
+          <SectionTitle title="Text & icon size" subtitle="Adjust for readability" />
+          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+            {TEXT_SCALE_OPTIONS.map((option) => (
+              <AppButton
+                key={option.value}
+                variant={textScale === option.value ? 'primary' : 'secondary'}
+                onPress={() => setTextScale(option.value)}
+                style={{ flex: 1, minWidth: 90 }}
+              >
+                {option.label}
+              </AppButton>
+            ))}
+          </View>
         </Card>
 
         <Card>

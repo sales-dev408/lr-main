@@ -1,14 +1,16 @@
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePathname, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/lib/appTheme';
 import { useThemeColors } from '@/lib/useThemeColors';
+import { useDynamicType } from '@/lib/dynamicType';
 
-const MAX_FONT_MULTIPLIER = 1.3;
 export const SIDEBAR_COLLAPSED = 72;
 export const SIDEBAR_EXPANDED = 170;
+const ICON_SIZE = 38;
+const TOGGLE_SIZE = 38;
 
 const TAB_GLYPHS: Record<string, string> = {
   index: '⌂',
@@ -33,14 +35,13 @@ export function CollapsibleSidebar() {
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
   const { tabFor } = useAppTheme();
-  const { fontScale } = useWindowDimensions();
+  const { effectiveScale: multiplier } = useDynamicType();
   const [expanded, setExpanded] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const active = activeRouteName(pathname ?? '/');
-  const multiplier = Math.min(fontScale, MAX_FONT_MULTIPLIER);
 
-  const width = expanded ? SIDEBAR_EXPANDED : SIDEBAR_COLLAPSED;
+  const width = expanded ? SIDEBAR_EXPANDED * multiplier : SIDEBAR_COLLAPSED * multiplier;
 
   const tabs = useMemo(
     () =>
@@ -59,10 +60,10 @@ export function CollapsibleSidebar() {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
-        style={[styles.toggle, { backgroundColor: colors.brandSoft }]}
+        style={[styles.toggle, { backgroundColor: colors.brandSoft, width: TOGGLE_SIZE * multiplier, height: TOGGLE_SIZE * multiplier }]}
         onPress={() => setExpanded((prev) => !prev)}
       >
-        <Text style={{ fontSize: 20, fontWeight: '800', color: colors.ink }}>{expanded ? '‹' : '›'}</Text>
+        <Text style={{ fontSize: 20 * multiplier, fontWeight: '800', color: colors.ink }} allowFontScaling={false}>{expanded ? '‹' : '›'}</Text>
       </Pressable>
 
       <View style={{ gap: 8 }}>
@@ -77,13 +78,13 @@ export function CollapsibleSidebar() {
               style={[styles.item, { backgroundColor: focused ? colors.brandSoft : 'transparent' }]}
               onPress={() => router.navigate(tab.href as any)}
             >
-              <LinearGradient colors={tab.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.icon, focused ? styles.iconFocused : styles.iconIdle]}>
-                <Text style={[styles.glyph, { fontSize: 16 * multiplier }]} maxFontSizeMultiplier={MAX_FONT_MULTIPLIER}>
+              <LinearGradient colors={tab.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.icon, focused ? styles.iconFocused : styles.iconIdle, { width: ICON_SIZE * multiplier, height: ICON_SIZE * multiplier }]}>
+                <Text style={[styles.glyph, { fontSize: 16 * multiplier }]} allowFontScaling={false}>
                   {TAB_GLYPHS[tab.name] ?? '•'}
                 </Text>
               </LinearGradient>
               {expanded ? (
-                <Text style={[styles.label, { color: focused ? tab.color : colors.subtle, fontSize: 14 * multiplier }]} numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_MULTIPLIER}>
+                <Text style={[styles.label, { color: focused ? tab.color : colors.subtle, fontSize: 14 * multiplier }]} numberOfLines={1} allowFontScaling={false}>
                   {tab.label}
                 </Text>
               ) : null}

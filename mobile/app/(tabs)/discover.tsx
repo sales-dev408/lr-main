@@ -5,6 +5,7 @@ import { AppButton, Banner, BrandHeader, Card, Pill, Screen, SectionTitle, Spinn
 import { adminDeleteContent, adminListContent, listPublishedContent } from '@/lib/api';
 import { useAdmin } from '@/lib/admin';
 import { useThemeColors } from '@/lib/useThemeColors';
+import { useDynamicType } from '@/lib/dynamicType';
 import type { ContentBlock } from '@/lib/types';
 
 type SortOption = 'newest' | 'oldest' | 'az' | 'za';
@@ -18,6 +19,7 @@ const SORT_LABELS: Record<SortOption, string> = {
 
 export default function DiscoverScreen() {
   const colors = useThemeColors();
+  const { effectiveScale } = useDynamicType();
   const router = useRouter();
   const admin = useAdmin();
   const [items, setItems] = useState<ContentBlock[]>([]);
@@ -121,7 +123,7 @@ export default function DiscoverScreen() {
             {item.kind === 'image' && item.url ? (
               <Image source={{ uri: item.url }} style={{ width: '100%', height: 190, borderRadius: 16, backgroundColor: '#dfe7f3' }} resizeMode="cover" />
             ) : null}
-            {item.body ? <Text style={{ color: colors.muted, lineHeight: 20 }}>{item.body}</Text> : null}
+            {item.body ? <Text style={{ color: colors.muted, lineHeight: 20 * effectiveScale, fontSize: 14 * effectiveScale }} allowFontScaling={false}>{item.body}</Text> : null}
             {item.url && item.kind !== 'image' ? (
               <AppButton variant="secondary" onPress={() => void Linking.openURL(item.url as string)}>
                 {item.kind === 'file' ? 'Open file' : 'Open link'}

@@ -2,17 +2,19 @@ import { useWindowDimensions, View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { CollapsibleSidebar, SIDEBAR_EXPANDED } from '@/components/CollapsibleSidebar';
 import { GradientTabBar } from '@/components/GradientTabBar';
+import { useDynamicType } from '@/lib/dynamicType';
 
 const SIDEBAR_BREAKPOINT = 600;
 
 export default function TabLayout() {
   const { width } = useWindowDimensions();
+  const { effectiveScale } = useDynamicType();
   const useSidebar = width < SIDEBAR_BREAKPOINT;
 
   return (
     <View style={{ flex: 1, flexDirection: 'row' }}>
       {useSidebar ? <CollapsibleSidebar /> : null}
-      <View style={{ flex: 1, marginLeft: useSidebar ? SIDEBAR_EXPANDED : 0 }}>
+      <View style={{ flex: 1, marginLeft: useSidebar ? SIDEBAR_EXPANDED * effectiveScale : 0 }}>
         <Tabs
           initialRouteName="index"
           screenOptions={{ headerShown: false, tabBarShowLabel: false }}

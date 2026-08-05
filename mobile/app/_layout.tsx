@@ -5,6 +5,7 @@ import { AppThemeProvider } from '@/lib/appTheme';
 import { AuthProvider } from '@/lib/auth';
 import { ColorSchemeProvider } from '@/lib/colorScheme';
 import { OnboardingProvider } from '@/lib/onboarding';
+import { DynamicTypeProvider } from '@/lib/dynamicType';
 
 export default function RootLayout() {
   return (
@@ -13,8 +14,9 @@ export default function RootLayout() {
         <AdminProvider>
           <AppThemeProvider>
             <OnboardingProvider>
-              <StatusBar style="auto" />
-              <Stack screenOptions={{ headerShown: false }}>
+              <DynamicTypeProvider>
+                <StatusBar style="auto" />
+                <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="index" />
                 <Stack.Screen name="onboard" />
                 <Stack.Screen name="auth" />
@@ -24,6 +26,7 @@ export default function RootLayout() {
                 <Stack.Screen name="card/[id]" />
                 <Stack.Screen name="discount" />
               </Stack>
+              </DynamicTypeProvider>
             </OnboardingProvider>
           </AppThemeProvider>
         </AdminProvider>

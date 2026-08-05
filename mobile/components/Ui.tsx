@@ -1,16 +1,16 @@
-import { ActivityIndicator, Image, Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View, type PressableProps, type TextInputProps, type ViewProps } from 'react-native';
-import { useMemo, type ReactNode } from 'react';
+import { ActivityIndicator, Image, Platform, Pressable, StyleSheet, Text, TextInput, View, type PressableProps, type TextInputProps, type ViewProps } from 'react-native';
+import { useCallback, useMemo, useRef, type ReactNode } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { APPLE_TRADEMARK_NOTICE } from '@/lib/theme';
 import { useThemeColors } from '@/lib/useThemeColors';
-
-const MAX_FONT_MULTIPLIER = 1.3;
+import { useDynamicType } from '@/lib/dynamicType';
 
 function useUiStyles() {
   const colors = useThemeColors();
-  const { fontScale } = useWindowDimensions();
+  const { effectiveScale } = useDynamicType();
 
   return useMemo(() => {
-    const multiplier = Math.min(fontScale, MAX_FONT_MULTIPLIER);
+    const multiplier = effectiveScale;
     const scale = (size: number) => size * multiplier;
     const cardShadow = (Platform.OS === 'web'
       ? { boxShadow: `0 20px 50px ${colors.ink}1a`, elevation: 10 }
@@ -20,7 +20,7 @@ function useUiStyles() {
       screen: {
         flex: 1,
         backgroundColor: colors.bg,
-        padding: 16,
+        padding: 16 * multiplier,
         gap: 12,
       },
       brandHeader: {
@@ -30,8 +30,8 @@ function useUiStyles() {
         paddingVertical: 4,
       },
       brandLogo: {
-        width: 44,
-        height: 44,
+        width: 44 * multiplier,
+        height: 44 * multiplier,
         borderRadius: 12,
         backgroundColor: colors.panel,
       },
@@ -93,6 +93,7 @@ function useUiStyles() {
         paddingHorizontal: 15,
         paddingVertical: 13,
         color: colors.ink,
+        fontSize: scale(15),
       },
       banner: {
         borderRadius: 16,
@@ -119,7 +120,7 @@ function useUiStyles() {
         color: colors.ink,
       },
     });
-  }, [colors, fontScale]);
+  }, [colors, effectiveScale]);
 }
 
 function textFromChildren(children: ReactNode): string | undefined {
@@ -134,8 +135,8 @@ export function BrandHeader({ subtitle }: { subtitle?: string }) {
     <View style={styles.brandHeader} accessibilityRole="header" accessibilityLabel="Light Rail Deals">
       <Image source={require('@/assets/images/logo.png')} style={styles.brandLogo} resizeMode="contain" accessibilityLabel="Light Rail Deals logo" />
       <View style={{ flex: 1 }}>
-        <Text style={styles.brandTitle} accessibilityRole="header">Light Rail Deals</Text>
-        {subtitle ? <Text style={styles.brandSubtitle}>{subtitle}</Text> : null}
+        <Text style={styles.brandTitle} accessibilityRole="header" allowFontScaling={false}>Light Rail Deals</Text>
+        {subtitle ? <Text style={styles.brandSubtitle} allowFontScaling={false}>{subtitle}</Text> : null}
       </View>
     </View>
   );
@@ -143,13 +144,28 @@ export function BrandHeader({ subtitle }: { subtitle?: string }) {
 
 export function AppleTrademark() {
   const styles = useUiStyles();
-  return <Text style={styles.appleTrademark}>{APPLE_TRADEMARK_NOTICE}</Text>;
+  return <Text style={styles.appleTrademark} allowFontScaling={false}>{APPLE_TRADEMARK_NOTICE}</Text>;
 }
 
 export function Screen({ children, accessibilityLabel, ...props }: ViewProps & { accessibilityLabel?: string }) {
   const styles = useUiStyles();
+  const ref = useRef<View>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        if (Platform.OS !== 'web' || !ref.current) return;
+        const node = ref.current as unknown as HTMLElement;
+        const active = document.activeElement as HTMLElement | null;
+        if (active && node.contains(active)) {
+          active.blur();
+        }
+      };
+    }, []),
+  );
+
   return (
-    <View style={styles.screen} accessibilityLabel={accessibilityLabel} {...props}>
+    <View ref={ref} style={styles.screen} accessibilityLabel={accessibilityLabel} {...props}>
       {children}
     </View>
   );
@@ -168,8 +184,8 @@ export function SectionTitle({ title, subtitle }: { title: string; subtitle?: st
   const styles = useUiStyles();
   return (
     <View style={styles.sectionHeader} accessibilityRole="header" accessibilityLabel={title}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
+      <Text style={styles.sectionTitle} allowFontScaling={false}>{title}</Text>
+      {subtitle ? <Text style={styles.sectionSubtitle} allowFontScaling={false}>{subtitle}</Text> : null}
     </View>
   );
 }
@@ -180,8 +196,9 @@ export function AppButton({
   style,
   accessibilityLabel,
   accessibilityHint,
+  disabled,
   ...props
-}: PressableProps & { children: ReactNode; variant?: 'primary' | 'secondary' | 'ghost' | 'danger'; style?: ViewProps['style']; accessibilityLabel?: string; accessibilityHint?: string }) {
+}: PressableProps & { children: ReactNode; variant?: 'primary' | 'secondary' | 'ghost' | 'danger'; style?: ViewProps['style']; accessibilityLabel?: string; accessibilityHint?: string; disabled?: boolean }) {
   const styles = useUiStyles();
   const label = accessibilityLabel ?? textFromChildren(children);
   return (
@@ -189,14 +206,14 @@ export function AppButton({
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityHint={accessibilityHint}
-      tabIndex={-1}
+      disabled={disabled}
       style={({ pressed }) => [
         styles.button,
         variant === 'primary' && styles.button_primary,
         variant === 'secondary' && styles.button_secondary,
         variant === 'ghost' && styles.button_ghost,
         variant === 'danger' && styles.button_danger,
-        pressed && styles.buttonPressed,
+        pressed && !disabled && styles.buttonPressed,
         style,
       ]}
       {...props}
@@ -205,8 +222,9 @@ export function AppButton({
         style={[
           styles.buttonText,
           variant === 'secondary' || variant === 'ghost' ? styles.buttonTextDark : null,
+          disabled ? { opacity: 0.5 } : null,
         ]}
-        maxFontSizeMultiplier={MAX_FONT_MULTIPLIER}
+        allowFontScaling={false}
       >
         {children}
       </Text>
@@ -223,7 +241,7 @@ export function FieldInput(props: TextInputProps) {
       accessibilityRole="text"
       accessibilityLabel={props.accessibilityLabel ?? placeholder ?? 'Input'}
       style={styles.input}
-      maxFontSizeMultiplier={MAX_FONT_MULTIPLIER}
+      allowFontScaling={false}
       {...props}
     />
   );
@@ -238,7 +256,7 @@ export function Banner({ children, tone = 'info', accessibilityLabel }: { childr
       accessibilityRole="alert"
       accessibilityLabel={label}
     >
-      <Text style={styles.bannerText} maxFontSizeMultiplier={MAX_FONT_MULTIPLIER}>{children}</Text>
+      <Text style={styles.bannerText} allowFontScaling={false}>{children}</Text>
     </View>
   );
 }
@@ -252,7 +270,7 @@ export function Pill({ children, tone = 'neutral', accessibilityLabel }: { child
       accessibilityRole="text"
       accessibilityLabel={label}
     >
-      <Text style={styles.pillText} maxFontSizeMultiplier={MAX_FONT_MULTIPLIER}>{children}</Text>
+      <Text style={styles.pillText} allowFontScaling={false}>{children}</Text>
     </View>
   );
 }
