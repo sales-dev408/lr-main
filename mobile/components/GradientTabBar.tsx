@@ -15,6 +15,7 @@ type GradientTabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['t
 // gradient plates carry the visual identity.
 const TAB_GLYPHS: Record<string, string> = {
   index: '⌂',
+  live: '⚡',
   browse: '◆',
   events: '★',
   discover: '✦',
