@@ -45,16 +45,24 @@ export async function registerRedemptionRoutes(fastify: FastifyInstance): Promis
 }
 
 function renderRedemptionPage(result: Awaited<ReturnType<typeof redeemByToken>>): string {
-  const discountLabel = result.discount?.description ?? humanDiscountLabel(result.discount?.type ?? 'fixed', result.discount?.value ?? 0);
-  const amountText = result.ok && result.discount?.type === 'fixed'
-    ? `$${(result.amountApplied ?? 0).toFixed(2)}`
-    : discountLabel;
-
   const success = result.ok;
   const title = success ? 'Membership Accepted' : 'Unable to Redeem';
-  const message = success
-    ? `Light Rail Deals Membership Accepted, apply ${escapeHtml(amountText)} to bill`
-    : escapeHtml(result.error ?? 'This QR code is invalid or has already been used.');
+  const discountLabel = result.discount?.description ?? humanDiscountLabel(result.discount?.type ?? 'fixed', result.discount?.value ?? 0);
+
+  let discountAmount = discountLabel;
+  if (success) {
+    if (result.discount?.type === 'fixed') {
+      discountAmount = `$${(result.amountApplied ?? 0).toFixed(2)}`;
+    } else if (result.discount?.type === 'percent') {
+      discountAmount = `${result.discount.value}% off`;
+    }
+  }
+
+  const errorMessage = escapeHtml(result.error ?? 'This QR code is invalid or has already been used.');
+  const redemptionId = result.redemptionId ? escapeHtml(result.redemptionId) : '';
+
+  const checkIcon = `<svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px;stroke:#fff;"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+  const xIcon = `<svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px;stroke:#fff;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -87,44 +95,79 @@ function renderRedemptionPage(result: Awaited<ReturnType<typeof redeemByToken>>)
     .icon {
       width: 80px;
       height: 80px;
-      margin: 0 auto 20px;
+      margin: 0 auto 16px;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       background: ${success ? '#22c55e' : '#ef4444'};
     }
-    .icon svg {
-      width: 44px;
-      height: 44px;
-      stroke: #fff;
-    }
     h1 {
-      font-size: 22px;
-      margin: 0 0 12px;
+      font-size: 24px;
+      font-weight: 700;
+      margin: 0 0 8px;
+      color: #111827;
     }
-    p {
+    .subtitle {
+      font-size: 15px;
+      color: #6b7280;
+      margin: 0 0 24px;
+    }
+    .message {
       font-size: 17px;
       line-height: 1.5;
-      margin: 0;
+      margin: 0 0 16px;
+      color: #374151;
     }
-    .sub {
-      margin-top: 20px;
+    .amount {
+      font-size: 18px;
+      font-weight: 600;
+      color: #111827;
+      margin: 0 0 8px;
+    }
+    .amount span {
+      color: #22c55e;
+    }
+    .tracking {
       font-size: 13px;
       color: #6b7280;
+      margin: 0 0 24px;
+      word-break: break-all;
+    }
+    .tracking code {
+      background: #f3f4f6;
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      color: #111827;
+    }
+    .instruction {
+      font-size: 14px;
+      color: #4b5563;
+      background: #f9fafb;
+      border-radius: 12px;
+      padding: 12px 16px;
+      margin: 0 0 20px;
+      line-height: 1.5;
+    }
+    .footer {
+      font-size: 12px;
+      color: #9ca3af;
     }
   </style>
 </head>
 <body>
   <div class="card">
     <div class="icon">
-      ${success
-        ? '<svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>'
-        : '<svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>'}
+      ${success ? checkIcon : xIcon}
     </div>
     <h1>${escapeHtml(title)}</h1>
-    <p>${message}</p>
-    <p class="sub">${success ? 'Redemption recorded in Light Rail Deals.' : 'Ask the member to refresh their discount QR code.'}</p>
+    ${success ? '<p class="subtitle">Show this screen to the vendor.</p>' : ''}
+    <p class="message">${success ? 'Light Rail Deals Membership Accepted' : errorMessage}</p>
+    ${success ? `<p class="amount">Applied discount amount: <span>${escapeHtml(discountAmount)}</span></p>` : ''}
+    ${success && redemptionId ? `<p class="tracking">Tracking ID: <code>${redemptionId}</code></p>` : ''}
+    ${success && result.discount?.instruction ? `<p class="instruction">${escapeHtml(result.discount.instruction)}</p>` : ''}
+    <p class="footer">${success ? 'Redemption recorded in Light Rail Deals.' : 'Ask the member to refresh their discount QR code.'}</p>
   </div>
 </body>
 </html>`;

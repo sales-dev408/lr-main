@@ -55,8 +55,11 @@ export function TicketsPage() {
   const [barcode, setBarcode] = useState('');
   const [barcodeFormat, setBarcodeFormat] = useState('Code 128');
   const [allowedUses, setAllowedUses] = useState('1');
+  const [availableTickets, setAvailableTickets] = useState('4');
   const [drawingDate, setDrawingDate] = useState('');
   const [scanning, setScanning] = useState(false);
+  const [winnerBarcode, setWinnerBarcode] = useState('');
+  const [winnerBarcodeFormat, setWinnerBarcodeFormat] = useState('Code 128');
 
   useEffect(() => {
     void load();
@@ -101,12 +104,15 @@ export function TicketsPage() {
         barcodeFormat,
         name: name.trim() || 'Event Ticket',
         allowedUses: Number(allowedUses) || 1,
+        availableCount: Number(availableTickets) || 4,
+        barcodes: [],
         drawingDate: drawingDate.trim() || null,
       });
       setBarcode('');
       setBarcodeFormat('Code 128');
       setName('Event Ticket');
       setAllowedUses('1');
+      setAvailableTickets('4');
       setDrawingDate('');
       await load();
     } catch (err) {
@@ -122,6 +128,8 @@ export function TicketsPage() {
         barcode: updated.barcode,
         barcodeFormat: updated.barcodeFormat,
         allowedUses: updated.allowedUses,
+        availableCount: updated.availableCount,
+        barcodes: updated.barcodes,
         usedUses: updated.usedUses,
         status: updated.status,
         drawingDate: updated.drawingDate,
@@ -163,6 +171,10 @@ export function TicketsPage() {
             <label>
               Max uses
               <Input type="number" min={1} value={allowedUses} onChange={(e) => setAllowedUses(e.target.value)} required />
+            </label>
+            <label>
+              Available tickets
+              <Input type="number" min={1} value={availableTickets} onChange={(e) => setAvailableTickets(e.target.value)} required />
             </label>
           </div>
           <div className="grid-2">
@@ -208,6 +220,7 @@ export function TicketsPage() {
                   <th>Barcode</th>
                   <th>Format</th>
                   <th>Drawing date</th>
+                  <th>Available</th>
                   <th>Uses</th>
                   <th>Status</th>
                   <th>Actions</th>
@@ -220,6 +233,7 @@ export function TicketsPage() {
                     <td><code>{ticket.barcode}</code></td>
                     <td>{ticket.barcodeFormat ?? '—'}</td>
                     <td>{ticket.drawingDate ?? '—'}</td>
+                    <td>{ticket.availableCount}</td>
                     <td>{ticket.usedUses} / {ticket.allowedUses}</td>
                     <td>
                       {isInvalid(ticket) ? (
@@ -287,6 +301,10 @@ export function TicketsPage() {
               <Input type="number" min={editing.usedUses} value={editing.allowedUses} onChange={(e) => setEditing({ ...editing, allowedUses: Number(e.target.value) })} required />
             </label>
             <label>
+              Available tickets
+              <Input type="number" min={1} value={editing.availableCount} onChange={(e) => setEditing({ ...editing, availableCount: Number(e.target.value) })} required />
+            </label>
+            <label>
               Used uses
               <Input type="number" min={0} value={editing.usedUses} onChange={(e) => setEditing({ ...editing, usedUses: Number(e.target.value) })} required />
             </label>
@@ -294,6 +312,37 @@ export function TicketsPage() {
               Drawing date
               <Input type="date" value={editing.drawingDate ?? ''} onChange={(e) => setEditing({ ...editing, drawingDate: e.target.value || null })} />
             </label>
+            <div className="form-section" style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
+              <h4 style={{ margin: '0 0 8px' }}>Winner barcodes</h4>
+              <p className="muted" style={{ margin: '0 0 12px' }}>These barcodes are shown only to the winner in the mobile app.</p>
+              {editing.barcodes.length === 0 ? <p className="muted">No winner barcodes added yet.</p> : null}
+              {editing.barcodes.map((b, index) => (
+                <div key={`${b.barcode}-${index}`} className="row-actions" style={{ marginBottom: 8 }}>
+                  <code>{b.barcode}</code>
+                  <span className="muted">{b.format}</span>
+                  <Button variant="danger" onClick={() => setEditing({ ...editing, barcodes: editing.barcodes.filter((_, i) => i !== index) })}>Remove</Button>
+                </div>
+              ))}
+              <div className="grid-2">
+                <Input placeholder="Winner barcode" value={winnerBarcode} onChange={(e) => setWinnerBarcode(e.target.value)} />
+                <Select value={winnerBarcodeFormat} onChange={(e) => setWinnerBarcodeFormat(e.target.value)}>
+                  {BARCODE_FORMATS.map((format) => (
+                    <option key={format} value={format}>{format}</option>
+                  ))}
+                </Select>
+              </div>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  const code = winnerBarcode.trim();
+                  if (!code) return;
+                  setEditing({ ...editing, barcodes: [...editing.barcodes, { barcode: code, format: winnerBarcodeFormat }] });
+                  setWinnerBarcode('');
+                }}
+              >
+                Add winner barcode
+              </Button>
+            </div>
             <label>
               Status
               <Select value={editing.status} onChange={(e) => setEditing({ ...editing, status: e.target.value as TicketRecord['status'] })}>

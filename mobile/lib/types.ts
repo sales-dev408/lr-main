@@ -267,9 +267,12 @@ export interface Ticket {
   id: string;
   name: string;
   barcode: string;
+  barcodeFormat: string | null;
   allowedUses: number;
   usedUses: number;
   remainingUses: number;
+  availableCount: number;
+  barcodes: { barcode: string; format: string }[];
   status: 'active' | 'used' | 'disabled';
   drawingDeadline?: string | null;
   drawingStatus?: 'open' | 'drawn' | 'closed';
