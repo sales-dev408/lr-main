@@ -9,7 +9,7 @@ const SIDEBAR_BREAKPOINT = 600;
 export default function TabLayout() {
   const { width } = useWindowDimensions();
   const { effectiveScale } = useDynamicType();
-  const useSidebar = width < SIDEBAR_BREAKPOINT;
+  const useSidebar = width >= SIDEBAR_BREAKPOINT;
 
   return (
     <View style={{ flex: 1, flexDirection: 'row' }}>

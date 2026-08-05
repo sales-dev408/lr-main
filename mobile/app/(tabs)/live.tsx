@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Image, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { BrandHeader, Card, Screen, SectionTitle } from '@/components/Ui';
 import { useDynamicType } from '@/lib/dynamicType';
 import { useThemeColors } from '@/lib/useThemeColors';
 
+const SIDEBAR_BREAKPOINT = 600;
+
 type LineInfo = {
   name: string;
   color: string;
+  map: any;
   stations: string[];
   segmentMinutes: number[];
   firstDeparture: { hour: number; minute: number };
@@ -19,6 +22,7 @@ const LINES: LineInfo[] = [
   {
     name: 'A Line',
     color: '#0d9488',
+    map: require('@/assets/images/aline_map.png'),
     stations: [
       'DOWNTOWN PHX HUB/JEFFERSON ST',
       '3RD ST/JEFFERSON',
@@ -40,6 +44,7 @@ const LINES: LineInfo[] = [
   {
     name: 'B Line',
     color: '#6366f1',
+    map: require('@/assets/images/bline_map.png'),
     stations: [
       'BASELINE/CENTRAL AVE',
       'SOUTHERN/CENTRAL AVE',
@@ -63,15 +68,22 @@ const LINES: LineInfo[] = [
   },
 ];
 
+type LineStatus = {
+  current: string;
+  next: string;
+  minutes: number;
+  segmentDuration: number;
+  progress: number;
+};
+
 function minutesSinceMidnight(date: Date) {
-  return date.getHours() * 60 + date.getMinutes();
+  return date.getHours() * 60 + date.getMinutes() + date.getSeconds() / 60;
 }
 
-function getLineStatus(line: LineInfo, now: Date) {
+function getLineStatus(line: LineInfo, now: Date): LineStatus {
   const totalMinutes = line.segmentMinutes.reduce((a, b) => a + b, 0);
   const start = line.firstDeparture.hour * 60 + line.firstDeparture.minute;
-  const nowMin = minutesSinceMidnight(now);
-  let elapsed = nowMin - start;
+  let elapsed = minutesSinceMidnight(now) - start;
   if (elapsed < 0) {
     elapsed += Math.ceil(-elapsed / totalMinutes) * totalMinutes;
   }
@@ -80,30 +92,105 @@ function getLineStatus(line: LineInfo, now: Date) {
   let currentIndex = 0;
   let accumulated = 0;
   for (let i = 0; i < line.segmentMinutes.length; i += 1) {
-    if (intoCycle < accumulated + line.segmentMinutes[i]) {
+    const duration = line.segmentMinutes[i];
+    if (intoCycle <= accumulated + duration) {
       currentIndex = i;
       break;
     }
-    accumulated += line.segmentMinutes[i];
+    accumulated += duration;
   }
 
-  const minutesToNext = line.segmentMinutes[currentIndex] - (intoCycle - accumulated);
+  const segmentDuration = line.segmentMinutes[currentIndex];
+  const elapsedInSegment = intoCycle - accumulated;
+  const minutesToNext = Math.max(0, Math.ceil(segmentDuration - elapsedInSegment));
+  const progress = Math.min(1, Math.max(0, elapsedInSegment / segmentDuration));
   const nextIndex = (currentIndex + 1) % line.stations.length;
 
   return {
     current: line.stations[currentIndex],
     next: line.stations[nextIndex],
     minutes: minutesToNext,
+    segmentDuration,
+    progress,
   };
+}
+
+function formatTime(date: Date) {
+  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+function StatusRow({ label, value, color, muted, centered = false }: { label: string; value: string; color: string; muted?: string; centered?: boolean }) {
+  const colors = useThemeColors();
+  const { effectiveScale } = useDynamicType();
+  return (
+    <View style={{ gap: 4, alignItems: centered ? 'center' : 'flex-start' }}>
+      <Text style={{ color: colors.muted, fontSize: 11 * effectiveScale, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }} allowFontScaling={false}>{label}</Text>
+      <Text style={{ color, fontSize: 15 * effectiveScale, fontWeight: '700', lineHeight: 22 * effectiveScale, textAlign: centered ? 'center' : 'left' }} allowFontScaling={false}>{value}</Text>
+      {muted ? <Text style={{ color: colors.muted, fontSize: 12 * effectiveScale, textAlign: centered ? 'center' : 'left' }} allowFontScaling={false}>{muted}</Text> : null}
+    </View>
+  );
+}
+
+function LineCard({ line, status, compact }: { line: LineInfo; status: LineStatus; compact: boolean }) {
+  const colors = useThemeColors();
+  const { effectiveScale } = useDynamicType();
+  const { width } = useWindowDimensions();
+  const centered = width < SIDEBAR_BREAKPOINT;
+
+  return (
+    <Card>
+      <View style={{ alignItems: centered ? 'center' : 'flex-start', gap: 14 }}>
+        <Image
+          source={line.map}
+          style={{ width: '100%', height: 200 * effectiveScale, borderRadius: 16, backgroundColor: colors.panel }}
+          resizeMode="contain"
+          accessibilityLabel={`${line.name} map`}
+        />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, alignSelf: centered ? 'center' : 'flex-start' }}>
+          <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: line.color }} />
+          <Text style={{ color: colors.ink, fontSize: 18 * effectiveScale, fontWeight: '800' }} allowFontScaling={false}>{line.name}</Text>
+          <View style={{ borderRadius: 999, backgroundColor: colors.warningSoft, paddingVertical: 4, paddingHorizontal: 10 }}>
+            <Text style={{ color: colors.ink, fontSize: 11 * effectiveScale, fontWeight: '800' }} allowFontScaling={false}>LIVE</Text>
+          </View>
+        </View>
+
+        {compact ? (
+          <View style={{ alignItems: 'center', gap: 14, width: '100%' }}>
+            <StatusRow label="Current stop" value={status.current} color={colors.ink} centered />
+            <StatusRow label="Next station" value={status.next} color={line.color} muted={`Arriving in ${status.minutes} min`} centered />
+            <View style={{ width: '100%', height: 8 * effectiveScale, backgroundColor: colors.border, borderRadius: 4, overflow: 'hidden' }}>
+              <View style={{ width: `${status.progress * 100}%`, height: '100%', backgroundColor: line.color, borderRadius: 4 }} />
+            </View>
+          </View>
+        ) : (
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', paddingTop: 6 }}>
+            <StatusRow label="Current stop" value={status.current} color={colors.ink} />
+            <StatusRow label="Next station" value={status.next} color={line.color} muted={`Arriving in ${status.minutes} min`} />
+            <View style={{ alignItems: 'flex-end', gap: 4, minWidth: 80 * effectiveScale }}>
+              <Text style={{ color: colors.muted, fontSize: 11 * effectiveScale, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }} allowFontScaling={false}>Arrival</Text>
+              <Text style={{ color: line.color, fontSize: 26 * effectiveScale, fontWeight: '800' }} allowFontScaling={false}>{status.minutes}</Text>
+              <Text style={{ color: colors.muted, fontSize: 12 * effectiveScale }} allowFontScaling={false}>min</Text>
+              <View style={{ width: 80 * effectiveScale, height: 6 * effectiveScale, backgroundColor: colors.border, borderRadius: 3, overflow: 'hidden', marginTop: 6 }}>
+                <View style={{ width: `${status.progress * 100}%`, height: '100%', backgroundColor: line.color, borderRadius: 3 }} />
+              </View>
+            </View>
+          </View>
+        )}
+      </View>
+    </Card>
+  );
 }
 
 export default function LiveTrainsScreen() {
   const colors = useThemeColors();
   const { effectiveScale } = useDynamicType();
+  const { width } = useWindowDimensions();
   const [now, setNow] = useState(new Date());
 
+  const compact = width < SIDEBAR_BREAKPOINT;
+
   useEffect(() => {
-    const interval = setInterval(() => setNow(new Date()), 60000);
+    const interval = setInterval(() => setNow(new Date()), 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -111,53 +198,37 @@ export default function LiveTrainsScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ gap: 14, paddingBottom: 24 }}>
-        <BrandHeader subtitle="Live trains" />
+      <ScrollView
+        contentContainerStyle={{
+          gap: 14,
+          paddingBottom: 32,
+          alignItems: compact ? 'center' : 'stretch',
+        }}
+      >
+        <BrandHeader subtitle={`Live trains · ${formatTime(now)}`} />
 
         <Card>
           <SectionTitle title="Current trains" subtitle="Next stop and estimated arrival" />
-
-          <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 16, overflow: 'hidden' }}>
-            <View style={{ flexDirection: 'row', backgroundColor: colors.brandSoft, paddingVertical: 10, paddingHorizontal: 12, gap: 8 }}>
-              <Text style={{ flex: 1.2, fontWeight: '700', color: colors.ink, fontSize: 13 * effectiveScale }} allowFontScaling={false}>Line</Text>
-              <Text style={{ flex: 2.5, fontWeight: '700', color: colors.ink, fontSize: 13 * effectiveScale }} allowFontScaling={false}>Current stop</Text>
-              <Text style={{ flex: 2.5, fontWeight: '700', color: colors.ink, fontSize: 13 * effectiveScale }} allowFontScaling={false}>Next station</Text>
-              <Text style={{ flex: 1, fontWeight: '700', color: colors.ink, fontSize: 13 * effectiveScale, textAlign: 'right' }} allowFontScaling={false}>Arrival</Text>
-            </View>
-
-            {lineStatuses.map((status, index) => {
-              const line = LINES[index];
-              const isLast = index === lineStatuses.length - 1;
-              return (
-                <View
-                  key={line.name}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    paddingVertical: 14,
-                    paddingHorizontal: 12,
-                    gap: 8,
-                    backgroundColor: index % 2 === 1 ? colors.panel : colors.bg,
-                    borderBottomWidth: isLast ? 0 : 1,
-                    borderBottomColor: colors.border,
-                  }}
-                >
-                  <View style={{ flex: 1.2, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: line.color }} />
-                    <Text style={{ fontWeight: '700', color: colors.ink, fontSize: 13 * effectiveScale }} allowFontScaling={false}>{line.name}</Text>
-                  </View>
-                  <Text style={{ flex: 2.5, color: colors.ink, fontSize: 12 * effectiveScale, lineHeight: 18 * effectiveScale }} allowFontScaling={false}>{status.current}</Text>
-                  <Text style={{ flex: 2.5, color: colors.ink, fontSize: 12 * effectiveScale, lineHeight: 18 * effectiveScale }} allowFontScaling={false}>{status.next}</Text>
-                  <Text style={{ flex: 1, color: colors.muted, fontSize: 13 * effectiveScale, fontWeight: '700', textAlign: 'right' }} allowFontScaling={false}>
-                    {status.minutes} min
-                  </Text>
-                </View>
-              );
-            })}
+          <View style={{ flexDirection: compact ? 'column' : 'row', gap: 14, justifyContent: 'space-between' }}>
+            {LINES.map((line, index) => (
+              <View key={line.name} style={{ flex: 1 }}>
+                <LineCard line={line} status={lineStatuses[index]} compact={compact} />
+              </View>
+            ))}
           </View>
         </Card>
 
-        <Text style={{ color: colors.warning, fontSize: 12 * effectiveScale, lineHeight: 18 * effectiveScale, textAlign: 'center', paddingHorizontal: 8 }} allowFontScaling={false}>
+        <Text
+          style={{
+            color: colors.warning,
+            fontSize: 12 * effectiveScale,
+            lineHeight: 18 * effectiveScale,
+            textAlign: 'center',
+            paddingHorizontal: 8,
+            maxWidth: compact ? 360 * effectiveScale : undefined,
+          }}
+          allowFontScaling={false}
+        >
           Live positions are estimated from the published PDF schedule and may be inaccurate due to construction, traffic, and service changes.
         </Text>
       </ScrollView>
