@@ -5,17 +5,20 @@ import { AppButton, Banner, Card, FieldInput, Pill, Screen, SectionTitle, Spinne
 import { affirmRedemptionToken, createRedemptionToken, type RedemptionToken } from '@/lib/api';
 import { qrCodeUrl } from '@/lib/qr';
 import { useThemeColors } from '@/lib/useThemeColors';
+import { useDynamicType } from '@/lib/dynamicType';
 
-function CheckMark() {
+function CheckMark({ effectiveScale }: { effectiveScale: number }) {
+  const size = 72 * effectiveScale;
   return (
-    <View style={{ alignSelf: 'center', width: 72, height: 72, borderRadius: 36, backgroundColor: '#22c55e', alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ color: '#fff', fontSize: 40, fontWeight: '800' }}>✓</Text>
+    <View style={{ alignSelf: 'center', width: size, height: size, borderRadius: size / 2, backgroundColor: '#22c55e', alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ color: '#fff', fontSize: 40 * effectiveScale, fontWeight: '800' }} allowFontScaling={false}>✓</Text>
     </View>
   );
 }
 
 export default function DiscountScreen() {
   const colors = useThemeColors();
+  const { effectiveScale } = useDynamicType();
   const { width } = useWindowDimensions();
   const { vendorId } = useLocalSearchParams<{ vendorId?: string }>();
 
@@ -90,10 +93,10 @@ export default function DiscountScreen() {
 
         {approved ? (
           <Card>
-            <CheckMark />
+            <CheckMark effectiveScale={effectiveScale} />
             <SectionTitle title="Membership Accepted" subtitle="Show this screen to the vendor." />
-            <Text style={{ color: colors.ink2, textAlign: 'center' }}>
-              Light Rail Deals Membership Accepted, apply <Text style={{ fontWeight: '700', color: colors.ink }}>{approvedLabel}</Text> to bill.
+            <Text style={{ color: colors.ink2, textAlign: 'center', fontSize: 16 * effectiveScale, lineHeight: 22 * effectiveScale }} allowFontScaling={false}>
+              Light Rail Deals Membership Accepted, apply <Text style={{ fontWeight: '700', color: colors.ink }} allowFontScaling={false}>{approvedLabel}</Text> to bill.
             </Text>
           </Card>
         ) : token ? (
@@ -108,12 +111,12 @@ export default function DiscountScreen() {
                 />
                 <Pill tone="success">{token.discountLabel}</Pill>
                 {token.discountDescription ? (
-                  <Text style={{ color: colors.ink, textAlign: 'center', fontSize: 14 }}>{token.discountDescription}</Text>
+                  <Text style={{ color: colors.ink, textAlign: 'center', fontSize: 14 * effectiveScale, lineHeight: 20 * effectiveScale }} allowFontScaling={false}>{token.discountDescription}</Text>
                 ) : null}
-                <Text style={{ color: colors.muted, fontSize: 8, lineHeight: 12, textAlign: 'center' }}>
+                <Text style={{ color: colors.muted, fontSize: 8 * effectiveScale, lineHeight: 12 * effectiveScale, textAlign: 'center' }} allowFontScaling={false}>
                   {token.terms}
                 </Text>
-                <Text style={{ color: colors.muted, fontSize: 12 }}>Expires in 5 minutes</Text>
+                <Text style={{ color: colors.muted, fontSize: 12 * effectiveScale }} allowFontScaling={false}>Expires in 5 minutes</Text>
               </View>
             </Card>
 

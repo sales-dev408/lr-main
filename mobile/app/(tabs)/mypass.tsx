@@ -6,6 +6,7 @@ import { getCard, getMyPass } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { barcodeUrl } from '@/lib/qr';
 import { useThemeColors } from '@/lib/useThemeColors';
+import { useDynamicType } from '@/lib/dynamicType';
 import type { CardDetail, CreatePassResponse } from '@/lib/types';
 
 function parseImageUrls(value: string | null): string[] {
@@ -23,6 +24,7 @@ function parseImageUrls(value: string | null): string[] {
 export default function MyPassScreen() {
   const colors = useThemeColors();
   const { width } = useWindowDimensions();
+  const { effectiveScale } = useDynamicType();
   const { token, profile } = useAuth();
   const [pass, setPass] = useState<CreatePassResponse | null>(null);
   const [card, setCard] = useState<CardDetail | null>(null);
@@ -117,9 +119,9 @@ export default function MyPassScreen() {
                         backgroundColor: 'rgba(0,0,0,0.55)',
                       }}
                     >
-                      <Text style={{ color: '#fff', fontSize: 22, fontWeight: '800' }}>{card?.name ?? 'Light Rail Membership'}</Text>
-                      {card?.description ? <Text style={{ color: '#fff', fontSize: 13, opacity: 0.9, marginTop: 2 }}>{card.description}</Text> : null}
-                      <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', marginTop: 8 }}>{profile?.fullName ?? 'Member'}</Text>
+                      <Text style={{ color: '#fff', fontSize: 22 * effectiveScale, fontWeight: '800' }} allowFontScaling={false}>{card?.name ?? 'Light Rail Membership'}</Text>
+                      {card?.description ? <Text style={{ color: '#fff', fontSize: 13 * effectiveScale, opacity: 0.9, marginTop: 2 }} allowFontScaling={false}>{card.description}</Text> : null}
+                      <Text style={{ color: '#fff', fontSize: 16 * effectiveScale, fontWeight: '700', marginTop: 8 }} allowFontScaling={false}>{profile?.fullName ?? 'Member'}</Text>
                     </View>
                     <View style={{ alignItems: 'center', padding: 14, backgroundColor: '#fff' }}>
                       <Image
@@ -127,7 +129,7 @@ export default function MyPassScreen() {
                         style={{ width: barcodeWidth, height: 100, borderRadius: 4, backgroundColor: '#fff' }}
                         resizeMode="contain"
                       />
-                      <Text selectable style={{ color: '#111827', fontSize: 12, fontWeight: '700', letterSpacing: 0.5, marginTop: 6 }}>
+                      <Text selectable style={{ color: '#111827', fontSize: 12 * effectiveScale, fontWeight: '700', letterSpacing: 0.5, marginTop: 6 }} allowFontScaling={false}>
                         {pass.pass.barcodeValue}
                       </Text>
                     </View>
@@ -137,11 +139,11 @@ export default function MyPassScreen() {
                 <View style={{ flex: 1, justifyContent: 'space-between' }}>
                   <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 18 }}>
                     {card?.icon_url ? <Image source={{ uri: card.icon_url }} style={{ width: 64, height: 64, borderRadius: 12, marginBottom: 10 }} /> : null}
-                    <Text style={{ color: card?.secondary_color ?? '#fff', fontSize: 24, fontWeight: '800', textAlign: 'center' }}>
+                    <Text style={{ color: card?.secondary_color ?? '#fff', fontSize: 24 * effectiveScale, fontWeight: '800', textAlign: 'center' }} allowFontScaling={false}>
                       {card?.name ?? 'Light Rail Membership'}
                     </Text>
-                    {card?.description ? <Text style={{ color: card?.secondary_color ?? '#fff', fontSize: 14, opacity: 0.9, textAlign: 'center', marginTop: 4 }}>{card.description}</Text> : null}
-                    <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700', marginTop: 14 }}>{profile?.fullName ?? 'Member'}</Text>
+                    {card?.description ? <Text style={{ color: card?.secondary_color ?? '#fff', fontSize: 14 * effectiveScale, opacity: 0.9, textAlign: 'center', marginTop: 4 }} allowFontScaling={false}>{card.description}</Text> : null}
+                    <Text style={{ color: '#fff', fontSize: 18 * effectiveScale, fontWeight: '700', marginTop: 14 }} allowFontScaling={false}>{profile?.fullName ?? 'Member'}</Text>
                   </View>
                   <View style={{ alignItems: 'center', padding: 14, backgroundColor: '#fff' }}>
                     <Image
@@ -149,7 +151,7 @@ export default function MyPassScreen() {
                       style={{ width: barcodeWidth, height: 100, borderRadius: 4, backgroundColor: '#fff' }}
                       resizeMode="contain"
                     />
-                    <Text selectable style={{ color: '#111827', fontSize: 12, fontWeight: '700', letterSpacing: 0.5, marginTop: 6 }}>
+                    <Text selectable style={{ color: '#111827', fontSize: 12 * effectiveScale, fontWeight: '700', letterSpacing: 0.5, marginTop: 6 }} allowFontScaling={false}>
                       {pass.pass.barcodeValue}
                     </Text>
                   </View>
@@ -157,7 +159,7 @@ export default function MyPassScreen() {
               )}
             </View>
 
-            <Text style={{ color: colors.muted, textAlign: 'center' }}>
+            <Text style={{ color: colors.muted, textAlign: 'center', fontSize: 14 * effectiveScale }} allowFontScaling={false}>
               Show this barcode if a staff member asks for it, or browse businesses to generate a discount QR code.
             </Text>
 

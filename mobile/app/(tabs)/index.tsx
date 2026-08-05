@@ -6,14 +6,16 @@ import { AppButton, Banner, Card, Screen, SectionTitle, Spinner } from '@/compon
 import { useAuth } from '@/lib/auth';
 import { getMyAnalytics, listVendors } from '@/lib/api';
 import { useThemeColors } from '@/lib/useThemeColors';
+import { useDynamicType } from '@/lib/dynamicType';
 import type { UserAnalytics, VendorListItem } from '@/lib/types';
 
 function StatPill({ label, value, color }: { label: string; value: string | number; color: string }) {
   const colors = useThemeColors();
+  const { effectiveScale } = useDynamicType();
   return (
     <View style={{ flex: 1, alignItems: 'center', gap: 4, padding: 16, backgroundColor: colors.panel, borderRadius: 16, borderWidth: 1, borderColor: colors.border }}>
-      <Text style={{ fontSize: 28, fontWeight: '800', color }}>{value}</Text>
-      <Text style={{ fontSize: 13, fontWeight: '600', color: colors.muted, textAlign: 'center' }}>{label}</Text>
+      <Text style={{ fontSize: 28 * effectiveScale, fontWeight: '800', color }} allowFontScaling={false}>{value}</Text>
+      <Text style={{ fontSize: 13 * effectiveScale, fontWeight: '600', color: colors.muted, textAlign: 'center' }} allowFontScaling={false}>{label}</Text>
     </View>
   );
 }
@@ -21,6 +23,7 @@ function StatPill({ label, value, color }: { label: string; value: string | numb
 export default function HomeScreen() {
   const colors = useThemeColors();
   const { width } = useWindowDimensions();
+  const { effectiveScale } = useDynamicType();
   const auth = useAuth();
   const [analytics, setAnalytics] = useState<UserAnalytics | null>(null);
   const [vendors, setVendors] = useState<VendorListItem[]>([]);
@@ -70,9 +73,9 @@ export default function HomeScreen() {
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <Image source={require('@/assets/images/logo.png')} style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: '#fff' }} resizeMode="contain" />
-            <Text style={{ color: '#fff', fontSize: 22, fontWeight: '800' }}>Light Rail Deals</Text>
+            <Text style={{ color: '#fff', fontSize: 22 * effectiveScale, fontWeight: '800' }} allowFontScaling={false}>Light Rail Deals</Text>
           </View>
-          <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600', opacity: 0.9 }}>{greeting}</Text>
+          <Text style={{ color: '#fff', fontSize: 16 * effectiveScale, fontWeight: '600', opacity: 0.9 }} allowFontScaling={false}>{greeting}</Text>
         </LinearGradient>
 
         {loading ? <Spinner /> : null}
@@ -86,8 +89,8 @@ export default function HomeScreen() {
               <StatPill label="Active deals" value={activeDeals} color="#f43f5e" />
             </View>
             {topVendor ? (
-              <Text style={{ color: colors.muted, textAlign: 'center' }}>
-                Favorite spot: <Text style={{ fontWeight: '700', color: colors.ink }}>{topVendor.vendorName}</Text> ({topVendor.redemptions})
+              <Text style={{ color: colors.muted, textAlign: 'center', fontSize: 14 * effectiveScale }} allowFontScaling={false}>
+                Favorite spot: <Text style={{ fontWeight: '700', color: colors.ink }} allowFontScaling={false}>{topVendor.vendorName}</Text> ({topVendor.redemptions})
               </Text>
             ) : null}
           </Card>

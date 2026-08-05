@@ -6,10 +6,12 @@ import { getEvents } from '@/lib/api';
 import { scheduleEventNotifications } from '@/lib/notifications';
 import { useAuth } from '@/lib/auth';
 import { useThemeColors } from '@/lib/useThemeColors';
+import { useDynamicType } from '@/lib/dynamicType';
 import type { RssEvent } from '@/lib/types';
 
 export default function EventsScreen() {
   const colors = useThemeColors();
+  const { effectiveScale } = useDynamicType();
   const auth = useAuth();
   const [items, setItems] = useState<RssEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,7 +66,7 @@ export default function EventsScreen() {
             {item.pubDate ? (
               <Pill tone="neutral">{new Date(item.pubDate).toLocaleDateString()}</Pill>
             ) : null}
-            {item.description ? <Text style={{ color: colors.muted, lineHeight: 20 }}>{item.description}</Text> : null}
+            {item.description ? <Text style={{ color: colors.muted, lineHeight: 20 * effectiveScale, fontSize: 14 * effectiveScale }} allowFontScaling={false}>{item.description}</Text> : null}
             {item.link ? (
               <AppButton variant="secondary" onPress={() => void Linking.openURL(item.link!)}>
                 View event

@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { AppButton, Banner, Card, FieldInput, Screen, SectionTitle } from '@/components/Ui';
 import { useAuth } from '@/lib/auth';
 import { useThemeColors } from '@/lib/useThemeColors';
+import { useDynamicType } from '@/lib/dynamicType';
 import { EULA_URL, PRIVACY_URL, TERMS_URL } from '@/lib/theme';
 
 type Mode = 'login' | 'register';
@@ -14,12 +15,14 @@ function isEmail(value: string) {
 
 function CheckRow({ checked, onToggle, label }: { checked: boolean; onToggle: () => void; label: ReactNode }) {
   const colors = useThemeColors();
+  const { effectiveScale } = useDynamicType();
+  const size = 22 * effectiveScale;
   return (
     <Pressable onPress={onToggle} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 }}>
       <View
         style={{
-          width: 22,
-          height: 22,
+          width: size,
+          height: size,
           borderRadius: 4,
           borderWidth: 2,
           borderColor: colors.brand,
@@ -28,17 +31,20 @@ function CheckRow({ checked, onToggle, label }: { checked: boolean; onToggle: ()
           justifyContent: 'center',
         }}
       >
-        {checked ? <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>✓</Text> : null}
+        {checked ? <Text style={{ color: '#fff', fontSize: 13 * effectiveScale, fontWeight: '700' }} allowFontScaling={false}>✓</Text> : null}
       </View>
-      <Text style={{ flex: 1, color: colors.ink, fontSize: 14, lineHeight: 20 }}>{label}</Text>
+      <Text style={{ flex: 1, color: colors.ink, fontSize: 14 * effectiveScale, lineHeight: 20 * effectiveScale }} allowFontScaling={false}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
 
 function LinkText({ url, children }: { url: string; children: ReactNode }) {
   const colors = useThemeColors();
+  const { effectiveScale } = useDynamicType();
   return (
-    <Text onPress={() => void Linking.openURL(url)} style={{ color: colors.brand, textDecorationLine: 'underline' }}>
+    <Text onPress={() => void Linking.openURL(url)} style={{ color: colors.brand, textDecorationLine: 'underline', fontSize: 14 * effectiveScale }} allowFontScaling={false}>
       {children}
     </Text>
   );
@@ -49,6 +55,7 @@ export default function AuthScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ mode?: string }>();
   const auth = useAuth();
+  const { effectiveScale } = useDynamicType();
   const [mode, setMode] = useState<Mode>(params.mode === 'register' ? 'register' : 'login');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -57,11 +64,8 @@ export default function AuthScreen() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [promoEmailOptIn, setPromoEmailOptIn] = useState(false);
-  const [promoSmsOptIn, setPromoSmsOptIn] = useState(false);
-  const [termsAccepted, setTermsAccepted] = useState(false);
-  const [privacyAccepted, setPrivacyAccepted] = useState(false);
-  const [eulaAccepted, setEulaAccepted] = useState(false);
+  const [promoOptIn, setPromoOptIn] = useState(false);
+  const [legalOptIn, setLegalOptIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -76,11 +80,8 @@ export default function AuthScreen() {
     setPhone('');
     setPassword('');
     setConfirmPassword('');
-    setPromoEmailOptIn(false);
-    setPromoSmsOptIn(false);
-    setTermsAccepted(false);
-    setPrivacyAccepted(false);
-    setEulaAccepted(false);
+    setPromoOptIn(false);
+    setLegalOptIn(false);
   }
 
   function toggleMode() {
@@ -109,7 +110,7 @@ export default function AuthScreen() {
         setError('Passwords do not match.');
         return;
       }
-      if (!termsAccepted || !privacyAccepted || !eulaAccepted) {
+      if (!legalOptIn) {
         setError('You must accept the Terms of Use, Privacy Policy, and EULA to register.');
         return;
       }
@@ -133,11 +134,11 @@ export default function AuthScreen() {
           email: email.trim() || undefined,
           phone: phone.trim() || undefined,
           password,
-          promoEmailOptIn,
-          promoSmsOptIn,
-          termsAccepted,
-          privacyAccepted,
-          eulaAccepted,
+          promoEmailOptIn: promoOptIn,
+          promoSmsOptIn: promoOptIn,
+          termsAccepted: legalOptIn,
+          privacyAccepted: legalOptIn,
+          eulaAccepted: legalOptIn,
         });
       } else {
         const trimmed = identifier.trim();
@@ -226,29 +227,20 @@ export default function AuthScreen() {
                 accessibilityLabel="Confirm password"
               />
               <CheckRow
-                checked={promoEmailOptIn}
-                onToggle={() => setPromoEmailOptIn((v) => !v)}
-                label="Opt in to promotional emails and the Deal of the Day email blast."
+                checked={promoOptIn}
+                onToggle={() => setPromoOptIn((v) => !v)}
+                label="Opt in to promotional emails and text messages (including the Deal of the Day email blast)."
               />
               <CheckRow
-                checked={promoSmsOptIn}
-                onToggle={() => setPromoSmsOptIn((v) => !v)}
-                label="Opt in to promotional text messages."
-              />
-              <CheckRow
-                checked={termsAccepted}
-                onToggle={() => setTermsAccepted((v) => !v)}
-                label={<>I accept the <LinkText url={TERMS_URL}>Terms of Use</LinkText>.</>}
-              />
-              <CheckRow
-                checked={privacyAccepted}
-                onToggle={() => setPrivacyAccepted((v) => !v)}
-                label={<>I accept the <LinkText url={PRIVACY_URL}>Privacy Policy</LinkText>.</>}
-              />
-              <CheckRow
-                checked={eulaAccepted}
-                onToggle={() => setEulaAccepted((v) => !v)}
-                label={<>I accept the <LinkText url={EULA_URL}>End User License Agreement</LinkText>.</>}
+                checked={legalOptIn}
+                onToggle={() => setLegalOptIn((v) => !v)}
+                label={
+                  <>
+                    I accept the <LinkText url={TERMS_URL}>Terms of Use</LinkText>,{' '}
+                    <LinkText url={PRIVACY_URL}>Privacy Policy</LinkText>, and{' '}
+                    <LinkText url={EULA_URL}>End User License Agreement</LinkText>.
+                  </>
+                }
               />
             </>
           ) : null}
@@ -256,6 +248,7 @@ export default function AuthScreen() {
           <View style={{ gap: 12, alignItems: 'center', width: '100%' }}>
             <AppButton
               onPress={() => void submit()}
+              disabled={loading}
               style={{ minWidth: 280, width: '100%', maxWidth: 360, paddingVertical: 16 }}
             >
               {loading ? 'Working…' : submitLabel}
@@ -263,6 +256,7 @@ export default function AuthScreen() {
             <AppButton
               variant="secondary"
               onPress={toggleMode}
+              disabled={loading}
               style={{ minWidth: 280, width: '100%', maxWidth: 360, paddingVertical: 16 }}
             >
               Switch to {mode === 'login' ? 'register' : 'sign in'}
@@ -272,7 +266,7 @@ export default function AuthScreen() {
 
         <Card>
           <SectionTitle title="What happens next" subtitle="One membership pass unlocks every participating business." />
-          <Text style={{ color: colors.muted }}>
+          <Text style={{ color: colors.muted, fontSize: 14 * effectiveScale, lineHeight: 20 * effectiveScale }} allowFontScaling={false}>
             After signing up we generate your personal membership pass. Show its barcode at any participating business and they apply their member discount at the
             register. Your phone number is stored securely and only used to contact you about your account.
           </Text>
