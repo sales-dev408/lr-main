@@ -160,11 +160,12 @@ function getScheduleStatus(line: ScheduleLineInfo, now: Date): LineStatus {
   nextDay.setDate(now.getDate() + 1);
   const nextSchedule = scheduleFor(nextDay, line.line, line.direction) ?? schedule;
   const nextTrips = nextSchedule?.trips ?? schedule.trips;
-  const nextDayCandidate = findBestTrip(nextTrips, nowMinutes + 1440, line.stations);
+  // Shift current time back by a day so next-day trip times line up with now.
+  const nextDayCandidate = findBestTrip(nextTrips, nowMinutes - 1440, line.stations);
   if (nextDayCandidate) return nextDayCandidate;
 
   const fallbackTrip = schedule.trips[0];
-  return statusFromTrip(fallbackTrip, line.stations, nowMinutes);
+  return statusFromTrip(fallbackTrip, line.stations, -1440);
 }
 
 function findBestTrip(trips: number[][], nowMinutes: number, stations: string[]): LineStatus | null {
@@ -203,15 +204,10 @@ function statusFromTrip(trip: number[], stations: string[], nowMinutes: number):
     };
   }
 
-  // If the train has already finished, show the terminal as current.
+  // If the train has already finished, mark it so it can be skipped in favor
+  // of the next day's first departure.
   if (nowMinutes >= trip[endIdx]) {
-    return {
-      current: stations[endIdx],
-      next: stations[endIdx],
-      minutes: 0,
-      segmentDuration: 0,
-      progress: 1,
-    };
+    return { current: '—', next: '—', minutes: 0, segmentDuration: 0, progress: 0 };
   }
 
   // Find the station the train has most recently passed and the next stop.
