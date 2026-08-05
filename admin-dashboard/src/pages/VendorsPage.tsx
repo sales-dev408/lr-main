@@ -8,7 +8,7 @@ import {
 } from '../lib/api';
 import type { VendorCategory, VendorRecord } from '../lib/types';
 import type { VendorAnalyticsResponse } from '../lib/api';
-import { Button, EmptyState, ErrorBanner, InfoCard, Modal, PageCard, Select, Input, Badge, SuccessBanner } from '../components/Ui';
+import { Button, EmptyState, ErrorBanner, InfoCard, Modal, PageCard, Select, Input, Textarea, Badge, SuccessBanner } from '../components/Ui';
 import { useAuth } from '../lib/auth';
 import { parseVendorFields, scanImageToText } from '../lib/ocr';
 import { qrCodeUrl } from '../lib/qr';
@@ -16,6 +16,8 @@ import { qrCodeUrl } from '../lib/qr';
 const CATEGORIES: VendorCategory[] = ['Sports', 'Dining', 'Entertainment'];
 
 type DiscountKind = 'percent' | 'fixed' | 'bogo';
+
+const DEFAULT_DISCOUNT_TERMS = 'Cannot be applied with any other offer\nNot redeemable for cash\nCan be used 1 time per week';
 
 const blankVendor = {
   name: '',
@@ -26,6 +28,8 @@ const blankVendor = {
   category: 'Dining' as VendorCategory,
   discountKind: 'percent' as DiscountKind,
   discountValue: '',
+  discountDescription: '',
+  discountTerms: DEFAULT_DISCOUNT_TERMS,
   discountStartsAt: '',
   discountEndsAt: '',
   boosted: false,
@@ -189,6 +193,10 @@ export function VendorsPage() {
       setError('Enter a valid discount amount.');
       return;
     }
+    if (form.discountKind === 'bogo' && !form.discountDescription.trim()) {
+      setError('BOGO discounts require a description.');
+      return;
+    }
     setCreating(true);
     setError(null);
     try {
@@ -201,6 +209,8 @@ export function VendorsPage() {
         phone: form.phone || undefined,
         discountType: form.discountKind,
         discountValue: needsValue ? value : 0,
+        discountDescription: form.discountDescription.trim() || null,
+        discountTerms: form.discountTerms.trim() || DEFAULT_DISCOUNT_TERMS,
         discountStartsAt: form.discountStartsAt ? new Date(form.discountStartsAt).toISOString() : null,
         discountEndsAt: form.discountEndsAt ? new Date(form.discountEndsAt).toISOString() : null,
         boosted: form.boosted,
@@ -224,6 +234,10 @@ export function VendorsPage() {
       const needsValue = discountValueRequired(kind as DiscountKind);
       const rawValue = editing.discount_value;
       const value = rawValue !== undefined && rawValue !== null && rawValue !== '' ? Number(rawValue) : null;
+      if (kind === 'bogo' && !editing.discount_description?.trim()) {
+        setError('BOGO discounts require a description.');
+        return;
+      }
       await updateAdminVendor(editing.id, {
         name: editing.name,
         ownerName: editing.owner_name ?? undefined,
@@ -234,6 +248,8 @@ export function VendorsPage() {
         status: editing.status,
         ...(editing.discount_type ? { discountType: editing.discount_type } : {}),
         ...(needsValue && value !== null ? { discountValue: value } : {}),
+        discountDescription: editing.discount_description?.trim() || null,
+        discountTerms: editing.discount_terms?.trim() || DEFAULT_DISCOUNT_TERMS,
         discountStartsAt: editing.discount_starts_at ? new Date(editing.discount_starts_at).toISOString() : null,
         discountEndsAt: editing.discount_ends_at ? new Date(editing.discount_ends_at).toISOString() : null,
         boosted: editing.boosted ?? false,
@@ -354,6 +370,23 @@ export function VendorsPage() {
                 ) : null}
               </div>
             </label>
+            <label>
+              Discount description
+              <Textarea
+                placeholder="Describe the offer (required for BOGO)"
+                value={form.discountDescription}
+                onChange={(e) => setForm((prev) => ({ ...prev, discountDescription: e.target.value }))}
+                rows={2}
+              />
+            </label>
+            <label>
+              Terms of discount
+              <Textarea
+                value={form.discountTerms}
+                onChange={(e) => setForm((prev) => ({ ...prev, discountTerms: e.target.value }))}
+                rows={4}
+              />
+            </label>
             <div className="grid-2">
               <label>
                 Flash deal starts
@@ -468,6 +501,23 @@ export function VendorsPage() {
                 <Input type="number" min="0" step="0.01" value={editing.discount_value ?? ''} onChange={(e) => setEditing({ ...editing, discount_value: e.target.value ? Number(e.target.value) : null })} />
               </label>
             ) : null}
+            <label>
+              Discount description
+              <Textarea
+                placeholder="Describe the offer (required for BOGO)"
+                value={editing.discount_description ?? ''}
+                onChange={(e) => setEditing({ ...editing, discount_description: e.target.value })}
+                rows={2}
+              />
+            </label>
+            <label>
+              Terms of discount
+              <Textarea
+                value={editing.discount_terms ?? DEFAULT_DISCOUNT_TERMS}
+                onChange={(e) => setEditing({ ...editing, discount_terms: e.target.value })}
+                rows={4}
+              />
+            </label>
             <div className="grid-2">
               <label>
                 Flash deal starts

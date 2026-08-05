@@ -47,6 +47,8 @@ const envSchema = z.object({
   MAILJET_SECRET_API_KEY: z.string().trim().default(''),
   MAILJET_FROM_EMAIL: z.string().email().default('noreply@lightraildeals.com'),
   MAILJET_FROM_NAME: z.string().trim().default('Light Rail Deals'),
+  MAILJET_SMS_TOKEN: z.string().trim().default(''),
+  REDEEM_BASE_URL: z.string().trim().default(''),
 });
 
 const parsed = envSchema.parse(process.env);
@@ -95,6 +97,8 @@ export const config = {
   mailjetSecretApiKey: parsed.MAILJET_SECRET_API_KEY,
   mailjetFromEmail: parsed.MAILJET_FROM_EMAIL,
   mailjetFromName: parsed.MAILJET_FROM_NAME,
+  mailjetSmsToken: parsed.MAILJET_SMS_TOKEN,
+  redeemBaseUrl: parsed.REDEEM_BASE_URL,
 } as const;
 
 export type AppConfig = typeof config;

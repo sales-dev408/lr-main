@@ -32,6 +32,11 @@ export interface UserProfile {
   city: string | null;
   status: UserStatus;
   pushPreferences: PushPreferences;
+  promoEmailOptIn: boolean;
+  promoSmsOptIn: boolean;
+  termsAcceptedAt: string | null;
+  privacyAcceptedAt: string | null;
+  eulaAcceptedAt: string | null;
 }
 
 export interface VendorProfile {
@@ -68,6 +73,7 @@ export interface DiscountRule {
   vendorId: string;
   type: DiscountType;
   value: string;
+  description: string | null;
   minPurchase: string;
   maxUsesTotal: number | null;
   maxUsesPerCustomer: number | null;

@@ -15,6 +15,11 @@ const customerRegisterSchema = z.object({
   password: z.string().min(8),
   city: z.string().optional(),
   captchaToken: z.string().optional(),
+  promoEmailOptIn: z.boolean().default(false),
+  promoSmsOptIn: z.boolean().default(false),
+  termsAccepted: z.boolean().refine((v) => v === true, { message: 'You must accept the Terms of Use' }),
+  privacyAccepted: z.boolean().refine((v) => v === true, { message: 'You must accept the Privacy Policy' }),
+  eulaAccepted: z.boolean().refine((v) => v === true, { message: 'You must accept the EULA' }),
 });
 
 const customerLoginSchema = z
@@ -60,6 +65,11 @@ type ProfileRow = {
   push_enabled_new_vendor: boolean;
   push_enabled_expiring_deal: boolean;
   push_enabled_local_event: boolean;
+  promo_email_opt_in: boolean;
+  promo_sms_opt_in: boolean;
+  terms_accepted_at: string | null;
+  privacy_accepted_at: string | null;
+  eula_accepted_at: string | null;
 };
 
 function buildPushPreferences(row: Pick<ProfileRow, 'push_enabled_new_vendor' | 'push_enabled_expiring_deal' | 'push_enabled_local_event'>): PushPreferences {
@@ -76,7 +86,12 @@ async function buildCustomerProfile(userId: string): Promise<UserProfile | null>
             first_name, last_name, city, status,
             push_enabled_new_vendor,
             push_enabled_expiring_deal,
-            push_enabled_local_event
+            push_enabled_local_event,
+            promo_email_opt_in,
+            promo_sms_opt_in,
+            terms_accepted_at,
+            privacy_accepted_at,
+            eula_accepted_at
      FROM users WHERE id = $1 LIMIT 1`,
     [userId],
   );
@@ -92,6 +107,11 @@ async function buildCustomerProfile(userId: string): Promise<UserProfile | null>
     city: user.city,
     status: user.status as UserProfile['status'],
     pushPreferences: buildPushPreferences(user),
+    promoEmailOptIn: user.promo_email_opt_in,
+    promoSmsOptIn: user.promo_sms_opt_in,
+    termsAcceptedAt: user.terms_accepted_at,
+    privacyAcceptedAt: user.privacy_accepted_at,
+    eulaAcceptedAt: user.eula_accepted_at,
   };
 }
 
@@ -125,13 +145,31 @@ export async function registerAuthRoutes(fastify: FastifyInstance): Promise<void
       rows = await withDbClient(async (client) => {
         await client.query('BEGIN');
         try {
+          const acceptedAt = new Date().toISOString();
           const result = await client.query<{ id: string }>(
             `
-              INSERT INTO users (email, phone, password_hash, full_name, first_name, last_name, city)
-              VALUES ($1, $2, $3, $4, $5, $6, $7)
+              INSERT INTO users (
+                email, phone, password_hash, full_name, first_name, last_name, city,
+                promo_email_opt_in, promo_sms_opt_in,
+                terms_accepted_at, privacy_accepted_at, eula_accepted_at
+              )
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
               RETURNING id
             `,
-            [body.email ?? null, phone ?? null, passwordHash, fullName, body.firstName, body.lastName, body.city ?? null],
+            [
+              body.email ?? null,
+              phone ?? null,
+              passwordHash,
+              fullName,
+              body.firstName,
+              body.lastName,
+              body.city ?? null,
+              body.promoEmailOptIn,
+              body.promoSmsOptIn,
+              acceptedAt,
+              acceptedAt,
+              acceptedAt,
+            ],
           );
           await client.query('COMMIT');
           return result.rows;

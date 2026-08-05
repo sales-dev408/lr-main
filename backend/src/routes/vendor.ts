@@ -26,6 +26,8 @@ export async function registerVendorRoutes(fastify: FastifyInstance): Promise<vo
       discount_type: 'fixed' | 'percent' | 'bogo';
       discount_value: string;
       discount_code: string | null;
+      discount_description: string | null;
+      discount_terms: string | null;
       starts_at: string | null;
       ends_at: string | null;
       boosted: boolean;
@@ -33,8 +35,8 @@ export async function registerVendorRoutes(fastify: FastifyInstance): Promise<vo
       card_logo: string | null;
     }>(
       `
-        SELECT v.id, v.name, v.address, v.city, v.location, v.category, v.latitude, v.longitude, v.pos_system, v.icon_url, v.logo_url,
-               c.id AS card_id, d.type AS discount_type, d.value AS discount_value, d.discount_code,
+        SELECT v.id, v.name, v.address, v.city, v.location, v.category, v.latitude, v.longitude, v.pos_system, v.icon_url, v.logo_url, v.discount_terms,
+               c.id AS card_id, d.type AS discount_type, d.value AS discount_value, d.discount_code, d.description AS discount_description,
                d.starts_at, d.ends_at, d.boosted, c.icon_url AS card_icon, c.logo_url AS card_logo
         FROM vendors v
         JOIN cards c ON c.is_membership = true AND c.status = 'active'
@@ -62,8 +64,11 @@ export async function registerVendorRoutes(fastify: FastifyInstance): Promise<vo
         type: row.discount_type,
         value: Number(row.discount_value),
         label: humanDiscountLabel(row.discount_type, Number(row.discount_value)),
+        description: row.discount_description,
       },
       discountCode: row.discount_code,
+      discountTerms: row.discount_terms || 'Cannot be applied with any other offer\nNot redeemable for cash\nCan be used 1 time per week',
+      discountDescription: row.discount_description,
       boosted: row.boosted,
       startsAt: row.starts_at,
       endsAt: row.ends_at,

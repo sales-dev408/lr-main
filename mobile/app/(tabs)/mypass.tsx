@@ -158,12 +158,9 @@ export default function MyPassScreen() {
             </View>
 
             <Text style={{ color: colors.muted, textAlign: 'center' }}>
-              Show this barcode if a staff member asks for it, or scan a vendor&apos;s in-store discount code to confirm your discount.
+              Show this barcode if a staff member asks for it, or browse businesses to generate a discount QR code.
             </Text>
 
-            <Link href="/(tabs)/scan" asChild>
-              <AppButton>Scan vendor discount code</AppButton>
-            </Link>
             <Link href="/(tabs)/browse" asChild>
               <AppButton variant="secondary">Browse participating businesses</AppButton>
             </Link>

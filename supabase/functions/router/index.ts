@@ -13,6 +13,8 @@ import { ensureMembershipPass, membershipWalletUrl } from './lib/membership.ts';
 import { generateDiscountCode, humanDiscountLabel } from './lib/codes.ts';
 import { qrCodeUrl } from './lib/quickchart.ts';
 import { normalizePhone } from './lib/phone.ts';
+import { createRedemptionToken, redeemByToken, affirmRedemptionToken } from './lib/redemptionTokens.ts';
+import { sendDealOfTheDayBlast } from './lib/mailjet.ts';
 import {
   createContentBlock,
   deleteContentBlock,
@@ -60,6 +62,11 @@ const customerRegisterSchema = z.object({
   phone: z.string().min(7).optional(),
   password: z.string().min(8),
   city: z.string().optional(),
+  promoEmailOptIn: z.boolean().default(false),
+  promoSmsOptIn: z.boolean().default(false),
+  termsAccepted: z.boolean().refine((v) => v === true, { message: 'Terms of Use must be accepted' }),
+  privacyAccepted: z.boolean().refine((v) => v === true, { message: 'Privacy Policy must be accepted' }),
+  eulaAccepted: z.boolean().refine((v) => v === true, { message: 'EULA must be accepted' }),
 });
 
 const contentCreateSchema = z.object({
@@ -131,40 +138,54 @@ const cardSchema = z.object({
   status: z.enum(['draft', 'active', 'archived']).optional(),
 });
 
-const adminVendorCreateSchema = z.object({
-  name: z.string().min(1),
-  ownerName: z.string().optional(),
-  address: z.string().optional(),
-  category: z.enum(['Sports', 'Dining', 'Entertainment']),
-  email: z.string().email().optional(),
-  phone: z.string().optional(),
-  discountType: z.enum(['fixed', 'percent', 'bogo']).default('percent'),
-  discountValue: z.number().positive(),
-  discountStartsAt: z.string().datetime().optional().nullable(),
-  discountEndsAt: z.string().datetime().optional().nullable(),
-  boosted: z.boolean().optional(),
-  latitude: z.number().optional(),
-  longitude: z.number().optional(),
-  iconDataUrl: z.string().optional(),
-  logoDataUrl: z.string().optional(),
-});
+const adminVendorCreateSchema = z
+  .object({
+    name: z.string().min(1),
+    ownerName: z.string().optional(),
+    address: z.string().optional(),
+    category: z.enum(['Sports', 'Dining', 'Entertainment']),
+    email: z.string().email().optional(),
+    phone: z.string().optional(),
+    discountType: z.enum(['fixed', 'percent', 'bogo']).default('percent'),
+    discountValue: z.number().positive(),
+    discountDescription: z.string().optional().nullable(),
+    discountTerms: z.string().optional().nullable(),
+    discountStartsAt: z.string().datetime().optional().nullable(),
+    discountEndsAt: z.string().datetime().optional().nullable(),
+    boosted: z.boolean().optional(),
+    latitude: z.number().optional(),
+    longitude: z.number().optional(),
+    iconDataUrl: z.string().optional(),
+    logoDataUrl: z.string().optional(),
+  })
+  .refine((data) => data.discountType !== 'bogo' || Boolean(data.discountDescription?.trim()), {
+    message: 'BOGO discounts require a description',
+    path: ['discountDescription'],
+  });
 
-const adminVendorUpdateSchema = z.object({
-  name: z.string().min(1).optional(),
-  ownerName: z.string().optional(),
-  address: z.string().optional(),
-  category: z.enum(['Sports', 'Dining', 'Entertainment']).optional(),
-  email: z.string().email().optional(),
-  phone: z.string().optional(),
-  discountType: z.enum(['fixed', 'percent', 'bogo']).optional(),
-  discountValue: z.number().positive().optional(),
-  discountStartsAt: z.string().datetime().optional().nullable(),
-  discountEndsAt: z.string().datetime().optional().nullable(),
-  boosted: z.boolean().optional(),
-  latitude: z.number().optional(),
-  longitude: z.number().optional(),
-  status: z.enum(['pending', 'approved', 'rejected', 'suspended']).optional(),
-});
+const adminVendorUpdateSchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    ownerName: z.string().optional(),
+    address: z.string().optional(),
+    category: z.enum(['Sports', 'Dining', 'Entertainment']).optional(),
+    email: z.string().email().optional(),
+    phone: z.string().optional(),
+    discountType: z.enum(['fixed', 'percent', 'bogo']).optional(),
+    discountValue: z.number().positive().optional(),
+    discountDescription: z.string().optional().nullable(),
+    discountTerms: z.string().optional().nullable(),
+    discountStartsAt: z.string().datetime().optional().nullable(),
+    discountEndsAt: z.string().datetime().optional().nullable(),
+    boosted: z.boolean().optional(),
+    latitude: z.number().optional(),
+    longitude: z.number().optional(),
+    status: z.enum(['pending', 'approved', 'rejected', 'suspended']).optional(),
+  })
+  .refine((data) => data.discountType !== 'bogo' || (data.discountDescription !== undefined && Boolean(data.discountDescription?.trim())), {
+    message: 'BOGO discounts require a description',
+    path: ['discountDescription'],
+  });
 
 const adminSettingsSchema = z.object({
   email: z.string().email().optional(),
@@ -223,6 +244,46 @@ function isUniqueViolation(error: unknown): boolean {
   const code = (error as { code?: unknown })?.code;
   const message = String((error as { message?: unknown })?.message ?? '');
   return code === '23505' || message.includes('unique constraint');
+}
+
+function renderRedemptionPage(result: { ok: boolean; discount?: { type: 'fixed' | 'percent' | 'bogo'; value: number; description: string } | null; amountApplied?: number; error?: string }) {
+  const title = result.ok ? 'Discount Applied' : 'Unable to Apply Discount';
+  const check = result.ok
+    ? `<div style="width:80px;height:80px;border-radius:50%;background:#22c55e;color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:48px;line-height:1;">✓</div>`
+    : '';
+  const amountText = result.ok && result.discount?.type === 'fixed'
+    ? `$${(result.amountApplied ?? 0).toFixed(2)}`
+    : (result.discount?.description ?? 'discount');
+  const heading = result.ok
+    ? `Light Rail Deals Membership Accepted, apply ${amountText} to bill`
+    : 'This discount could not be applied';
+  const sub = result.ok
+    ? `Discount: ${result.discount?.description ?? ''}`
+    : (result.error ?? 'The redemption code may be expired, already used, or the member has reached their weekly limit.');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+  <style>
+    body { margin:0; padding:24px; font-family: Arial, Helvetica, sans-serif; background:#f8fafc; color:#0e1b2a; }
+    .card { max-width:420px; margin:40px auto; background:#fff; border-radius:18px; padding:32px 24px; text-align:center; box-shadow:0 10px 30px rgba(0,0,0,0.08); }
+    h1 { font-size:22px; margin:0 0 12px; }
+    p { font-size:16px; color:#52617a; line-height:1.5; margin:0 0 8px; }
+    .footer { margin-top:32px; font-size:12px; color:#7c8a9d; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    ${check}
+    <h1>${heading}</h1>
+    <p>${sub}</p>
+    <div class="footer">Light Rail Deals &copy; ${new Date().getFullYear()}</div>
+  </div>
+</body>
+</html>`;
 }
 
 function json(request: Request, body: unknown, init: ResponseInit = {}): Response {
@@ -287,12 +348,22 @@ async function buildCustomerProfile(userId: string) {
     pushEnabledNewVendor: boolean;
     pushEnabledExpiringDeal: boolean;
     pushEnabledLocalEvent: boolean;
+    promoEmailOptIn: boolean;
+    promoSmsOptIn: boolean;
+    termsAcceptedAt: string | null;
+    privacyAcceptedAt: string | null;
+    eulaAcceptedAt: string | null;
   }>(
     `SELECT id, email::text AS email, phone, full_name AS "fullName",
             first_name AS "firstName", last_name AS "lastName", city, status,
             push_enabled_new_vendor AS "pushEnabledNewVendor",
             push_enabled_expiring_deal AS "pushEnabledExpiringDeal",
-            push_enabled_local_event AS "pushEnabledLocalEvent"
+            push_enabled_local_event AS "pushEnabledLocalEvent",
+            promo_email_opt_in AS "promoEmailOptIn",
+            promo_sms_opt_in AS "promoSmsOptIn",
+            terms_accepted_at AS "termsAcceptedAt",
+            privacy_accepted_at AS "privacyAcceptedAt",
+            eula_accepted_at AS "eulaAcceptedAt"
      FROM users WHERE id = $1 LIMIT 1`,
     [userId],
   );
@@ -475,8 +546,22 @@ Deno.serve(async (request) => {
           await client.query('BEGIN');
           try {
             const result = await client.query<{ id: string }>(
-              `INSERT INTO users (email, phone, password_hash, full_name, first_name, last_name, city) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-              [body.email ?? null, phone ?? null, passwordHash, fullName, body.firstName, body.lastName, body.city ?? null],
+              `INSERT INTO users (email, phone, password_hash, full_name, first_name, last_name, city, promo_email_opt_in, promo_sms_opt_in, terms_accepted_at, privacy_accepted_at, eula_accepted_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
+              [
+                body.email ?? null,
+                phone ?? null,
+                passwordHash,
+                fullName,
+                body.firstName,
+                body.lastName,
+                body.city ?? null,
+                body.promoEmailOptIn,
+                body.promoSmsOptIn,
+                body.termsAccepted ? new Date().toISOString() : null,
+                body.privacyAccepted ? new Date().toISOString() : null,
+                body.eulaAccepted ? new Date().toISOString() : null,
+              ],
             );
             await client.query('COMMIT');
             return result.rows;
@@ -609,14 +694,16 @@ Deno.serve(async (request) => {
         discount_type: 'fixed' | 'percent' | 'bogo';
         discount_value: string;
         discount_code: string | null;
+        discount_description: string | null;
+        discount_terms: string | null;
         starts_at: string | null;
         ends_at: string | null;
         boosted: boolean;
         card_icon: string | null;
         card_logo: string | null;
       }>(
-        `SELECT v.id, v.name, v.address, v.city, v.location, v.category, v.latitude, v.longitude, v.pos_system, v.icon_url, v.logo_url,
-                c.id AS card_id, d.type AS discount_type, d.value AS discount_value, d.discount_code,
+        `SELECT v.id, v.name, v.address, v.city, v.location, v.category, v.latitude, v.longitude, v.pos_system, v.icon_url, v.logo_url, v.discount_terms,
+                c.id AS card_id, d.type AS discount_type, d.value AS discount_value, d.discount_code, d.description AS discount_description,
                 d.starts_at, d.ends_at, d.boosted, c.icon_url AS card_icon, c.logo_url AS card_logo
          FROM vendors v
          JOIN cards c ON c.is_membership = true AND c.status = 'active'
@@ -644,6 +731,8 @@ Deno.serve(async (request) => {
           value: Number(row.discount_value),
           label: humanDiscountLabel(row.discount_type, Number(row.discount_value)),
         },
+        discountDescription: row.discount_description,
+        discountTerms: row.discount_terms ?? 'Cannot be applied with any other offer\nNot redeemable for cash\nCan be used 1 time per week',
         discountCode: row.discount_code,
         boosted: row.boosted,
         startsAt: row.starts_at,
@@ -924,6 +1013,8 @@ Deno.serve(async (request) => {
         phone: body.phone ?? null,
         discountType: body.discountType,
         discountValue: body.discountValue,
+        discountDescription: body.discountDescription ?? null,
+        discountTerms: body.discountTerms ?? null,
         discountStartsAt: body.discountStartsAt ?? null,
         discountEndsAt: body.discountEndsAt ?? null,
         boosted: body.boosted ?? false,
@@ -940,13 +1031,13 @@ Deno.serve(async (request) => {
       const id = path.split('/').pop()!;
       const body = adminVendorUpdateSchema.parse(await readJsonBody(request, {}));
       const rows = await dbQuery(
-        `UPDATE vendors SET name = COALESCE($2, name), owner_name = COALESCE($3, owner_name), location = COALESCE($4, location), address = COALESCE($4, address), category = COALESCE($5, category), email = COALESCE($6, email), phone = COALESCE($7, phone), status = COALESCE($8, status), latitude = COALESCE($9, latitude), longitude = COALESCE($10, longitude), updated_at = now() WHERE id = $1 RETURNING *`,
-        [id, body.name ?? null, body.ownerName ?? null, body.address ?? null, body.category ?? null, body.email ?? null, body.phone ?? null, body.status ?? null, body.latitude ?? null, body.longitude ?? null],
+        `UPDATE vendors SET name = COALESCE($2, name), owner_name = COALESCE($3, owner_name), location = COALESCE($4, location), address = COALESCE($4, address), category = COALESCE($5, category), email = COALESCE($6, email), phone = COALESCE($7, phone), status = COALESCE($8, status), latitude = COALESCE($9, latitude), longitude = COALESCE($10, longitude), discount_terms = COALESCE($11, discount_terms), updated_at = now() WHERE id = $1 RETURNING *`,
+        [id, body.name ?? null, body.ownerName ?? null, body.address ?? null, body.category ?? null, body.email ?? null, body.phone ?? null, body.status ?? null, body.latitude ?? null, body.longitude ?? null, body.discountTerms ?? null],
       );
-      if (body.discountType !== undefined || body.discountValue !== undefined || body.discountStartsAt !== undefined || body.discountEndsAt !== undefined || body.boosted !== undefined) {
+      if (body.discountType !== undefined || body.discountValue !== undefined || body.discountDescription !== undefined || body.discountStartsAt !== undefined || body.discountEndsAt !== undefined || body.boosted !== undefined) {
         await dbQuery(
-          `UPDATE discounts SET type = COALESCE($2, type), value = COALESCE($3, value), starts_at = COALESCE($4, starts_at), ends_at = COALESCE($5, ends_at), boosted = COALESCE($6, boosted), updated_at = now() WHERE vendor_id = $1 AND card_id = (SELECT id FROM cards WHERE is_membership = true LIMIT 1)`,
-          [id, body.discountType ?? null, body.discountValue ?? null, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? null],
+          `UPDATE discounts SET type = COALESCE($2, type), value = COALESCE($3, value), description = COALESCE($4, description), starts_at = COALESCE($5, starts_at), ends_at = COALESCE($6, ends_at), boosted = COALESCE($7, boosted), updated_at = now() WHERE vendor_id = $1 AND card_id = (SELECT id FROM cards WHERE is_membership = true LIMIT 1)`,
+          [id, body.discountType ?? null, body.discountValue ?? null, body.discountDescription ?? null, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? null],
         );
       }
       return json(request, rows[0] ?? {});
@@ -1291,6 +1382,8 @@ Deno.serve(async (request) => {
       if (auth instanceof Response) return auth;
       const body = z.object({
         city: z.string().trim().min(1).optional(),
+        promoEmailOptIn: z.boolean().optional(),
+        promoSmsOptIn: z.boolean().optional(),
         pushPreferences: z.object({
           newVendor: z.boolean().optional(),
           expiringDeal: z.boolean().optional(),
@@ -1309,17 +1402,26 @@ Deno.serve(async (request) => {
         push_enabled_new_vendor: boolean;
         push_enabled_expiring_deal: boolean;
         push_enabled_local_event: boolean;
+        promo_email_opt_in: boolean;
+        promo_sms_opt_in: boolean;
+        terms_accepted_at: string | null;
+        privacy_accepted_at: string | null;
+        eula_accepted_at: string | null;
       }>(
         `UPDATE users
          SET city = COALESCE($2, city),
-             push_enabled_new_vendor = COALESCE($3, push_enabled_new_vendor),
-             push_enabled_expiring_deal = COALESCE($4, push_enabled_expiring_deal),
-             push_enabled_local_event = COALESCE($5, push_enabled_local_event),
+             promo_email_opt_in = COALESCE($3, promo_email_opt_in),
+             promo_sms_opt_in = COALESCE($4, promo_sms_opt_in),
+             push_enabled_new_vendor = COALESCE($5, push_enabled_new_vendor),
+             push_enabled_expiring_deal = COALESCE($6, push_enabled_expiring_deal),
+             push_enabled_local_event = COALESCE($7, push_enabled_local_event),
              updated_at = now()
          WHERE id = $1
          RETURNING id, email::text AS email, phone, full_name, first_name, last_name, city, status,
-                   push_enabled_new_vendor, push_enabled_expiring_deal, push_enabled_local_event`,
-        [auth.sub, body.city ?? null, body.pushPreferences?.newVendor ?? null, body.pushPreferences?.expiringDeal ?? null, body.pushPreferences?.localEvent ?? null],
+                   push_enabled_new_vendor, push_enabled_expiring_deal, push_enabled_local_event,
+                   promo_email_opt_in, promo_sms_opt_in,
+                   terms_accepted_at, privacy_accepted_at, eula_accepted_at`,
+        [auth.sub, body.city ?? null, body.promoEmailOptIn ?? null, body.promoSmsOptIn ?? null, body.pushPreferences?.newVendor ?? null, body.pushPreferences?.expiringDeal ?? null, body.pushPreferences?.localEvent ?? null],
       );
       const user = rows[0];
       if (!user) return json(request, { error: 'User not found' }, { status: 404 });
@@ -1332,6 +1434,11 @@ Deno.serve(async (request) => {
         lastName: user.last_name,
         city: user.city,
         status: user.status,
+        promoEmailOptIn: user.promo_email_opt_in,
+        promoSmsOptIn: user.promo_sms_opt_in,
+        termsAcceptedAt: user.terms_accepted_at,
+        privacyAcceptedAt: user.privacy_accepted_at,
+        eulaAcceptedAt: user.eula_accepted_at,
         pushPreferences: {
           newVendor: user.push_enabled_new_vendor,
           expiringDeal: user.push_enabled_expiring_deal,
@@ -1483,6 +1590,58 @@ Deno.serve(async (request) => {
     if (/^\/api\/qr\/lookup\/[^/]+\.png$/.test(path) && request.method === 'GET') {
       const lookupToken = path.split('/').pop()!.replace(/\.png$/, '');
       return Response.redirect(qrCodeUrl(lookupToken, 300), 302);
+    }
+
+    if (path === '/api/discounts/tokens' && request.method === 'POST') {
+      const auth = requireRole(request, ['customer']);
+      if (auth instanceof Response) return auth;
+      const body = z.object({ vendorId: z.string().uuid() }).parse(await readJsonBody(request, {}));
+      const payload = await withDbClient((client) => createRedemptionToken(client, auth.sub, body.vendorId));
+      return json(request, payload);
+    }
+    if (/^\/api\/discounts\/tokens\/[^/]+\/affirm$/.test(path) && request.method === 'POST') {
+      const auth = requireRole(request, ['customer']);
+      if (auth instanceof Response) return auth;
+      const token = path.split('/').slice(-2)[0]!;
+      const body = z.object({ affirmationName: z.string().min(1) }).parse(await readJsonBody(request, {}));
+      const result = await affirmRedemptionToken(token, auth.sub, body.affirmationName, getIp(request));
+      if (!result.ok) {
+        return json(request, { error: result.error ?? 'Unable to apply discount' }, { status: 409 });
+      }
+      return json(request, {
+        ok: true,
+        discountLabel: result.discount?.description ?? humanDiscountLabel(result.discount?.type ?? 'fixed', result.discount?.value ?? 0),
+        amountApplied: result.amountApplied,
+        redemptionId: result.redemptionId,
+      });
+    }
+
+    if (/^\/(?:api\/)?redeem\/[^/]+$/.test(path) && request.method === 'GET') {
+      const token = path.split('/').pop()!;
+      const result = await redeemByToken(token, getIp(request));
+      const html = renderRedemptionPage(result);
+      return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+    }
+
+    if (path === '/api/admin/marketing/blast' && request.method === 'POST') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const body = z.object({
+        subject: z.string().min(1),
+        text: z.string().min(1),
+        html: z.string().optional(),
+        smsText: z.string().optional(),
+      }).parse(await readJsonBody(request, {}));
+      const recipients = await dbQuery<{ email: string | null; phone: string | null }>(
+        `SELECT email::text AS email, phone
+         FROM users
+         WHERE status = 'active' AND (promo_email_opt_in = true OR promo_sms_opt_in = true)`,
+      );
+      const result = await sendDealOfTheDayBlast({
+        ...body,
+        recipients: recipients.map((r) => ({ email: r.email, phone: r.phone })),
+      });
+      return json(request, result);
     }
 
     return notFound(request);

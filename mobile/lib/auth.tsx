@@ -13,7 +13,7 @@ type AuthContextValue = {
   token: string | null;
   profile: UserProfile | null;
   signIn: (body: { email?: string; phone?: string; password: string }) => Promise<void>;
-  registerAccount: (body: { firstName: string; lastName: string; email?: string; phone?: string; password: string; city?: string }) => Promise<void>;
+  registerAccount: (body: { firstName: string; lastName: string; email?: string; phone?: string; password: string; city?: string; promoEmailOptIn?: boolean; promoSmsOptIn?: boolean; termsAccepted: boolean; privacyAccepted: boolean; eulaAccepted: boolean }) => Promise<void>;
   updateProfile: (profile: Partial<UserProfile> & { pushPreferences?: PushPreferences }) => Promise<void>;
   deleteAccount: () => Promise<void>;
   logout: () => Promise<void>;
@@ -27,7 +27,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
 
   function normalizeProfile(input: UserProfile): UserProfile {
-    return { ...input, pushPreferences: input.pushPreferences ?? defaultPushPreferences };
+    return {
+      ...input,
+      pushPreferences: input.pushPreferences ?? defaultPushPreferences,
+      promoEmailOptIn: input.promoEmailOptIn ?? false,
+      promoSmsOptIn: input.promoSmsOptIn ?? false,
+      termsAcceptedAt: input.termsAcceptedAt ?? null,
+      privacyAcceptedAt: input.privacyAcceptedAt ?? null,
+      eulaAcceptedAt: input.eulaAcceptedAt ?? null,
+    };
   }
 
   useEffect(() => {
@@ -72,9 +80,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (token) {
         await setItem(AUTH_KEY, JSON.stringify({ token, profile: next }));
       }
-      const body: { city?: string | null; pushPreferences?: PushPreferences } = {};
+      const body: { city?: string | null; pushPreferences?: PushPreferences; promoEmailOptIn?: boolean; promoSmsOptIn?: boolean } = {};
       if ('city' in update) body.city = update.city ?? null;
       if ('pushPreferences' in update) body.pushPreferences = update.pushPreferences;
+      if ('promoEmailOptIn' in update) body.promoEmailOptIn = update.promoEmailOptIn;
+      if ('promoSmsOptIn' in update) body.promoSmsOptIn = update.promoSmsOptIn;
       if (Object.keys(body).length > 0) {
         const refreshed = normalizeProfile(await updateMe(body));
         setProfile(refreshed);

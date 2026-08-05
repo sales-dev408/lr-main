@@ -104,6 +104,7 @@ export async function redeemDiscount(input: RedeemInput): Promise<RedeemResult> 
         vendor_id: string;
         type: 'fixed' | 'percent' | 'bogo';
         value: string;
+        description: string | null;
         min_purchase: string;
         max_uses_total: number | null;
         max_uses_per_customer: number | null;
@@ -111,7 +112,7 @@ export async function redeemDiscount(input: RedeemInput): Promise<RedeemResult> 
         city_overrides: Record<string, { type?: 'fixed' | 'percent' | 'bogo'; value?: number }> | null;
         active: boolean;
       }>(
-        `SELECT * FROM discounts WHERE card_id = $1 AND vendor_id = $2 ${discountId ? 'AND id = $3' : ''} FOR UPDATE`,
+        `SELECT *, description FROM discounts WHERE card_id = $1 AND vendor_id = $2 ${discountId ? 'AND id = $3' : ''} FOR UPDATE`,
         discountId ? [cardId, vendorId, discountId] : [cardId, vendorId],
       );
 
@@ -164,6 +165,7 @@ export async function redeemDiscount(input: RedeemInput): Promise<RedeemResult> 
       const amountInput = {
         type: adjustedDiscount.type,
         value: adjustedDiscount.value,
+        description: discount.description,
         ...(input.purchaseAmount !== undefined && input.purchaseAmount !== null ? { purchaseAmount: input.purchaseAmount } : {}),
       };
       const computed = computeDiscountAmount(amountInput);

@@ -6,7 +6,7 @@ import { getAdminAnalytics, getVendorAnalytics } from '../services/analytics.js'
 import { buildLookupDiscountView, generateDiscountCode, humanDiscountLabel } from '../services/discounts.js';
 import { generateTempPassword } from '../utils/ids.js';
 import { writeTransactionAudit } from '../services/audit.js';
-import { sendVendorWelcomeEmail } from '../services/mailjet.js';
+import { sendVendorWelcomeEmail, sendDealOfTheDayBlast } from '../services/mailjet.js';
 import { getPushTokensForNewVendor, sendPushNotifications } from '../services/push.js';
 import { qrCodeUrl } from '../services/quickchart.js';
 import { deleteDiscountFromVendorConnections, syncDiscountToVendorConnections } from '../services/pos.js';
@@ -45,6 +45,8 @@ const vendorSchema = z.object({
   discountStartsAt: z.string().datetime().optional().nullable(),
   discountEndsAt: z.string().datetime().optional().nullable(),
   boosted: z.boolean().optional(),
+  discountTerms: z.string().optional(),
+  discountDescription: z.string().optional(),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
   iconDataUrl: z.string().optional(),
@@ -94,11 +96,11 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
     const query = request.query as { status?: string; city?: string; category?: string };
     const rows = await dbQuery(
       `
-        SELECT v.*, d.type AS discount_type, d.value AS discount_value, d.discount_code,
+        SELECT v.*, d.type AS discount_type, d.value AS discount_value, d.discount_code, d.description AS discount_description,
                d.starts_at AS discount_starts_at, d.ends_at AS discount_ends_at, d.boosted AS discount_boosted
         FROM vendors v
         LEFT JOIN LATERAL (
-          SELECT d.type, d.value, d.discount_code, d.starts_at, d.ends_at, d.boosted
+          SELECT d.type, d.value, d.discount_code, d.description, d.starts_at, d.ends_at, d.boosted
           FROM discounts d
           JOIN cards c ON c.id = d.card_id AND c.is_membership = true
           WHERE d.vendor_id = v.id
@@ -117,12 +119,15 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
 
   fastify.post('/api/admin/vendors', { preHandler: fastify.requireRole(['admin']) }, async (request, reply) => {
     const body = vendorSchema.parse(request.body);
+    if (body.discountType === 'bogo' && (!body.discountDescription || !body.discountDescription.trim())) {
+      return reply.code(400).send({ error: 'BOGO discounts require a description' });
+    }
     const result = await withDbClient(async (client: PoolClient) => {
       const address = body.address ?? body.location;
       const vendorRows = await client.query<{ id: string }>(
         `
-          INSERT INTO vendors (name, owner_name, location, address, city, category, pos_type, pos_system, email, phone, password_hash, status, latitude, longitude, icon_url, logo_url)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+          INSERT INTO vendors (name, owner_name, location, address, city, category, pos_type, pos_system, email, phone, password_hash, status, latitude, longitude, icon_url, logo_url, discount_terms)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
           RETURNING id
         `,
         [
@@ -142,6 +147,7 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
           body.longitude ?? null,
           body.iconDataUrl ?? null,
           body.logoDataUrl ?? null,
+          body.discountTerms ?? null,
         ],
       );
       const vendorId = vendorRows.rows[0]!.id;
@@ -161,6 +167,10 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
       const label = humanDiscountLabel(discountType, discountValue);
       const discountCode = generateDiscountCode({ merchantId: body.name, type: discountType, value: discountValue });
 
+      const discountDescription = body.discountType === 'bogo' && body.discountDescription
+        ? body.discountDescription.trim()
+        : (body.discountDescription?.trim() || `${label} member discount`);
+
       const discountRows = await client.query<{ id: string }>(
         `
           INSERT INTO discounts (card_id, vendor_id, type, value, discount_code, description, active, starts_at, ends_at, boosted)
@@ -168,7 +178,7 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
           ON CONFLICT (card_id, vendor_id) DO UPDATE SET type = EXCLUDED.type, value = EXCLUDED.value, discount_code = COALESCE(discounts.discount_code, EXCLUDED.discount_code), description = EXCLUDED.description, active = true, starts_at = EXCLUDED.starts_at, ends_at = EXCLUDED.ends_at, boosted = EXCLUDED.boosted, updated_at = now()
           RETURNING id
         `,
-        [cardId, vendorId, discountType, discountValue, discountCode, `${label} member discount`, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? false],
+        [cardId, vendorId, discountType, discountValue, discountCode, discountDescription, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? false],
       );
 
       return {
@@ -216,9 +226,12 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
     return reply.code(201).send(result);
   });
 
-  fastify.patch('/api/admin/vendors/:id', { preHandler: fastify.requireRole(['admin']) }, async (request) => {
+  fastify.patch('/api/admin/vendors/:id', { preHandler: fastify.requireRole(['admin']) }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const body = vendorSchema.partial().parse(request.body);
+    if (body.discountType === 'bogo' && (!body.discountDescription || !body.discountDescription.trim())) {
+      return reply.code(400).send({ error: 'BOGO discounts require a description' });
+    }
     const address = body.address ?? body.location;
     const rows = await dbQuery(
       `
@@ -236,26 +249,29 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
             longitude = COALESCE($11, longitude),
             icon_url = COALESCE($12, icon_url),
             logo_url = COALESCE($13, logo_url),
+            discount_terms = COALESCE($14, discount_terms),
             updated_at = now()
         WHERE id = $1
         RETURNING *
       `,
-      [id, body.name ?? null, body.ownerName ?? null, address ?? null, body.city ?? null, body.category ?? null, body.email ?? null, body.phone ?? null, body.status ?? null, body.latitude ?? null, body.longitude ?? null, body.iconDataUrl ?? null, body.logoDataUrl ?? null],
+      [id, body.name ?? null, body.ownerName ?? null, address ?? null, body.city ?? null, body.category ?? null, body.email ?? null, body.phone ?? null, body.status ?? null, body.latitude ?? null, body.longitude ?? null, body.iconDataUrl ?? null, body.logoDataUrl ?? null, body.discountTerms ?? null],
     );
 
-    if (body.discountType !== undefined || body.discountValue !== undefined || body.discountStartsAt !== undefined || body.discountEndsAt !== undefined || body.boosted !== undefined) {
+    if (body.discountType !== undefined || body.discountValue !== undefined || body.discountStartsAt !== undefined || body.discountEndsAt !== undefined || body.boosted !== undefined || body.discountDescription !== undefined) {
+      const discountDescription = body.discountDescription?.trim();
       await dbQuery(
         `
           UPDATE discounts
           SET type = COALESCE($2, type),
               value = COALESCE($3, value),
-              starts_at = COALESCE($4, starts_at),
-              ends_at = COALESCE($5, ends_at),
-              boosted = COALESCE($6, boosted),
+              description = COALESCE($4, description),
+              starts_at = COALESCE($5, starts_at),
+              ends_at = COALESCE($6, ends_at),
+              boosted = COALESCE($7, boosted),
               updated_at = now()
           WHERE vendor_id = $1 AND card_id = (SELECT id FROM cards WHERE is_membership = true LIMIT 1)
         `,
-        [id, body.discountType ?? null, body.discountValue ?? null, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? null],
+        [id, body.discountType ?? null, body.discountValue ?? null, discountDescription ?? null, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? null],
       );
     }
 
@@ -359,6 +375,46 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
     const exists = await dbQuery<{ id: string }>('SELECT id FROM vendors WHERE id = $1 LIMIT 1', [id]);
     if (exists.length === 0) return reply.code(404).send({ error: 'Vendor not found' });
     return getVendorAnalytics(id);
+  });
+
+  fastify.post('/api/admin/marketing/blast', { preHandler: fastify.requireRole(['admin']) }, async (request, reply) => {
+    const body = z.object({
+      subject: z.string().min(1),
+      text: z.string().min(1),
+      html: z.string().optional(),
+      smsText: z.string().optional(),
+    }).parse(request.body);
+
+    const recipients = await dbQuery<{ email: string | null; phone: string | null }>(
+      `SELECT email, phone
+       FROM users
+       WHERE (promo_email_opt_in = true AND email IS NOT NULL AND email <> '')
+          OR (promo_sms_opt_in = true AND phone IS NOT NULL AND phone <> '')`,
+    );
+
+    if (recipients.length === 0) {
+      return reply.send({ emails: 0, sms: 0, errors: ['No opted-in recipients'] });
+    }
+
+    const result = await sendDealOfTheDayBlast({
+      subject: body.subject,
+      text: body.text,
+      html: body.html,
+      smsText: body.smsText,
+      recipients,
+    });
+
+    await writeTransactionAudit({
+      actorType: 'admin',
+      actorId: request.user?.sub ?? null,
+      action: 'admin.marketing.blast',
+      entityType: 'user',
+      entityId: 'all',
+      metadata: { recipients: recipients.length, ...result },
+      ip: request.ip,
+    });
+
+    return reply.send(result);
   });
 
   fastify.post('/api/admin/cards', { preHandler: fastify.requireRole(['admin']) }, async (request, reply) => {

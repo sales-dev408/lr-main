@@ -17,6 +17,8 @@ export interface CreateVendorInput {
   phone?: string | null;
   discountType: DiscountType;
   discountValue: number;
+  discountDescription?: string | null;
+  discountTerms?: string | null;
   discountStartsAt?: string | null;
   discountEndsAt?: string | null;
   boosted?: boolean;
@@ -65,10 +67,13 @@ export async function createVendorWithDiscount(input: CreateVendorInput): Promis
   return await withDbClient(async (client: PoolClient) => {
     await client.query('BEGIN');
     try {
+      const defaultTerms = 'Cannot be applied with any other offer\nNot redeemable for cash\nCan be used 1 time per week';
+      const discountDescription = input.discountDescription?.trim() || (input.discountType === 'bogo' ? 'Buy one, get one offer' : `${label} member discount`);
+      const discountTerms = input.discountTerms?.trim() || defaultTerms;
       const vendorRows = await client.query<{ id: string }>(
-        `INSERT INTO vendors (name, owner_name, location, address, city, category, pos_type, pos_system, email, phone, password_hash, status, latitude, longitude)
-         VALUES ($1, $2, $3, $4, NULL, $5, NULL, NULL, $6, $7, NULL, 'approved', $8, $9) RETURNING id`,
-        [input.name, input.ownerName ?? null, input.address ?? null, input.address ?? null, input.category, input.email ?? null, input.phone ?? null, input.latitude ?? null, input.longitude ?? null],
+        `INSERT INTO vendors (name, owner_name, location, address, city, category, pos_type, pos_system, email, phone, password_hash, status, latitude, longitude, discount_terms)
+         VALUES ($1, $2, $3, $4, NULL, $5, NULL, NULL, $6, $7, NULL, 'approved', $8, $9, $10) RETURNING id`,
+        [input.name, input.ownerName ?? null, input.address ?? null, input.address ?? null, input.category, input.email ?? null, input.phone ?? null, input.latitude ?? null, input.longitude ?? null, discountTerms],
       );
       const vendorId = vendorRows.rows[0]!.id;
 
@@ -94,7 +99,7 @@ export async function createVendorWithDiscount(input: CreateVendorInput): Promis
          VALUES ($1, $2, $3, $4, $5, $6, true, $7, $8, $9)
          ON CONFLICT (card_id, vendor_id) DO UPDATE SET type = EXCLUDED.type, value = EXCLUDED.value, discount_code = COALESCE(discounts.discount_code, EXCLUDED.discount_code), description = EXCLUDED.description, active = true, starts_at = EXCLUDED.starts_at, ends_at = EXCLUDED.ends_at, boosted = EXCLUDED.boosted, updated_at = now()
          RETURNING id`,
-        [membership.id, vendorId, input.discountType, input.discountValue, discountCode, `${label} member discount`, input.discountStartsAt ?? null, input.discountEndsAt ?? null, input.boosted ?? false],
+        [membership.id, vendorId, input.discountType, input.discountValue, discountCode, discountDescription, input.discountStartsAt ?? null, input.discountEndsAt ?? null, input.boosted ?? false],
       );
       const discountId = discountRows.rows[0]!.id;
 

@@ -41,9 +41,25 @@ export function computeDiscountAmount(input: { type: 'fixed' | 'percent' | 'bogo
   return { amountApplied: input.value };
 }
 
-export function toAppliedDiscount(input: { type: 'fixed' | 'percent' | 'bogo'; value: number; purchaseAmount?: number | null }): { type: 'fixed' | 'percent' | 'bogo'; value: number; instruction?: string } {
+export function toAppliedDiscount(input: {
+  type: 'fixed' | 'percent' | 'bogo';
+  value: number;
+  description?: string | null;
+  purchaseAmount?: number | null;
+}): { type: 'fixed' | 'percent' | 'bogo'; value: number; description: string; instruction?: string } {
   const computed = computeDiscountAmount(input);
-  return { type: input.type, value: input.value, ...(computed.instruction ? { instruction: computed.instruction } : {}) };
+  return {
+    type: input.type,
+    value: input.value,
+    description:
+      input.description?.trim() ||
+      (input.type === 'bogo'
+        ? 'Buy one, get one offer'
+        : input.type === 'percent'
+          ? `${input.value}% off`
+          : `$${input.value.toFixed(2)} off`),
+    ...(computed.instruction ? { instruction: computed.instruction } : {}),
+  };
 }
 
 export function buildLookupDiscountView(discount: DiscountRule, city?: string | null) {

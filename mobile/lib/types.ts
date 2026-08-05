@@ -19,6 +19,11 @@ export interface UserProfile {
   city: string | null;
   status: 'active' | 'suspended' | 'deleted';
   pushPreferences: PushPreferences;
+  promoEmailOptIn: boolean;
+  promoSmsOptIn: boolean;
+  termsAcceptedAt: string | null;
+  privacyAcceptedAt: string | null;
+  eulaAcceptedAt: string | null;
 }
 
 export interface AdminAuthProfile {
@@ -143,8 +148,10 @@ export interface VendorListItem {
   posSystem: string | null;
   iconUrl: string | null;
   logoUrl: string | null;
-  discount: { type: DiscountType; value: number; label: string };
+  discount: { type: DiscountType; value: number; label: string; description?: string | null };
   discountCode: string | null;
+  discountTerms: string;
+  discountDescription: string | null;
   boosted: boolean;
   startsAt: string | null;
   endsAt: string | null;
