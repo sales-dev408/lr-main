@@ -193,11 +193,15 @@ const adminSettingsSchema = z.object({
   location: z.string().optional(),
 });
 
+const ticketBarcodeSchema = z.object({ barcode: z.string().min(1), format: z.string().min(1) });
+
 const ticketCreateSchema = z.object({
   barcode: z.string().min(1),
   barcodeFormat: z.string().optional(),
   name: z.string().min(1).default('Event Ticket'),
   allowedUses: z.number().int().positive().default(1),
+  availableCount: z.number().int().positive().default(4),
+  barcodes: z.array(ticketBarcodeSchema).default([]),
   drawingDeadline: z.coerce.date().optional(),
   drawingDate: z.string().optional(),
   userId: z.string().uuid().optional(),
@@ -208,6 +212,8 @@ const ticketUpdateSchema = z.object({
   barcode: z.string().min(1).optional(),
   barcodeFormat: z.string().optional(),
   allowedUses: z.number().int().positive().optional(),
+  availableCount: z.number().int().positive().optional(),
+  barcodes: z.array(ticketBarcodeSchema).optional(),
   usedUses: z.number().int().min(0).optional(),
   status: z.enum(['active', 'used', 'disabled']).optional(),
   drawingDeadline: z.coerce.date().optional().nullable(),
@@ -218,7 +224,7 @@ const ticketUpdateSchema = z.object({
 
 const ticketEntrySchema = z.object({
   ticketId: z.string().uuid(),
-  requestedCount: z.coerce.number().int().min(1).max(4).default(1),
+  requestedCount: z.coerce.number().int().min(1).default(1),
 });
 
 const discountSchema = z.object({
@@ -246,41 +252,66 @@ function isUniqueViolation(error: unknown): boolean {
   return code === '23505' || message.includes('unique constraint');
 }
 
-function renderRedemptionPage(result: { ok: boolean; discount?: { type: 'fixed' | 'percent' | 'bogo'; value: number; description: string } | null; amountApplied?: number; error?: string }) {
-  const title = result.ok ? 'Discount Applied' : 'Unable to Apply Discount';
-  const check = result.ok
-    ? `<div style="width:80px;height:80px;border-radius:50%;background:#22c55e;color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:48px;line-height:1;">✓</div>`
-    : '';
-  const amountText = result.ok && result.discount?.type === 'fixed'
-    ? `$${(result.amountApplied ?? 0).toFixed(2)}`
-    : (result.discount?.description ?? 'discount');
-  const heading = result.ok
-    ? `Light Rail Deals Membership Accepted, apply ${amountText} to bill`
-    : 'This discount could not be applied';
-  const sub = result.ok
-    ? `Discount: ${result.discount?.description ?? ''}`
-    : (result.error ?? 'The redemption code may be expired, already used, or the member has reached their weekly limit.');
+function escapeHtml(input: string): string {
+  return input
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderRedemptionPage(result: { ok: boolean; discount?: { type: 'fixed' | 'percent' | 'bogo'; value: number; description: string; instruction?: string } | null; amountApplied?: number; redemptionId?: string; error?: string }) {
+  const success = result.ok;
+  const title = success ? 'Membership Accepted' : 'Unable to Redeem';
+
+  let discountAmount = result.discount?.description ?? 'discount';
+  if (success) {
+    if (result.discount?.type === 'fixed') {
+      discountAmount = `$${(result.amountApplied ?? 0).toFixed(2)}`;
+    } else if (result.discount?.type === 'percent') {
+      discountAmount = `${result.discount.value}% off`;
+    }
+  }
+
+  const errorMessage = escapeHtml(result.error ?? 'This QR code is invalid or has already been used.');
+  const redemptionId = result.redemptionId ? escapeHtml(result.redemptionId) : '';
+
+  const checkIcon = `<svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px;stroke:#fff;"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+  const xIcon = `<svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px;stroke:#fff;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title}</title>
+  <title>${escapeHtml(title)}</title>
   <style>
-    body { margin:0; padding:24px; font-family: Arial, Helvetica, sans-serif; background:#f8fafc; color:#0e1b2a; }
-    .card { max-width:420px; margin:40px auto; background:#fff; border-radius:18px; padding:32px 24px; text-align:center; box-shadow:0 10px 30px rgba(0,0,0,0.08); }
-    h1 { font-size:22px; margin:0 0 12px; }
-    p { font-size:16px; color:#52617a; line-height:1.5; margin:0 0 8px; }
-    .footer { margin-top:32px; font-size:12px; color:#7c8a9d; }
+    * { box-sizing: border-box; }
+    body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; background:${success ? '#f0fdf4' : '#fef2f2'}; color:${success ? '#14532d' : '#7f1d1d'}; padding:24px; }
+    .card { background:#fff; border-radius:24px; box-shadow:0 10px 40px rgba(0,0,0,0.08); max-width:420px; width:100%; padding:40px 28px; text-align:center; }
+    .icon { width:80px; height:80px; margin:0 auto 16px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:${success ? '#22c55e' : '#ef4444'}; }
+    h1 { font-size:24px; font-weight:700; margin:0 0 8px; color:#111827; }
+    .subtitle { font-size:15px; color:#6b7280; margin:0 0 24px; }
+    .message { font-size:17px; line-height:1.5; margin:0 0 16px; color:#374151; }
+    .amount { font-size:18px; font-weight:600; color:#111827; margin:0 0 8px; }
+    .amount span { color:#22c55e; }
+    .tracking { font-size:13px; color:#6b7280; margin:0 0 24px; word-break:break-all; }
+    .tracking code { background:#f3f4f6; border-radius:4px; padding:2px 6px; font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; color:#111827; }
+    .instruction { font-size:14px; color:#4b5563; background:#f9fafb; border-radius:12px; padding:12px 16px; margin:0 0 20px; line-height:1.5; }
+    .footer { font-size:12px; color:#9ca3af; }
   </style>
 </head>
 <body>
   <div class="card">
-    ${check}
-    <h1>${heading}</h1>
-    <p>${sub}</p>
-    <div class="footer">Light Rail Deals &copy; ${new Date().getFullYear()}</div>
+    <div class="icon">${success ? checkIcon : xIcon}</div>
+    <h1>${escapeHtml(title)}</h1>
+    ${success ? '<p class="subtitle">Show this screen to the vendor.</p>' : ''}
+    <p class="message">${success ? 'Light Rail Deals Membership Accepted' : errorMessage}</p>
+    ${success ? `<p class="amount">Applied discount amount: <span>${escapeHtml(discountAmount)}</span></p>` : ''}
+    ${success && redemptionId ? `<p class="tracking">Tracking ID: <code>${redemptionId}</code></p>` : ''}
+    ${success && result.discount?.instruction ? `<p class="instruction">${escapeHtml(result.discount.instruction)}</p>` : ''}
+    <p class="footer">${success ? 'Redemption recorded in Light Rail Deals.' : 'Ask the member to refresh their discount QR code.'}</p>
   </div>
 </body>
 </html>`;
@@ -783,8 +814,9 @@ Deno.serve(async (request) => {
       });
       const rows = await dbQuery(
         `
-          SELECT t.id, t.name, t.barcode, t.barcode_format, t.allowed_uses, t.used_uses, t.status,
+          SELECT t.id, t.name, t.barcode, t.barcode_format, t.allowed_uses, t.used_uses, t.available_count, t.status,
                  t.drawing_deadline, t.drawing_status, t.user_id, t.created_at,
+                 CASE WHEN t.user_id = $1::uuid THEN t.barcodes ELSE '[]'::jsonb END AS barcodes,
                  (SELECT COALESCE(SUM(requested_count), 0)::int FROM ticket_entries te WHERE te.ticket_id = t.id AND te.user_id = $1::uuid) AS entry_count
           FROM tickets t
           WHERE t.status = 'active'
@@ -804,6 +836,8 @@ Deno.serve(async (request) => {
         allowedUses: row.allowed_uses,
         usedUses: row.used_uses,
         remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
+        availableCount: row.available_count ?? 4,
+        barcodes: Array.isArray(row.barcodes) ? row.barcodes : [],
         status: row.status,
         drawingDeadline: row.drawing_deadline,
         drawingStatus: row.drawing_status,
@@ -815,7 +849,7 @@ Deno.serve(async (request) => {
 
     if (/^\/api\/tickets\/[^/]+$/.test(path) && request.method === 'GET') {
       const id = path.split('/').pop()!;
-      const rows = await dbQuery('SELECT id, name, barcode, barcode_format, allowed_uses, used_uses, status, drawing_deadline, drawing_status, created_at FROM tickets WHERE id = $1 LIMIT 1', [id]);
+      const rows = await dbQuery('SELECT id, name, barcode, barcode_format, allowed_uses, used_uses, available_count, status, drawing_deadline, drawing_status, created_at, barcodes FROM tickets WHERE id = $1 LIMIT 1', [id]);
       if (rows.length === 0) return json(request, { error: 'Ticket not found' }, { status: 404 });
       const row = rows[0];
       return json(request, {
@@ -826,6 +860,8 @@ Deno.serve(async (request) => {
         allowedUses: row.allowed_uses,
         usedUses: row.used_uses,
         remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
+        availableCount: row.available_count ?? 4,
+        barcodes: [],
         status: row.status,
         drawingDeadline: row.drawing_deadline,
         drawingStatus: row.drawing_status,
@@ -839,20 +875,27 @@ Deno.serve(async (request) => {
       if (claims instanceof Response) return claims;
       const userId = claims.sub;
       const body = ticketEntrySchema.parse(await readJsonBody(request, {}));
-      const tickets = await dbQuery<{ id: string; drawing_status: string; drawing_deadline: string | null }>(
-        'SELECT id, drawing_status, drawing_deadline FROM tickets WHERE id = $1 AND status = $2 LIMIT 1',
+      const tickets = await dbQuery<{ id: string; drawing_status: string; drawing_deadline: string | null; available_count: number }>(
+        'SELECT id, drawing_status, drawing_deadline, available_count FROM tickets WHERE id = $1 AND status = $2 LIMIT 1',
         [body.ticketId, 'active'],
       );
       const ticket = tickets[0];
       if (!ticket) return json(request, { error: 'Ticket not found' }, { status: 404 });
       if (ticket.drawing_status !== 'open') return json(request, { error: 'This drawing has already closed' }, { status: 409 });
       if (ticket.drawing_deadline && new Date(ticket.drawing_deadline).getTime() <= Date.now()) return json(request, { error: 'This drawing has already closed' }, { status: 409 });
+
+      const availableCount = Math.max(1, Number(ticket.available_count) || 4);
+      const maxRequestCount = Math.min(4, availableCount);
+      if (body.requestedCount > maxRequestCount) {
+        return json(request, { error: `You can request up to ${maxRequestCount} ticket${maxRequestCount === 1 ? '' : 's'} for this drawing` }, { status: 400 });
+      }
+
       await dbQuery(
         `INSERT INTO ticket_entries (ticket_id, user_id, requested_count)
          VALUES ($1, $2, $3)
          ON CONFLICT (ticket_id, user_id)
-         DO UPDATE SET requested_count = LEAST(4, ticket_entries.requested_count + EXCLUDED.requested_count), updated_at = now()`,
-        [body.ticketId, userId, body.requestedCount],
+         DO UPDATE SET requested_count = LEAST($4, ticket_entries.requested_count + EXCLUDED.requested_count), updated_at = now()`,
+        [body.ticketId, userId, body.requestedCount, maxRequestCount],
       );
       return json(request, { success: true, ticketId: body.ticketId, requestedCount: body.requestedCount });
     }
@@ -865,7 +908,7 @@ Deno.serve(async (request) => {
              status = CASE WHEN used_uses + 1 >= allowed_uses THEN 'used' ELSE status END,
              updated_at = now()
          WHERE id = $1 AND status = 'active' AND used_uses < allowed_uses
-         RETURNING id, name, barcode, barcode_format, allowed_uses, used_uses, status, drawing_deadline, drawing_status, created_at`,
+         RETURNING id, name, barcode, barcode_format, allowed_uses, used_uses, available_count, status, drawing_deadline, drawing_status, created_at, barcodes`,
         [id],
       );
       if (rows.length === 0) return json(request, { error: 'Ticket unavailable or fully used' }, { status: 409 });
@@ -878,6 +921,8 @@ Deno.serve(async (request) => {
         allowedUses: row.allowed_uses,
         usedUses: row.used_uses,
         remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
+        availableCount: row.available_count ?? 4,
+        barcodes: [],
         status: row.status,
         drawingDeadline: row.drawing_deadline,
         drawingStatus: row.drawing_status,
@@ -889,7 +934,7 @@ Deno.serve(async (request) => {
     if (path === '/api/admin/tickets' && request.method === 'GET') {
       const auth = requireRole(request, ['admin']);
       if (auth instanceof Response) return auth;
-      const rows = await dbQuery('SELECT id, name, barcode, barcode_format, allowed_uses, used_uses, status, drawing_date, user_id, created_at FROM tickets ORDER BY created_at DESC', []);
+      const rows = await dbQuery('SELECT id, name, barcode, barcode_format, allowed_uses, used_uses, available_count, barcodes, status, drawing_date, user_id, created_at FROM tickets ORDER BY created_at DESC', []);
       return json(request, rows.map((row) => ({
         id: row.id,
         name: row.name,
@@ -898,6 +943,8 @@ Deno.serve(async (request) => {
         allowedUses: row.allowed_uses,
         usedUses: row.used_uses,
         remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
+        availableCount: row.available_count ?? 4,
+        barcodes: Array.isArray(row.barcodes) ? row.barcodes : [],
         status: row.status,
         drawingDate: row.drawing_date,
         userId: row.user_id,
@@ -911,10 +958,10 @@ Deno.serve(async (request) => {
       const body = ticketCreateSchema.parse(await readJsonBody(request, {}));
       const drawingDate = body.drawingDate?.trim() || null;
       const rows = await dbQuery<{ id: string }>(
-        `INSERT INTO tickets (barcode, barcode_format, name, allowed_uses, drawing_deadline, drawing_date, user_id)
-         VALUES ($1, $2, $3, $4, COALESCE($5::timestamptz, ($6::date + interval '23 hours 59 minutes')::timestamptz, now() + interval '7 days'), $6, $7)
+        `INSERT INTO tickets (barcode, barcode_format, name, allowed_uses, available_count, barcodes, drawing_deadline, drawing_date, user_id)
+         VALUES ($1, $2, $3, $4, $5, $6::jsonb, COALESCE($7::timestamptz, ($8::date + interval '23 hours 59 minutes')::timestamptz, now() + interval '7 days'), $8, $9)
          RETURNING id`,
-        [body.barcode, body.barcodeFormat ?? null, body.name, body.allowedUses, body.drawingDeadline ?? null, drawingDate, body.userId ?? null],
+        [body.barcode, body.barcodeFormat ?? null, body.name, body.allowedUses, body.availableCount, JSON.stringify(body.barcodes), body.drawingDeadline ?? null, drawingDate, body.userId ?? null],
       );
       return json(request, { id: rows[0]!.id }, { status: 201 });
     }
@@ -931,6 +978,8 @@ Deno.serve(async (request) => {
              barcode = COALESCE($3, barcode),
              barcode_format = COALESCE($4, barcode_format),
              allowed_uses = COALESCE($5, allowed_uses),
+             available_count = COALESCE($12, available_count),
+             barcodes = COALESCE($13::jsonb, barcodes),
              used_uses = COALESCE($6, used_uses),
              status = COALESCE($7, status),
              drawing_deadline = COALESCE($8::timestamptz, (CASE WHEN $10 = '' OR $10 IS NULL THEN NULL ELSE $10::date END + interval '23 hours 59 minutes')::timestamptz, drawing_deadline),
@@ -940,9 +989,25 @@ Deno.serve(async (request) => {
              updated_at = now()
          WHERE id = $1
          RETURNING *`,
-        [id, body.name ?? null, body.barcode ?? null, body.barcodeFormat ?? null, body.allowedUses ?? null, body.usedUses ?? null, body.status ?? null, body.drawingDeadline === undefined ? null : body.drawingDeadline, body.drawingStatus ?? null, drawingDate, body.userId === undefined ? null : body.userId],
+        [id, body.name ?? null, body.barcode ?? null, body.barcodeFormat ?? null, body.allowedUses ?? null, body.usedUses ?? null, body.status ?? null, body.drawingDeadline === undefined ? null : body.drawingDeadline, body.drawingStatus ?? null, drawingDate, body.userId === undefined ? null : body.userId, body.availableCount ?? null, body.barcodes ? JSON.stringify(body.barcodes) : null],
       );
-      return json(request, rows[0] ?? {});
+      if (rows.length === 0) return json(request, { error: 'Ticket not found' }, { status: 404 });
+      const row = rows[0];
+      return json(request, {
+        id: row.id,
+        name: row.name,
+        barcode: row.barcode,
+        barcodeFormat: row.barcode_format,
+        allowedUses: row.allowed_uses,
+        usedUses: row.used_uses,
+        remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
+        availableCount: row.available_count ?? 4,
+        barcodes: Array.isArray(row.barcodes) ? row.barcodes : [],
+        status: row.status,
+        drawingDate: row.drawing_date,
+        userId: row.user_id,
+        createdAt: row.created_at,
+      });
     }
 
     if (/^\/api\/admin\/tickets\/[^/]+$/.test(path) && request.method === 'DELETE') {

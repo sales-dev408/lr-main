@@ -108,6 +108,11 @@ export interface VendorActivityRecord {
   created_at: string;
 }
 
+export interface TicketBarcode {
+  barcode: string;
+  format: string;
+}
+
 export interface TicketRecord {
   id: string;
   name: string;
@@ -116,6 +121,8 @@ export interface TicketRecord {
   allowedUses: number;
   usedUses: number;
   remainingUses: number;
+  availableCount: number;
+  barcodes: TicketBarcode[];
   status: 'active' | 'used' | 'disabled';
   userId: string | null;
   drawingDate: string | null;

@@ -13,13 +13,18 @@ function TicketCard({ ticket, colors }: { ticket: Ticket; colors: ReturnType<typ
   const { width } = useWindowDimensions();
   const { effectiveScale } = useDynamicType();
   const barcodeWidth = Math.min(width - 64, 360);
+  const codes = ticket.barcodes && ticket.barcodes.length > 0 ? ticket.barcodes : [{ barcode: ticket.barcode, format: ticket.barcodeFormat ?? 'Code 128' }];
+
   return (
     <Card>
       <SectionTitle title={ticket.name} subtitle={ticket.status === 'active' ? `${ticket.remainingUses} of ${ticket.allowedUses} uses left` : 'Used'} />
-      <View style={{ alignItems: 'center', gap: 8, paddingVertical: 8 }}>
-        <Image source={{ uri: barcodeUrl(ticket.barcode, barcodeWidth, 120) }} style={{ width: barcodeWidth, height: 120, borderRadius: 8, backgroundColor: '#fff' }} resizeMode="contain" />
-        <Text style={{ color: colors.ink, fontWeight: '700', letterSpacing: 1, fontSize: 14 * effectiveScale }} allowFontScaling={false}>{ticket.barcode}</Text>
-      </View>
+      {codes.map((code, index) => (
+        <View key={`${code.barcode}-${index}`} style={{ alignItems: 'center', gap: 8, paddingVertical: 8, borderTopWidth: index > 0 ? 1 : 0, borderTopColor: colors.border }}>
+          <Image source={{ uri: barcodeUrl(code.barcode, barcodeWidth, 120, code.format) }} style={{ width: barcodeWidth, height: 120, borderRadius: 8, backgroundColor: '#fff' }} resizeMode="contain" />
+          <Text style={{ color: colors.ink, fontWeight: '700', letterSpacing: 1, fontSize: 14 * effectiveScale }} allowFontScaling={false}>{code.barcode}</Text>
+          <Pill tone="neutral">{code.format}</Pill>
+        </View>
+      ))}
       <Pill tone={ticket.status === 'active' ? 'success' : 'neutral'}>{ticket.status}</Pill>
       <Banner tone="info">Show this barcode at the event entrance. Staff will scan it.</Banner>
     </Card>
@@ -80,8 +85,11 @@ export default function TicketsScreen() {
     return { open, mine };
   }, [tickets, auth.profile?.id]);
 
+  const selectedTicket = useMemo(() => open.find((t) => t.id === selectedTicketId) ?? null, [open, selectedTicketId]);
+  const maxRequestCount = Math.min(4, Math.max(1, selectedTicket?.availableCount ?? 4));
+
   function adjustCount(delta: number) {
-    setCount((c) => Math.min(4, Math.max(1, c + delta)));
+    setCount((c) => Math.min(maxRequestCount, Math.max(1, c + delta)));
   }
 
   async function handleEnter(ticketId: string) {
@@ -134,7 +142,7 @@ export default function TicketsScreen() {
 
                 {selectedTicketId === ticket.id ? (
                   <View style={{ gap: 10 }}>
-                    <Text style={{ color: colors.ink, fontSize: 14 * effectiveScale }} allowFontScaling={false}>Number of tickets to request (1–4)</Text>
+                    <Text style={{ color: colors.ink, fontSize: 14 * effectiveScale }} allowFontScaling={false}>Number of tickets to request (1–{maxRequestCount})</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
                       <AppButton variant="secondary" onPress={() => adjustCount(-1)} style={{ width: 50 }}>
                         –
@@ -158,7 +166,7 @@ export default function TicketsScreen() {
                     </View>
                   </View>
                 ) : (
-                  <AppButton onPress={() => setSelectedTicketId(ticket.id)}>
+                  <AppButton onPress={() => { setCount(1); setSelectedTicketId(ticket.id); }}>
                     Enter drawing
                   </AppButton>
                 )}
