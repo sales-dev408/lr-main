@@ -220,6 +220,11 @@ export async function register(body: {
   email?: string;
   phone?: string;
   password: string;
+  promoEmailOptIn?: boolean;
+  promoSmsOptIn?: boolean;
+  termsAccepted: boolean;
+  privacyAccepted: boolean;
+  eulaAccepted: boolean;
 }) {
   return apiRequest<AuthResponse<UserProfile>>('/auth/register', { method: 'POST', body: JSON.stringify(body) });
 }
@@ -241,8 +246,11 @@ function normalizeVendor(input: Record<string, unknown>): VendorListItem {
       type: normalizeDiscountType(discount.type),
       value: toNumber(discount.value),
       label: String(discount.label ?? ''),
+      description: (discount.description as string | null | undefined) ?? null,
     },
     discountCode: (input.discountCode as string | null | undefined) ?? null,
+    discountTerms: String(input.discountTerms ?? 'Cannot be applied with any other offer\nNot redeemable for cash\nCan be used 1 time per week'),
+    discountDescription: (input.discountDescription as string | null | undefined) ?? null,
     boosted: Boolean(input.boosted),
     startsAt: (input.startsAt as string | null | undefined) ?? null,
     endsAt: (input.endsAt as string | null | undefined) ?? null,
@@ -387,7 +395,7 @@ export async function getMe(): Promise<UserProfile> {
   return apiRequest<UserProfile>('/me');
 }
 
-export async function updateMe(body: { city?: string | null; pushPreferences?: PushPreferences }): Promise<UserProfile> {
+export async function updateMe(body: { city?: string | null; pushPreferences?: PushPreferences; promoEmailOptIn?: boolean; promoSmsOptIn?: boolean }): Promise<UserProfile> {
   return apiRequest<UserProfile>('/me', { method: 'PATCH', body: JSON.stringify(body) });
 }
 
@@ -444,4 +452,23 @@ export async function getMyAnalytics(): Promise<UserAnalytics> {
 
 export async function lookupDiscountByCode(code: string): Promise<DiscountLookup> {
   return apiRequest<DiscountLookup>(`/discounts/by-code/${encodeURIComponent(code)}`);
+}
+
+export interface RedemptionToken {
+  token: string;
+  url: string;
+  vendorName: string;
+  discountLabel: string;
+  discountDescription: string;
+  terms: string;
+  amountApplied: number;
+  expiresAt: string;
+}
+
+export async function createRedemptionToken(vendorId: string): Promise<RedemptionToken> {
+  return apiRequest<RedemptionToken>('/discounts/tokens', { method: 'POST', body: JSON.stringify({ vendorId }) });
+}
+
+export async function affirmRedemptionToken(token: string, affirmationName: string): Promise<{ ok: boolean; discountLabel: string; amountApplied: number; redemptionId: string }> {
+  return apiRequest(`/discounts/tokens/${encodeURIComponent(token)}/affirm`, { method: 'POST', body: JSON.stringify({ affirmationName }) });
 }

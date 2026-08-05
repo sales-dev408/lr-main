@@ -190,10 +190,12 @@ export async function redeemDiscount(input: RedeemInput): Promise<RedeemResult> 
       const amountInput: {
         type: typeof adjustedDiscount.type;
         value: number;
+        description?: string | null;
         purchaseAmount?: number | null;
       } = {
         type: adjustedDiscount.type,
         value: adjustedDiscount.value,
+        description: (discount as { description?: string | null }).description ?? null,
       };
       if (input.purchaseAmount !== undefined && input.purchaseAmount !== null) {
         amountInput.purchaseAmount = input.purchaseAmount;

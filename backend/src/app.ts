@@ -9,6 +9,7 @@ import { registerAdminRoutes } from './routes/admin.js';
 import { registerVendorRoutes } from './routes/vendor.js';
 import { registerPassRoutes } from './routes/passes.js';
 import { registerLookupRoutes } from './routes/lookup.js';
+import { registerRedemptionRoutes } from './routes/redemptions.js';
 import { registerQrRoutes } from './routes/qr.js';
 import { registerPosRoutes } from './routes/pos.js';
 import { registerTicketRoutes } from './routes/tickets.js';
@@ -33,6 +34,7 @@ export async function buildApp() {
   await registerVendorRoutes(app);
   await registerPassRoutes(app);
   await registerLookupRoutes(app);
+  await registerRedemptionRoutes(app);
   await registerQrRoutes(app);
   await registerPosRoutes(app);
   await registerTicketRoutes(app);

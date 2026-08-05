@@ -59,6 +59,7 @@ export interface DiscountRule {
   city_overrides: Record<string, { type?: 'fixed' | 'percent' | 'bogo'; value?: number }> | null;
   active: boolean;
   discount_code?: string | null;
+  description?: string | null;
 }
 
 export interface RedeemResult {
@@ -68,6 +69,7 @@ export interface RedeemResult {
   discount?: {
     type: 'fixed' | 'percent' | 'bogo';
     value: number;
+    description: string;
     instruction?: string;
   };
   redemptionId?: string;

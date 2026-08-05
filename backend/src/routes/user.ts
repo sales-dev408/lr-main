@@ -16,6 +16,11 @@ type ProfileRow = {
   push_enabled_new_vendor: boolean;
   push_enabled_expiring_deal: boolean;
   push_enabled_local_event: boolean;
+  promo_email_opt_in: boolean;
+  promo_sms_opt_in: boolean;
+  terms_accepted_at: string | null;
+  privacy_accepted_at: string | null;
+  eula_accepted_at: string | null;
 };
 
 const profileColumns = `
@@ -29,7 +34,12 @@ const profileColumns = `
   status,
   push_enabled_new_vendor,
   push_enabled_expiring_deal,
-  push_enabled_local_event
+  push_enabled_local_event,
+  promo_email_opt_in,
+  promo_sms_opt_in,
+  terms_accepted_at,
+  privacy_accepted_at,
+  eula_accepted_at
 `;
 
 function buildPushPreferences(row: Pick<ProfileRow, 'push_enabled_new_vendor' | 'push_enabled_expiring_deal' | 'push_enabled_local_event'>): PushPreferences {
@@ -51,6 +61,11 @@ function mapProfileRow(row: ProfileRow): UserProfile {
     city: row.city,
     status: row.status as UserProfile['status'],
     pushPreferences: buildPushPreferences(row),
+    promoEmailOptIn: row.promo_email_opt_in,
+    promoSmsOptIn: row.promo_sms_opt_in,
+    termsAcceptedAt: row.terms_accepted_at,
+    privacyAcceptedAt: row.privacy_accepted_at,
+    eulaAcceptedAt: row.eula_accepted_at,
   };
 }
 
@@ -122,6 +137,8 @@ export async function registerUserRoutes(fastify: FastifyInstance): Promise<void
         .object({
           city: z.string().trim().min(1).optional(),
           pushPreferences: pushPreferencesSchema.optional(),
+          promoEmailOptIn: z.boolean().optional(),
+          promoSmsOptIn: z.boolean().optional(),
         })
         .parse(request.body);
       const userId = request.user!.sub;
@@ -131,10 +148,20 @@ export async function registerUserRoutes(fastify: FastifyInstance): Promise<void
              push_enabled_new_vendor = COALESCE($3, push_enabled_new_vendor),
              push_enabled_expiring_deal = COALESCE($4, push_enabled_expiring_deal),
              push_enabled_local_event = COALESCE($5, push_enabled_local_event),
+             promo_email_opt_in = COALESCE($6, promo_email_opt_in),
+             promo_sms_opt_in = COALESCE($7, promo_sms_opt_in),
              updated_at = now()
          WHERE id = $1
          RETURNING ${profileColumns}`,
-        [userId, body.city ?? null, body.pushPreferences?.newVendor ?? null, body.pushPreferences?.expiringDeal ?? null, body.pushPreferences?.localEvent ?? null],
+        [
+          userId,
+          body.city ?? null,
+          body.pushPreferences?.newVendor ?? null,
+          body.pushPreferences?.expiringDeal ?? null,
+          body.pushPreferences?.localEvent ?? null,
+          body.promoEmailOptIn ?? null,
+          body.promoSmsOptIn ?? null,
+        ],
       );
       const user = rows[0];
       if (!user) return reply.code(404).send({ error: 'User not found' });

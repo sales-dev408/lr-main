@@ -19,7 +19,6 @@ const TAB_GLYPHS: Record<string, string> = {
   browse: '◆',
   events: '★',
   discover: '✦',
-  scan: '◎',
   mypass: '❖',
   tickets: '♦',
   profile: '●',

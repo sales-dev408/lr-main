@@ -3,6 +3,7 @@ import type { AppliedDiscount, CityOverrideMap, DiscountType, LookupDiscountView
 export interface DiscountLike {
   type: DiscountType;
   value: number | string;
+  description?: string | null;
   minPurchase?: number | string;
   cityOverrides?: CityOverrideMap | null;
 }
@@ -88,6 +89,7 @@ export function computeDiscountAmount(input: {
 export function toAppliedDiscount(input: {
   type: DiscountType;
   value: number;
+  description?: string | null;
   purchaseAmount?: number | null;
 }): AppliedDiscount {
   const result = computeDiscountAmount(input);
@@ -95,11 +97,12 @@ export function toAppliedDiscount(input: {
     type: input.type,
     value: input.value,
     description:
-      input.type === 'bogo'
+      input.description?.trim() ||
+      (input.type === 'bogo'
         ? 'Buy one, get one offer'
         : input.type === 'percent'
           ? `${input.value}% off`
-          : `$${input.value.toFixed(2)} off`,
+          : `$${input.value.toFixed(2)} off`),
   };
   if (result.instruction) {
     applied.instruction = result.instruction;
@@ -117,6 +120,7 @@ export function buildLookupDiscountView<T extends DiscountLike & { id: string; c
   const applied = toAppliedDiscount({
     type: adjusted.type,
     value: numericValue,
+    description: adjusted.description ?? null,
   });
 
   return {
@@ -124,6 +128,7 @@ export function buildLookupDiscountView<T extends DiscountLike & { id: string; c
     value: numericValue,
     minPurchase: numericMinPurchase,
     cityOverrides: adjusted.cityOverrides ?? {},
+    description: adjusted.description ?? null,
     applied,
   };
 }

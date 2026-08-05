@@ -254,6 +254,8 @@ export async function createAdminVendor(body: {
   longitude?: number;
   discountType: 'fixed' | 'percent' | 'bogo';
   discountValue: number;
+  discountDescription?: string | null;
+  discountTerms?: string | null;
   discountStartsAt?: string | null;
   discountEndsAt?: string | null;
   boosted?: boolean;
@@ -277,6 +279,8 @@ export async function updateAdminVendor(
     status?: string;
     discountType?: 'fixed' | 'percent' | 'bogo';
     discountValue?: number;
+    discountDescription?: string | null;
+    discountTerms?: string | null;
     discountStartsAt?: string | null;
     discountEndsAt?: string | null;
     boosted?: boolean;
@@ -421,6 +425,10 @@ export async function updateContent(
 
 export async function deleteContent(id: string): Promise<{ deleted: boolean }> {
   return apiRequest(`/admin/content/${id}`, { method: 'DELETE' });
+}
+
+export async function sendMarketingBlast(body: { subject: string; text: string; html?: string; smsText?: string }): Promise<{ emails: number; sms: number; errors: string[] }> {
+  return apiRequest('/admin/marketing/blast', { method: 'POST', body: jsonBody(body) });
 }
 
 // ---- Theme ---------------------------------------------------------------

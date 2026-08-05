@@ -233,6 +233,10 @@ export default function BrowseScreen() {
               {formatTimeRemaining(selected.endsAt) ? <Pill tone="neutral">{formatTimeRemaining(selected.endsAt)}</Pill> : null}
             </View>
             {selected.address ? <Text style={{ color: colors.muted }}>{selected.address}</Text> : null}
+            {selected.discountDescription ? (
+              <Text style={{ color: colors.ink, fontSize: 14, lineHeight: 20 }}>{selected.discountDescription}</Text>
+            ) : null}
+            <Text style={{ color: colors.muted, fontSize: 8, lineHeight: 12 }}>{selected.discountTerms}</Text>
 
             {selected.address ? (
               <AppButton
@@ -253,8 +257,8 @@ export default function BrowseScreen() {
             <AppButton variant="secondary" onPress={() => void shareDeal(selected)}>
               Share this deal
             </AppButton>
-            <Link href="/(tabs)/scan" asChild>
-              <AppButton>Scan this vendor&apos;s discount code</AppButton>
+            <Link href={`/discount?vendorId=${encodeURIComponent(selected.id)}`} asChild>
+              <AppButton>Show discount QR</AppButton>
             </Link>
           </Card>
         ) : null}

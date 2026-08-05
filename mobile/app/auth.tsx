@@ -1,14 +1,47 @@
-import { useMemo, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import React, { useMemo, useState, type ReactNode } from 'react';
+import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { AppButton, Banner, Card, FieldInput, Screen, SectionTitle } from '@/components/Ui';
 import { useAuth } from '@/lib/auth';
 import { useThemeColors } from '@/lib/useThemeColors';
+import { EULA_URL, PRIVACY_URL, TERMS_URL } from '@/lib/theme';
 
 type Mode = 'login' | 'register';
 
 function isEmail(value: string) {
   return value.includes('@');
+}
+
+function CheckRow({ checked, onToggle, label }: { checked: boolean; onToggle: () => void; label: ReactNode }) {
+  const colors = useThemeColors();
+  return (
+    <Pressable onPress={onToggle} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 }}>
+      <View
+        style={{
+          width: 22,
+          height: 22,
+          borderRadius: 4,
+          borderWidth: 2,
+          borderColor: colors.brand,
+          backgroundColor: checked ? colors.brand : 'transparent',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {checked ? <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>✓</Text> : null}
+      </View>
+      <Text style={{ flex: 1, color: colors.ink, fontSize: 14, lineHeight: 20 }}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function LinkText({ url, children }: { url: string; children: ReactNode }) {
+  const colors = useThemeColors();
+  return (
+    <Text onPress={() => void Linking.openURL(url)} style={{ color: colors.brand, textDecorationLine: 'underline' }}>
+      {children}
+    </Text>
+  );
 }
 
 export default function AuthScreen() {
@@ -24,6 +57,11 @@ export default function AuthScreen() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [promoEmailOptIn, setPromoEmailOptIn] = useState(false);
+  const [promoSmsOptIn, setPromoSmsOptIn] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [eulaAccepted, setEulaAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -38,6 +76,11 @@ export default function AuthScreen() {
     setPhone('');
     setPassword('');
     setConfirmPassword('');
+    setPromoEmailOptIn(false);
+    setPromoSmsOptIn(false);
+    setTermsAccepted(false);
+    setPrivacyAccepted(false);
+    setEulaAccepted(false);
   }
 
   function toggleMode() {
@@ -66,6 +109,10 @@ export default function AuthScreen() {
         setError('Passwords do not match.');
         return;
       }
+      if (!termsAccepted || !privacyAccepted || !eulaAccepted) {
+        setError('You must accept the Terms of Use, Privacy Policy, and EULA to register.');
+        return;
+      }
     } else {
       if (!identifier.trim()) {
         setError('Email or phone is required to sign in.');
@@ -86,6 +133,11 @@ export default function AuthScreen() {
           email: email.trim() || undefined,
           phone: phone.trim() || undefined,
           password,
+          promoEmailOptIn,
+          promoSmsOptIn,
+          termsAccepted,
+          privacyAccepted,
+          eulaAccepted,
         });
       } else {
         const trimmed = identifier.trim();
@@ -163,15 +215,42 @@ export default function AuthScreen() {
           />
 
           {mode === 'register' ? (
-            <FieldInput
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              placeholder="Confirm password"
-              autoCapitalize="none"
-              secureTextEntry
-              textContentType="newPassword"
-              accessibilityLabel="Confirm password"
-            />
+            <>
+              <FieldInput
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder="Confirm password"
+                autoCapitalize="none"
+                secureTextEntry
+                textContentType="newPassword"
+                accessibilityLabel="Confirm password"
+              />
+              <CheckRow
+                checked={promoEmailOptIn}
+                onToggle={() => setPromoEmailOptIn((v) => !v)}
+                label="Opt in to promotional emails and the Deal of the Day email blast."
+              />
+              <CheckRow
+                checked={promoSmsOptIn}
+                onToggle={() => setPromoSmsOptIn((v) => !v)}
+                label="Opt in to promotional text messages."
+              />
+              <CheckRow
+                checked={termsAccepted}
+                onToggle={() => setTermsAccepted((v) => !v)}
+                label={<>I accept the <LinkText url={TERMS_URL}>Terms of Use</LinkText>.</>}
+              />
+              <CheckRow
+                checked={privacyAccepted}
+                onToggle={() => setPrivacyAccepted((v) => !v)}
+                label={<>I accept the <LinkText url={PRIVACY_URL}>Privacy Policy</LinkText>.</>}
+              />
+              <CheckRow
+                checked={eulaAccepted}
+                onToggle={() => setEulaAccepted((v) => !v)}
+                label={<>I accept the <LinkText url={EULA_URL}>End User License Agreement</LinkText>.</>}
+              />
+            </>
           ) : null}
 
           <View style={{ gap: 12, alignItems: 'center', width: '100%' }}>
