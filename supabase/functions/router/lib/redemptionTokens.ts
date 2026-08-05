@@ -1,7 +1,7 @@
 import type { PoolClient } from './db.ts';
 import { withDbClient } from './db.ts';
 import { generateOpaqueToken } from './ids.ts';
-import { redeemDiscount } from './redeem.ts';
+import { redeemDiscountWithClient } from './redeem.ts';
 import { toAppliedDiscount, humanDiscountLabel } from './discounts.ts';
 import { config } from './config.ts';
 import type { RedeemResult } from './types.ts';
@@ -28,7 +28,7 @@ export interface RedeemTokenResult {
   error?: string;
 }
 
-export async function createRedemptionToken(client: PoolClient, userId: string, vendorId: string): Promise<RedemptionTokenPayload> {
+export async function createRedemptionToken(client: PoolClient, userId: string, vendorId: string, baseUrl?: string): Promise<RedemptionTokenPayload> {
   const membership = await client.query<{ id: string; name: string }>(
     'SELECT id, name FROM cards WHERE is_membership = true AND status = $1 LIMIT 1',
     ['active'],
@@ -76,7 +76,8 @@ export async function createRedemptionToken(client: PoolClient, userId: string, 
         ? `${numericValue}% off`
         : `$${numericValue.toFixed(2)} off`);
 
-  const base = config.redeemBaseUrl || config.publicApiBaseUrl || '';
+  const rawBase = config.redeemBaseUrl || config.publicApiBaseUrl || baseUrl || '';
+  const base = rawBase.replace(/\/$/, '');
   const url = `${base.replace(/\/$/, '')}/redeem/${token}`;
 
   const computed = toAppliedDiscount({ type: discount.type, value: numericValue, description: discount.description });
@@ -125,7 +126,7 @@ export async function redeemByToken(token: string, ip?: string | null): Promise<
         return { ok: false, error: 'This redemption code has expired or already been used' };
       }
 
-      const result = await redeemDiscount({
+      const result = await redeemDiscountWithClient(client, {
         userId: row.user_id,
         cardId: row.card_id,
         vendorId: row.vendor_id,
@@ -191,7 +192,7 @@ export async function affirmRedemptionToken(token: string, userId: string, affir
         return { ok: false, error: 'This redemption code has expired or already been used' };
       }
 
-      const result = await redeemDiscount({
+      const result = await redeemDiscountWithClient(client, {
         userId: row.user_id,
         cardId: row.card_id,
         vendorId: row.vendor_id,

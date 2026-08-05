@@ -12,6 +12,8 @@ export interface VendorWelcomeEmailInput {
 export interface BlastRecipient {
   email: string | null;
   phone: string | null;
+  promoEmailOptIn?: boolean;
+  promoSmsOptIn?: boolean;
 }
 
 export interface DealOfTheDayBlastInput {
@@ -136,7 +138,7 @@ export async function sendDealOfTheDayBlast(input: DealOfTheDayBlastInput): Prom
   let emails = 0;
   let sms = 0;
 
-  const emailRecipients = input.recipients.filter((r) => r.email && r.email.includes('@'));
+  const emailRecipients = input.recipients.filter((r) => r.promoEmailOptIn && r.email && r.email.includes('@'));
   if (emailRecipients.length > 0) {
     try {
       emails = await sendEmailBatch(input.subject, input.text, input.html, emailRecipients.map((r) => r.email!));
@@ -146,7 +148,7 @@ export async function sendDealOfTheDayBlast(input: DealOfTheDayBlastInput): Prom
   }
 
   if (input.smsText) {
-    const phoneRecipients = input.recipients.filter((r) => r.phone && normalizePhone(r.phone));
+    const phoneRecipients = input.recipients.filter((r) => r.promoSmsOptIn && r.phone && normalizePhone(r.phone));
     for (const recipient of phoneRecipients) {
       try {
         await sendSms(input.smsText, recipient.phone!);
