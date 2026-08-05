@@ -1596,7 +1596,8 @@ Deno.serve(async (request) => {
       const auth = requireRole(request, ['customer']);
       if (auth instanceof Response) return auth;
       const body = z.object({ vendorId: z.string().uuid() }).parse(await readJsonBody(request, {}));
-      const payload = await withDbClient((client) => createRedemptionToken(client, auth.sub, body.vendorId));
+      const fallbackBase = `${url.origin}/functions/v1/router`;
+      const payload = await withDbClient((client) => createRedemptionToken(client, auth.sub, body.vendorId, fallbackBase));
       return json(request, payload);
     }
     if (/^\/api\/discounts\/tokens\/[^/]+\/affirm$/.test(path) && request.method === 'POST') {
@@ -1632,14 +1633,19 @@ Deno.serve(async (request) => {
         html: z.string().optional(),
         smsText: z.string().optional(),
       }).parse(await readJsonBody(request, {}));
-      const recipients = await dbQuery<{ email: string | null; phone: string | null }>(
-        `SELECT email::text AS email, phone
+      const recipients = await dbQuery<{ email: string | null; phone: string | null; promo_email_opt_in: boolean; promo_sms_opt_in: boolean }>(
+        `SELECT email::text AS email, phone, promo_email_opt_in, promo_sms_opt_in
          FROM users
          WHERE status = 'active' AND (promo_email_opt_in = true OR promo_sms_opt_in = true)`,
       );
       const result = await sendDealOfTheDayBlast({
         ...body,
-        recipients: recipients.map((r) => ({ email: r.email, phone: r.phone })),
+        recipients: recipients.map((r) => ({
+          email: r.email,
+          phone: r.phone,
+          promoEmailOptIn: r.promo_email_opt_in,
+          promoSmsOptIn: r.promo_sms_opt_in,
+        })),
       });
       return json(request, result);
     }

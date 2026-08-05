@@ -385,8 +385,8 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
       smsText: z.string().optional(),
     }).parse(request.body);
 
-    const recipients = await dbQuery<{ email: string | null; phone: string | null }>(
-      `SELECT email, phone
+    const recipients = await dbQuery<{ email: string | null; phone: string | null; promo_email_opt_in: boolean; promo_sms_opt_in: boolean }>(
+      `SELECT email, phone, promo_email_opt_in, promo_sms_opt_in
        FROM users
        WHERE (promo_email_opt_in = true AND email IS NOT NULL AND email <> '')
           OR (promo_sms_opt_in = true AND phone IS NOT NULL AND phone <> '')`,
@@ -401,7 +401,12 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
       text: body.text,
       html: body.html,
       smsText: body.smsText,
-      recipients,
+      recipients: recipients.map((r) => ({
+        email: r.email,
+        phone: r.phone,
+        promoEmailOptIn: r.promo_email_opt_in,
+        promoSmsOptIn: r.promo_sms_opt_in,
+      })),
     });
 
     await writeTransactionAudit({

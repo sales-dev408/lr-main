@@ -219,16 +219,16 @@ export async function fetchPublicEvents(): Promise<RssEvent[]> {
 }
 
 export async function registerEventsRoutes(fastify: FastifyInstance): Promise<void> {
-  // lgtm[js/missing-rate-limit]
+  // lgtm[js/missing-rate-limiting]
   fastify.get('/api/events', { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async () => fetchPublicEvents());
 
-  // lgtm[js/missing-rate-limit]
+  // lgtm[js/missing-rate-limiting]
   fastify.get('/api/admin/events', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async () => ({
     urls: await getEventsRssUrls(),
     events: await listAdminEvents(),
   }));
 
-  // lgtm[js/missing-rate-limit]
+  // lgtm[js/missing-rate-limiting]
   fastify.patch(
     '/api/admin/events',
     { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },

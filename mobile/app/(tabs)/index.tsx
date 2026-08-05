@@ -107,8 +107,8 @@ export default function HomeScreen() {
               </Link>
             </View>
             <View style={{ width: '48%', minWidth: 140 }}>
-              <Link href="/(tabs)/scan" asChild>
-                <AppButton>Scan code</AppButton>
+              <Link href="/(tabs)/tickets" asChild>
+                <AppButton>Event tickets</AppButton>
               </Link>
             </View>
           </View>
