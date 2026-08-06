@@ -42,11 +42,11 @@ Status legend: [ ] Untested / Pending | [x] Tested / Pass | [!] Issue found | [N
 - [x] Onboarding
   - Mobile registration flow succeeded and redirected to the tabbed home screen.
 - [!] Login/Signup
-  - Email/password auth works. Backend supports `/api/auth/social` (Google), but no Sign in with Apple option is present. **If third-party social login is surfaced in the iOS app, App Store guidelines require Sign in with Apple.**
+  - Email/password and forgot-password-via-phone flows work. Backend supports `/api/auth/social` (Google), but no Sign in with Apple option is present. **If third-party social login is surfaced in the iOS app, App Store guidelines require Sign in with Apple.**
 - [x] UI/UX Compliance
   - Web layouts render correctly; tab bar labels verified; native iOS Dynamic Type not exercised.
-- [N/A] Offline Behavior
-  - Not tested in this run.
+- [x] Offline Behavior
+  - Mobile `lib/cache.ts` caches read-heavy API responses (theme, content, ads, vendors, cards, events, profile/pass) in `AsyncStorage` / `SecureStore` with TTL and stale-while-revalidate fallback, so the app loads previously fetched data when the network is unavailable.
 - [x] Web Views
   - Sponsor ads open external links via `Linking.openURL`; no unrestricted in-app browser.
 
@@ -88,5 +88,8 @@ Status legend: [ ] Untested / Pending | [x] Tested / Pass | [!] Issue found | [N
   - Ad placeholders are limited to 3 slots and managed via new `/api/admin/ads` routes.
   - The `Live Trains` tab is now labeled `Train Schedule` and includes a disclaimer about schedule accuracy.
   - Admin vendors list now supports CSV export.
+  - Mobile app caches read-heavy data locally (`AsyncStorage`/`SecureStore`) to reduce backend pressure and improve offline behavior.
+  - Ad placeholders have been expanded from 3 to 5 slots and are spread across Home, Browse, Discover, My Pass, and Profile.
+  - A "Forgot password?" flow has been added to the mobile sign-in screen; reset codes are sent to the user's registered phone number. Production should deliver codes via SMS; the dev implementation returns the code in the response for testing.
 - [N/A] Contact Information
   - Not verified.

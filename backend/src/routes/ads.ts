@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { dbQuery } from '../db/pool.js';
 
 const adSchema = z.object({
-  slot: z.number().int().min(1).max(3),
+  slot: z.number().int().min(1).max(5),
   image_url: z.string().min(1),
   link_url: z.string().optional(),
   active: z.boolean().default(true),

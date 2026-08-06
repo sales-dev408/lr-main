@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import { dbQuery, withDbClient } from '../db/pool.js';
 import { verifyCaptcha } from '../services/captcha.js';
 import { signJwt } from '../services/jwt.js';
@@ -30,6 +31,16 @@ const customerLoginSchema = z
     captchaToken: z.string().optional(),
   })
   .refine((data) => Boolean(data.email || data.phone), { message: 'Email or phone is required', path: ['email'] });
+
+const forgotPasswordSchema = z.object({
+  phone: z.string().min(7),
+});
+
+const resetPasswordSchema = z.object({
+  phone: z.string().min(7),
+  code: z.string().length(6),
+  password: z.string().min(8),
+});
 
 const socialSchema = z.object({
   provider: z.string().min(1),
@@ -228,6 +239,61 @@ export async function registerAuthRoutes(fastify: FastifyInstance): Promise<void
     const profile = await buildCustomerProfile(user.id);
     const token = await issueProfileToken('customer', user.id, user.email);
     return reply.send({ token, expiresIn: '365d', profile });
+  });
+
+  fastify.post('/api/auth/forgot-password', { config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }, async (request, reply) => {
+    const body = forgotPasswordSchema.parse(request.body);
+    const phone = normalizePhone(body.phone);
+    if (!phone) {
+      return reply.code(400).send({ error: 'Invalid phone number' });
+    }
+
+    const userRows = await dbQuery<{ id: string }>(
+      `SELECT id FROM users WHERE phone = $1 AND status = 'active' LIMIT 1`,
+      [phone],
+    );
+
+    if (userRows.length === 0) {
+      return reply.send({ message: 'If an account exists with this phone number, a verification code has been sent.' });
+    }
+
+    const code = String(crypto.randomInt(100000, 999999));
+    const codeHash = await bcrypt.hash(code, 10);
+
+    await dbQuery(
+      `UPDATE users SET password_reset_code_hash = $1, password_reset_expires_at = now() + interval '15 minutes' WHERE id = $2`,
+      [codeHash, userRows[0]!.id],
+    );
+
+    // In production this code must be sent by SMS. It is returned here only for
+    // local/dev testing where no SMS provider is configured.
+    return reply.send({ message: 'If an account exists with this phone number, a verification code has been sent.', verificationCode: code });
+  });
+
+  fastify.post('/api/auth/reset-password', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
+    const body = resetPasswordSchema.parse(request.body);
+    const phone = normalizePhone(body.phone);
+    if (!phone) {
+      return reply.code(400).send({ error: 'Invalid phone number' });
+    }
+
+    const rows = await dbQuery<{ id: string; password_reset_code_hash: string | null }>(
+      `SELECT id, password_reset_code_hash FROM users WHERE phone = $1 AND status = 'active' AND password_reset_expires_at > now() LIMIT 1`,
+      [phone],
+    );
+
+    const user = rows[0];
+    if (!user || !user.password_reset_code_hash || !(await bcrypt.compare(body.code, user.password_reset_code_hash))) {
+      return reply.code(400).send({ error: 'Invalid or expired verification code.' });
+    }
+
+    const passwordHash = await bcrypt.hash(body.password, 10);
+    await dbQuery(
+      `UPDATE users SET password_hash = $1, password_reset_code_hash = NULL, password_reset_expires_at = NULL WHERE id = $2`,
+      [passwordHash, user.id],
+    );
+
+    return reply.send({ success: true });
   });
 
   fastify.post('/api/auth/social', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {

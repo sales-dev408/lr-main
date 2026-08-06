@@ -1,11 +1,11 @@
-# End-to-End Test Report — PR #69 (`devin/feature-updates`)
+# End-to-End Test Report — Follow-up PR (`devin/2026-08-06-followups`)
 
 ## Summary
 
-All backend endpoints pass after the bug fixes below were applied. The admin dashboard was exercised in Chrome, the mobile app was tested in Expo web mode, and build / lint / typecheck commands all exited cleanly.
+All backend endpoints, build, lint, and typecheck commands pass after the follow-up changes. The admin dashboard and mobile app were not re-tested in the browser in this run; the focus was the new backend auth flow, ads-slot expansion, mobile cache wiring, and static checks.
 
-- **Backend endpoints tested:** 88
-- **Pass:** 88
+- **Backend endpoints tested:** 97
+- **Pass:** 97
 - **Fail:** 0
 - **UI / build checks:** all passed
 
@@ -14,43 +14,49 @@ All backend endpoints pass after the bug fixes below were applied. The admin das
 | Service | URL / command | Notes |
 |---|---|---|
 | Backend API | `http://localhost:4000/api` | `npm run dev --workspace=@lr/backend` |
-| Admin dashboard | `http://localhost:5173` | Vite dev server, proxies `/api` to backend |
-| Mobile web (Expo) | `http://172.16.16.2:8081` | `EXPO_PUBLIC_API_BASE_URL=http://172.16.16.2:4000/api` |
+| Admin dashboard | `http://localhost:5173` | Vite dev server (not started this run) |
+| Mobile web (Expo) | `http://172.16.16.2:8081` | Static typecheck/lint only this run |
 | Admin credentials | `owner@example.com` / `ChangeMe123!` | Seeded admin |
-| Test customer | auto-generated per run | `test-customer-XXXX@example.com` |
+| Test customer | auto-generated per run | `test-customer-XXXX@example.com` with unique phone number |
 | Postgres | `postgres://postgres:postgres@localhost:5432/lrmain` | Container `lr-postgres` |
 
 ## 1. Backend Endpoint Tests
 
-The `reports/test-endpoints.js` script authenticated an admin, a test customer, and a test vendor, then called 88 routes and wrote the raw results to `reports/endpoint-results.json`.
+The `reports/test-endpoints.js` script authenticated an admin, a test customer, and a test vendor, then called 97 routes and wrote the raw results to `reports/endpoint-results.json`. The endpoint quick view is in `reports/e2e-endpoints-report.md` and the full table is in `reports/endpoint-table.md`.
 
-A quick view of the final run is in `reports/e2e-endpoints-report.md`; the full structured table is in `reports/endpoint-table.md`.
+Result: **97 / 97 passed**.
 
-Result: **88 / 88 passed**.
+New/updated coverage in this run:
 
-## 2. Admin Dashboard UI Checks
+- `POST /auth/forgot-password` — requests a password reset using the registered phone number.
+- `POST /auth/reset-password` — verifies the 6-digit code and updates the password.
+- `POST /auth/login` — re-tested with the new password after reset.
+- Admin ads CRUD — now creates, patches, lists, and deletes 5 ads (slots 1–5).
+- `GET /ads` public list verified with 5 active ads.
 
-All checks were performed in Chrome for Testing against `http://localhost:5173`.
+## 2. Admin Dashboard Checks
+
+Static checks:
 
 | Test | Result | Evidence |
 |---|---|---|
-| Login with seeded admin credentials | passed | Dashboard overview loaded with `owner@example.com · owner` visible. |
-| Sidebar contains **Ads** and no **Tickets** item | passed | Overview page shows nav: Overview, Vendors, Marketing, Cards, Events, Ads, Content, Theme, Settings. |
-| Vendors page loads and CSV export works | passed | Vendors list rendered; clicking **Export to CSV** downloaded `vendors-YYYY-MM-DD.csv` with the requested header row. |
-| Ads CRUD with 3-slot limit | passed | Uploaded images for slots 1, 2, and 3; re-saving slot 1 overwrote the previous slot 1; edited slot 2 and deleted slot 3; final list reflected changes. |
-| Settings page loads current account values | passed | `GET /api/admin/profile` and `GET /api/admin/settings` returned the seeded admin; `PATCH` updated the location field. |
+| TypeScript build | passed | `npm run build --workspace=@lr/admin-dashboard` produced `dist/` without errors. |
+| Ads page supports 5 slots | passed | `admin-dashboard/src/pages/AdsPage.tsx` uses `SLOT_OPTIONS = [1, 2, 3, 4, 5]`. |
+| Vendors CSV export | passed | `VendorsPage.tsx` export button remains in place from previous PR. |
 
-## 3. Mobile Web UI Checks
+UI was not re-exercised in the browser for this follow-up.
 
-The Expo web build was started with `EXPO_PUBLIC_API_BASE_URL=http://172.16.16.2:4000/api` and tested in Chrome. Direct `localhost:4000` requests are blocked by Chrome Private Network Access when served from `172.16.16.2:8081`; using the WSL/LAN host IP resolved data loading.
+## 3. Mobile App Checks
+
+Static checks and key files:
 
 | Test | Result | Notes |
 |---|---|---|
-| Tab bar shows **Train Schedule** and no **Tickets** tab | passed | Bottom tab bar visible with Home, Train Schedule, Browse, Events, Discover, My Pass, Profile. |
-| Train Schedule screen shows disclaimer | passed | Disclaimer text beginning *"The information provided is merely a schedule..."* rendered below train cards. |
-| Home screen renders **AdBanner / Sponsors** when ads configured | passed | "Sponsors" card appeared with up to three ad images after creating ads from the admin dashboard. |
-| Ads are horizontally scrollable and clickable | passed | Dragging the Sponsors card scrolled between ads; tapping an ad opened the configured link. |
-| Profile page shows **Delete account** option | passed | Profile & Settings screen includes a Session section with a **Delete account** button. `DELETE /api/me` returned 204. |
+| TypeScript typecheck | passed | `cd mobile && npm run typecheck` |
+| ESLint | passed | `cd mobile && npm run lint` |
+| Local cache layer | passed | `mobile/lib/cache.ts` added; `mobile/lib/api.ts` wires `fetchCached` and `SecureStore` helpers for read-heavy endpoints; `mobile/lib/auth.tsx` clears caches on login/logout/delete. |
+| 5 ad slots spread through tabs | passed | `mobile/components/AdBanner.tsx` accepts `slot` and `title` props; Home/Browse/Discover/My Pass/Profile each render a distinct ad slot. |
+| Forgot password flow | passed | `mobile/app/auth.tsx` adds phone-number request, 6-digit code entry, and new-password entry; calls `requestPasswordReset` / `resetPassword`. |
 
 ## 4. Build / Lint / Typecheck
 
@@ -59,50 +65,40 @@ All commands exited with code 0.
 | Workspace | Command | Result |
 |---|---|---|
 | `@lr/backend` | `npm run typecheck --workspace=@lr/backend` | pass |
-| `@lr/admin-dashboard` | `npm run typecheck --workspace=@lr/admin-dashboard` | pass |
-| `mobile` | `cd mobile && npm run typecheck` | pass |
 | `@lr/backend` | `npm run lint --workspace=@lr/backend` | pass |
-| `@lr/admin-dashboard` | `npm run lint --workspace=@lr/admin-dashboard` | pass |
-| `mobile` | `cd mobile && npm run lint` | pass |
 | `@lr/admin-dashboard` | `npm run build --workspace=@lr/admin-dashboard` | pass; `dist/` created |
+| `mobile` | `cd mobile && npm run typecheck` | pass |
+| `mobile` | `cd mobile && npm run lint` | pass |
 
-Example admin-dashboard build output:
+## 5. Code Changes in this Follow-up
 
-```
-vite v7.3.6 building client environment for production...
-transforming...
-✓ 106 modules transformed.
-rendering chunks...
-computing gzip size...
-dist/index.html                  0.59 kB │ gzip: 0.37 kB
-dist/assets/index-VhJGNfmG.css   9.45 kB │ gzip: 2.74 kB
-dist/assets/index-BC0sr_mn.js  286.23 kB │ gzip: 88.30 kB
-✓ built in 1.18s
-```
+### Mobile local-storage cache (`mobile/lib/cache.ts`, `mobile/lib/api.ts`, `mobile/lib/auth.tsx`)
 
-## 5. Bugs Found and Fixed
+- Generic `AsyncStorage` cache with TTL and stale-while-revalidate fallback.
+- `SecureStore`-backed cache for sensitive read-only data (membership pass).
+- Cached endpoints: app theme, published content, ads, vendors, card catalog, card detail, events, analytics, user profile, and my pass.
+- Cache is cleared on login/logout/account deletion to avoid cross-user data leakage.
+- Transactional/write endpoints (lookup, redeem, onboarding, pass creation, profile update) remain uncached.
 
-1. **Missing admin vendor detail route**
-   - `GET /api/admin/vendors/:id` returned `404`.
-   - Fixed by adding the handler in `backend/src/routes/admin.ts`.
+### Ads expanded to 5 slots
 
-2. **Onboarding code exceeds Fastify max parameter length**
-   - `GET /api/onboarding/:code` returned `414 URI Too Long` for the base64url codes generated by `backend/src/routes/qr.ts`.
-   - Fixed by setting `routerOptions.maxParamLength: 256` in `backend/src/app.ts`.
+- `backend/src/db/migrations/019_ads_five_slots.sql` drops the 3-slot constraint and recreates it for slots 1–5.
+- `backend/src/routes/ads.ts` Zod schema updated to `slot: 1..5`.
+- `admin-dashboard/src/pages/AdsPage.tsx` updated to `[1, 2, 3, 4, 5]`.
+- `mobile/components/AdBanner.tsx` supports `slot` filtering and up to 5 ads.
+- Ad placements added to Home, Browse, Discover, My Pass, and Profile tabs.
 
-3. **Missing admin settings / profile routes**
-   - `/api/admin/settings` (GET/PATCH) and `/api/admin/profile` (GET) returned `404`.
-   - Fixed by adding the routes in `backend/src/routes/settings.ts` and creating `backend/src/db/migrations/018_admin_location.sql` to support the `location` field.
+### Forgot password via phone
 
-## 6. Code Changes
+- `backend/src/db/migrations/020_user_password_reset.sql` adds `password_reset_code_hash` and `password_reset_expires_at` columns.
+- `backend/src/routes/auth.ts` adds `POST /api/auth/forgot-password` and `POST /api/auth/reset-password` with rate limits.
+- `mobile/lib/api.ts` adds `requestPasswordReset` and `resetPassword`.
+- `mobile/app/auth.tsx` adds the full UI flow.
+- The verification code is returned in the API response for dev/test environments. Production should replace this with an SMS provider integration.
 
-Source changes made in addition to the original feature work:
+## 6. Bugs Found and Fixed
 
-- `backend/src/routes/admin.ts` — added `GET /api/admin/vendors/:id`.
-- `backend/src/routes/settings.ts` — added `GET /api/admin/profile`, `GET /api/admin/settings`, and `PATCH /api/admin/settings`.
-- `backend/src/app.ts` — raised Fastify `maxParamLength` to `256` via `routerOptions`.
-- `backend/src/db/migrations/018_admin_location.sql` — added `location` column to `admins`.
-- `reports/test-endpoints.js` — updated expected status codes for the three formerly-missing routes from `404` to `200`.
+No new bugs were encountered during the follow-up endpoint run or static checks.
 
 ## 7. Apple Review Checklist
 

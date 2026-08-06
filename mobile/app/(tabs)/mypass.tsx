@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Image, ImageBackground, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { Link, useFocusEffect } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, Screen, SectionTitle, Spinner } from '@/components/Ui';
+import { AdBanner } from '@/components/AdBanner';
 import { getCard, getMyPass } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { barcodeUrl } from '@/lib/qr';
@@ -79,6 +80,8 @@ export default function MyPassScreen() {
     <Screen>
       <ScrollView contentContainerStyle={{ gap: 14, paddingBottom: 24 }}>
         <BrandHeader subtitle="My membership pass" />
+
+        <AdBanner slot={4} />
 
         {!token ? (
           <Card>

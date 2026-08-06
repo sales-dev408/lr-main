@@ -3,11 +3,13 @@ import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { AppButton, Banner, Card, FieldInput, Screen, SectionTitle } from '@/components/Ui';
 import { useAuth } from '@/lib/auth';
+import { requestPasswordReset, resetPassword } from '@/lib/api';
 import { useThemeColors } from '@/lib/useThemeColors';
 import { useDynamicType } from '@/lib/dynamicType';
 import { EULA_URL, PRIVACY_URL, TERMS_URL } from '@/lib/theme';
 
-type Mode = 'login' | 'register';
+type Mode = 'login' | 'register' | 'forgot';
+type ForgotStep = 'request' | 'reset';
 
 function isEmail(value: string) {
   return value.includes('@');
@@ -57,40 +59,106 @@ export default function AuthScreen() {
   const auth = useAuth();
   const { effectiveScale } = useDynamicType();
   const [mode, setMode] = useState<Mode>(params.mode === 'register' ? 'register' : 'login');
+  const [forgotStep, setForgotStep] = useState<ForgotStep>('request');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [identifier, setIdentifier] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [forgotPhone, setForgotPhone] = useState('');
+  const [forgotCode, setForgotCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [promoOptIn, setPromoOptIn] = useState(false);
   const [legalOptIn, setLegalOptIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const submitLabel = useMemo(() => (mode === 'login' ? 'Sign In' : 'Create account'), [mode]);
+  const submitLabel = useMemo(() => {
+    if (mode === 'forgot') {
+      return forgotStep === 'request' ? 'Send code' : 'Update password';
+    }
+    return mode === 'login' ? 'Sign In' : 'Create account';
+  }, [mode, forgotStep]);
 
   function resetForm() {
     setError(null);
+    setSuccess(null);
     setFirstName('');
     setLastName('');
     setIdentifier('');
     setEmail('');
     setPhone('');
+    setForgotPhone('');
+    setForgotCode('');
+    setNewPassword('');
+    setConfirmNewPassword('');
     setPassword('');
     setConfirmPassword('');
     setPromoOptIn(false);
     setLegalOptIn(false);
   }
 
-  function toggleMode() {
-    setMode(mode === 'login' ? 'register' : 'login');
+  function switchMode(next: Mode) {
+    setMode(next);
+    setForgotStep('request');
     resetForm();
   }
 
   async function submit() {
     setError(null);
+    setSuccess(null);
+
+    if (mode === 'forgot') {
+      if (forgotStep === 'request') {
+        if (!forgotPhone.trim()) {
+          setError('Phone number is required.');
+          return;
+        }
+        setLoading(true);
+        try {
+          const result = await requestPasswordReset(forgotPhone.trim());
+          setSuccess(result.verificationCode ? `Verification code: ${result.verificationCode}` : 'If an account exists, a code was sent.');
+          setForgotStep('reset');
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Unable to request reset');
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+
+      // reset step
+      if (!forgotCode.trim() || forgotCode.trim().length !== 6) {
+        setError('A 6-digit verification code is required.');
+        return;
+      }
+      if (newPassword.length < 8) {
+        setError('Password must be at least 8 characters.');
+        return;
+      }
+      if (newPassword !== confirmNewPassword) {
+        setError('Passwords do not match.');
+        return;
+      }
+      setLoading(true);
+      try {
+        await resetPassword({ phone: forgotPhone.trim(), code: forgotCode.trim(), password: newPassword });
+        setMode('login');
+        resetForm();
+        setIdentifier(forgotPhone.trim());
+        setSuccess('Password updated. Sign in with your new password.');
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unable to reset password');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (mode === 'register') {
       const first = firstName.trim();
       const last = lastName.trim();
@@ -160,10 +228,17 @@ export default function AuthScreen() {
       <ScrollView contentContainerStyle={{ gap: 14, paddingBottom: 24 }}>
         <Card>
           <SectionTitle
-            title={mode === 'register' ? 'Create your membership' : 'Sign In'}
-            subtitle={mode === 'register' ? 'Your membership pass is generated as soon as you sign up.' : 'Enter your email or phone and password.'}
+            title={mode === 'register' ? 'Create your membership' : mode === 'forgot' ? 'Reset password' : 'Sign In'}
+            subtitle={
+              mode === 'register'
+                ? 'Your membership pass is generated as soon as you sign up.'
+                : mode === 'forgot'
+                  ? 'Enter the phone number for your account.'
+                  : 'Enter your email or phone and password.'
+            }
           />
           {error ? <Banner tone="error">{error}</Banner> : null}
+          {success ? <Banner tone="success">{success}</Banner> : null}
 
           {mode === 'register' ? (
             <>
@@ -173,16 +248,80 @@ export default function AuthScreen() {
           ) : null}
 
           {mode === 'login' ? (
-            <FieldInput
-              value={identifier}
-              onChangeText={setIdentifier}
-              placeholder="Email or phone"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              textContentType="emailAddress"
-              accessibilityLabel="Email or phone"
-            />
-          ) : (
+            <>
+              <FieldInput
+                value={identifier}
+                onChangeText={setIdentifier}
+                placeholder="Email or phone"
+                autoCapitalize="none"
+                keyboardType="email-address"
+                textContentType="emailAddress"
+                accessibilityLabel="Email or phone"
+              />
+              <FieldInput
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Password"
+                autoCapitalize="none"
+                secureTextEntry
+                textContentType="password"
+                accessibilityLabel="Password"
+              />
+              <View style={{ alignItems: 'flex-start' }}>
+                <AppButton variant="ghost" onPress={() => switchMode('forgot')}>
+                  Forgot password?
+                </AppButton>
+              </View>
+            </>
+          ) : null}
+
+          {mode === 'forgot' ? (
+            <>
+              {forgotStep === 'request' ? (
+                <FieldInput
+                  value={forgotPhone}
+                  onChangeText={setForgotPhone}
+                  placeholder="Phone number"
+                  autoCapitalize="none"
+                  keyboardType="phone-pad"
+                  textContentType="telephoneNumber"
+                  accessibilityLabel="Phone number"
+                />
+              ) : (
+                <>
+                  <FieldInput
+                    value={forgotCode}
+                    onChangeText={setForgotCode}
+                    placeholder="6-digit code"
+                    autoCapitalize="none"
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    accessibilityLabel="Verification code"
+                  />
+                  <FieldInput
+                    value={newPassword}
+                    onChangeText={setNewPassword}
+                    placeholder="New password"
+                    autoCapitalize="none"
+                    secureTextEntry
+                    textContentType="newPassword"
+                    accessibilityLabel="New password"
+                  />
+                  <FieldInput
+                    value={confirmNewPassword}
+                    onChangeText={setConfirmNewPassword}
+                    placeholder="Confirm new password"
+                    autoCapitalize="none"
+                    secureTextEntry
+                    textContentType="newPassword"
+                    accessibilityLabel="Confirm new password"
+                  />
+                </>
+              )}
+            </>
+          ) : null}
+
+          {mode === 'register' ? (
             <>
               <FieldInput
                 value={email}
@@ -203,20 +342,19 @@ export default function AuthScreen() {
                 accessibilityLabel="Phone"
               />
             </>
-          )}
-
-          <FieldInput
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Password"
-            autoCapitalize="none"
-            secureTextEntry
-            textContentType={mode === 'register' ? 'newPassword' : 'password'}
-            accessibilityLabel="Password"
-          />
+          ) : null}
 
           {mode === 'register' ? (
             <>
+              <FieldInput
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Password"
+                autoCapitalize="none"
+                secureTextEntry
+                textContentType="newPassword"
+                accessibilityLabel="Password"
+              />
               <FieldInput
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
@@ -253,14 +391,25 @@ export default function AuthScreen() {
             >
               {loading ? 'Working…' : submitLabel}
             </AppButton>
-            <AppButton
-              variant="secondary"
-              onPress={toggleMode}
-              disabled={loading}
-              style={{ minWidth: 280, width: '100%', maxWidth: 360, paddingVertical: 16 }}
-            >
-              Switch to {mode === 'login' ? 'register' : 'sign in'}
-            </AppButton>
+            {mode === 'forgot' ? (
+              <AppButton
+                variant="secondary"
+                onPress={() => switchMode('login')}
+                disabled={loading}
+                style={{ minWidth: 280, width: '100%', maxWidth: 360, paddingVertical: 16 }}
+              >
+                Back to sign in
+              </AppButton>
+            ) : (
+              <AppButton
+                variant="secondary"
+                onPress={() => switchMode(mode === 'login' ? 'register' : 'login')}
+                disabled={loading}
+                style={{ minWidth: 280, width: '100%', maxWidth: 360, paddingVertical: 16 }}
+              >
+                Switch to {mode === 'login' ? 'register' : 'sign in'}
+              </AppButton>
+            )}
           </View>
         </Card>
 

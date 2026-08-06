@@ -57,7 +57,9 @@ async function main() {
   const adminEmail = 'owner@example.com';
   const adminPassword = 'ChangeMe123!';
   const customerEmail = `test-customer-${stamp}@example.com`;
+  const customerPhone = `602555${Math.floor(1000 + Math.random() * 9000)}`;
   const customerPassword = 'Password123!';
+  const resetPassword = 'NewPass123!';
   const vendorEmail = `test-vendor-${stamp}@example.com`;
   const vendorPassword = 'Password123!';
 
@@ -74,7 +76,7 @@ async function main() {
   const adminToken = r.json?.token;
 
   // 3. register test customer
-  r = await request('POST', '/auth/register', { body: JSON.stringify({ firstName: 'Test', lastName: 'Customer', email: customerEmail, password: customerPassword, termsAccepted: true, privacyAccepted: true, eulaAccepted: true, promoEmailOptIn: false, promoSmsOptIn: false }) });
+  r = await request('POST', '/auth/register', { body: JSON.stringify({ firstName: 'Test', lastName: 'Customer', email: customerEmail, phone: customerPhone, password: customerPassword, termsAccepted: true, privacyAccepted: true, eulaAccepted: true, promoEmailOptIn: false, promoSmsOptIn: false }) });
   assertStatus({ method: 'POST', path: '/auth/register' }, r.status, 201, { body: r.json });
   const customerToken = r.json?.token;
 
@@ -96,7 +98,20 @@ async function main() {
   r = await request('POST', '/auth/social', { body: JSON.stringify({ provider: 'google', idToken: `test-social-${stamp}`, fullName: 'Social User' }) });
   assertStatus({ method: 'POST', path: '/auth/social' }, r.status, 200, { body: r.json });
 
-  // 8. admin card list
+  // 8. forgot password flow
+  r = await request('POST', '/auth/forgot-password', { body: JSON.stringify({ phone: customerPhone }) });
+  assertStatus({ method: 'POST', path: '/auth/forgot-password' }, r.status, 200, { body: r.json });
+  const resetCode = r.json?.verificationCode;
+
+  if (resetCode) {
+    r = await request('POST', '/auth/reset-password', { body: JSON.stringify({ phone: customerPhone, code: resetCode, password: resetPassword }) });
+    assertStatus({ method: 'POST', path: '/auth/reset-password' }, r.status, 200, { body: r.json });
+
+    r = await request('POST', '/auth/login', { body: JSON.stringify({ email: customerEmail, password: resetPassword }) });
+    assertStatus({ method: 'POST', path: '/auth/login (after reset)' }, r.status, 200, { body: r.json });
+  }
+
+  // 9. admin card list
   r = await request('GET', '/admin/cards', { token: adminToken });
   assertStatus({ method: 'GET', path: '/admin/cards' }, r.status, 200, { count: Array.isArray(r.json) ? r.json.length : null });
   const cards = r.json || [];
@@ -192,24 +207,23 @@ async function main() {
   r = await request('GET', '/admin/ads', { token: adminToken });
   assertStatus({ method: 'GET', path: '/admin/ads' }, r.status, 200);
 
-  r = await request('POST', '/admin/ads', { token: adminToken, body: JSON.stringify({ slot: 1, image_url: 'https://via.placeholder.com/300x150?text=Ad1', link_url: 'https://example.com', active: true }) });
-  assertStatus({ method: 'POST', path: '/admin/ads' }, r.status, 201, { body: r.json });
-  const ad1 = r.json?.id;
+  const adIds = [];
+  for (let slot = 1; slot <= 5; slot += 1) {
+    r = await request('POST', '/admin/ads', { token: adminToken, body: JSON.stringify({ slot, image_url: `https://via.placeholder.com/300x150?text=Ad${slot}`, link_url: 'https://example.com', active: true }) });
+    assertStatus({ method: 'POST', path: '/admin/ads' }, r.status, 201, { body: r.json });
+    adIds.push(r.json?.id);
+  }
 
-  r = await request('POST', '/admin/ads', { token: adminToken, body: JSON.stringify({ slot: 2, image_url: 'https://via.placeholder.com/300x150?text=Ad2', link_url: 'https://example.org', active: true }) });
-  assertStatus({ method: 'POST', path: '/admin/ads' }, r.status, 201, { body: r.json });
-  const ad2 = r.json?.id;
-
-  r = await request('PATCH', `/admin/ads/${ad2}`, { token: adminToken, body: JSON.stringify({ link_url: 'https://example.net' }) });
-  assertStatus({ method: 'PATCH', path: `/admin/ads/${ad2}` }, r.status, 200);
+  r = await request('PATCH', `/admin/ads/${adIds[1]}`, { token: adminToken, body: JSON.stringify({ link_url: 'https://example.net' }) });
+  assertStatus({ method: 'PATCH', path: '/admin/ads/:id' }, r.status, 200);
 
   r = await request('GET', '/ads');
-  assertStatus({ method: 'GET', path: '/ads' }, r.status, 200, { count: Array.isArray(r.json) ? r.json.length : null });
+  assertStatus({ method: 'GET', path: '/ads' }, r.status, 200, { count: Array.isArray(r.json) ? r.json.length : null, expected: 5 });
 
-  r = await request('DELETE', `/admin/ads/${ad1}`, { token: adminToken });
-  assertStatus({ method: 'DELETE', path: `/admin/ads/${ad1}` }, r.status, 200);
-  r = await request('DELETE', `/admin/ads/${ad2}`, { token: adminToken });
-  assertStatus({ method: 'DELETE', path: `/admin/ads/${ad2}` }, r.status, 200);
+  for (const id of adIds) {
+    r = await request('DELETE', `/admin/ads/${id}`, { token: adminToken });
+    assertStatus({ method: 'DELETE', path: '/admin/ads/:id' }, r.status, 200);
+  }
 
   // 21. events CRUD
   r = await request('GET', '/admin/events', { token: adminToken });

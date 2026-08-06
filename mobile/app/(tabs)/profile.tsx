@@ -3,6 +3,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { Picker } from '@react-native-picker/picker';
 import { useCallback, useMemo, useState } from 'react';
 import { AppButton, Banner, BrandHeader, Card, Screen, SectionTitle } from '@/components/Ui';
+import { AdBanner } from '@/components/AdBanner';
 import { useAuth } from '@/lib/auth';
 import { getMyAnalytics, listVendors } from '@/lib/api';
 import { useAppColorScheme } from '@/lib/colorScheme';
@@ -58,6 +59,8 @@ export default function ProfileScreen() {
     <Screen>
       <ScrollView contentContainerStyle={{ gap: 14, paddingBottom: 24 }}>
         <BrandHeader subtitle="Profile & Settings" />
+
+        <AdBanner slot={5} />
 
         <Card>
           <SectionTitle title="Profile" subtitle="Signed-in customer details" />

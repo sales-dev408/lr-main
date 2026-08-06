@@ -28,7 +28,7 @@
     "status": 200,
     "ok": true,
     "body": {
-      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlNTUxMmMwMC1jOTQzLTQxYzEtOWZhNC03MjhkYTllODBmOGYiLCJyb2xlIjoiYWRtaW4iLCJlbWFpbCI6Im93bmVyQGV4YW1wbGUuY29tIiwiaWF0IjoxNzg2MDMyMDYyLCJleHAiOjE3ODY2MzY4NjJ9.Dl8qWqB6mXztyFE4nA6pE1YvZ-hY_91hoimcNaUns-g",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlNTUxMmMwMC1jOTQzLTQxYzEtOWZhNC03MjhkYTllODBmOGYiLCJyb2xlIjoiYWRtaW4iLCJlbWFpbCI6Im93bmVyQGV4YW1wbGUuY29tIiwiaWF0IjoxNzg2MDQyMzQ2LCJleHAiOjE3ODY2NDcxNDZ9.EF3ZWcdLK48xuz_F1ONVkHOz0pzIiGL2uCPzulgiUIo",
       "expiresIn": "7d",
       "profile": {
         "id": "e5512c00-c943-41c1-9fa4-728da9e80f8f",
@@ -44,12 +44,12 @@
     "status": 201,
     "ok": true,
     "body": {
-      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3NGM1YjExMC04NjZjLTQ4ZWItOTIxMy1jZjc4ZTNiNjljOGIiLCJyb2xlIjoiY3VzdG9tZXIiLCJlbWFpbCI6InRlc3QtY3VzdG9tZXItbXNocGRpeDRAZXhhbXBsZS5jb20iLCJpYXQiOjE3ODYwMzIwNjIsImV4cCI6MTgxNzU2ODA2Mn0.5ygIp2R20kM_WNCFbc_37wGnuPuYFeKsOj_ntVVx7AY",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2MjM4OWJlMi01YzFmLTQ5M2MtODljOC0yMTM0YjE5MGQ0NTYiLCJyb2xlIjoiY3VzdG9tZXIiLCJlbWFpbCI6InRlc3QtY3VzdG9tZXItbXNodmh5YmVAZXhhbXBsZS5jb20iLCJpYXQiOjE3ODYwNDIzNDYsImV4cCI6MTgxNzU3ODM0Nn0.AVBJlLFMWzcboPpgA_fuXfEyFMbpGjE9DpJnNEfF_EM",
       "expiresIn": "365d",
       "profile": {
-        "id": "74c5b110-866c-48eb-9213-cf78e3b69c8b",
-        "email": "test-customer-mshpdix4@example.com",
-        "phone": null,
+        "id": "62389be2-5c1f-493c-89c8-2134b190d456",
+        "email": "test-customer-mshvhybe@example.com",
+        "phone": "+16025555303",
         "fullName": "Test Customer",
         "firstName": "Test",
         "lastName": "Customer",
@@ -62,9 +62,9 @@
         },
         "promoEmailOptIn": false,
         "promoSmsOptIn": false,
-        "termsAcceptedAt": "2026-08-06T16:01:02.152Z",
-        "privacyAcceptedAt": "2026-08-06T16:01:02.152Z",
-        "eulaAcceptedAt": "2026-08-06T16:01:02.152Z"
+        "termsAcceptedAt": "2026-08-06T18:52:26.503Z",
+        "privacyAcceptedAt": "2026-08-06T18:52:26.503Z",
+        "eulaAcceptedAt": "2026-08-06T18:52:26.503Z"
       }
     }
   },
@@ -75,7 +75,7 @@
     "status": 201,
     "ok": true,
     "body": {
-      "id": "f75e8dc7-23de-494a-8960-3599f92fb567",
+      "id": "c6f57fe5-5b1a-4758-b42a-8814c9b4d98c",
       "status": "pending"
     }
   },
@@ -86,12 +86,12 @@
     "status": 200,
     "ok": true,
     "body": {
-      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmNzVlOGRjNy0yM2RlLTQ5NGEtODk2MC0zNTk5ZjkyZmI1NjciLCJyb2xlIjoidmVuZG9yIiwiZW1haWwiOiJ0ZXN0LXZlbmRvci1tc2hwZGl4NEBleGFtcGxlLmNvbSIsImlhdCI6MTc4NjAzMjA2MiwiZXhwIjoxNzg2NjM2ODYyfQ.Vk64kjPC4RjAUW0pOe8ex_FP0QIzIgg5yjMoZ_F1Mw4",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjNmY1N2ZlNS01YjFhLTQ3NTgtYjQyYS04ODE0YzliNGQ5OGMiLCJyb2xlIjoidmVuZG9yIiwiZW1haWwiOiJ0ZXN0LXZlbmRvci1tc2h2aHliZUBleGFtcGxlLmNvbSIsImlhdCI6MTc4NjA0MjM0NiwiZXhwIjoxNzg2NjQ3MTQ2fQ.IvclPWBFbO2-VDXc0lzn47WBr5M2mWgXOx66JH2M3sk",
       "expiresIn": "7d",
       "profile": {
-        "id": "f75e8dc7-23de-494a-8960-3599f92fb567",
-        "email": "test-vendor-mshpdix4@example.com",
-        "name": "Test Vendor mshpdix4",
+        "id": "c6f57fe5-5b1a-4758-b42a-8814c9b4d98c",
+        "email": "test-vendor-mshvhybe@example.com",
+        "name": "Test Vendor mshvhybe",
         "location": "123 Main St",
         "city": "Phoenix",
         "category": "Dining",
@@ -107,12 +107,12 @@
     "status": 200,
     "ok": true,
     "body": {
-      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3NGM1YjExMC04NjZjLTQ4ZWItOTIxMy1jZjc4ZTNiNjljOGIiLCJyb2xlIjoiY3VzdG9tZXIiLCJlbWFpbCI6InRlc3QtY3VzdG9tZXItbXNocGRpeDRAZXhhbXBsZS5jb20iLCJpYXQiOjE3ODYwMzIwNjIsImV4cCI6MTgxNzU2ODA2Mn0.5ygIp2R20kM_WNCFbc_37wGnuPuYFeKsOj_ntVVx7AY",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2MjM4OWJlMi01YzFmLTQ5M2MtODljOC0yMTM0YjE5MGQ0NTYiLCJyb2xlIjoiY3VzdG9tZXIiLCJlbWFpbCI6InRlc3QtY3VzdG9tZXItbXNodmh5YmVAZXhhbXBsZS5jb20iLCJpYXQiOjE3ODYwNDIzNDYsImV4cCI6MTgxNzU3ODM0Nn0.AVBJlLFMWzcboPpgA_fuXfEyFMbpGjE9DpJnNEfF_EM",
       "expiresIn": "365d",
       "profile": {
-        "id": "74c5b110-866c-48eb-9213-cf78e3b69c8b",
-        "email": "test-customer-mshpdix4@example.com",
-        "phone": null,
+        "id": "62389be2-5c1f-493c-89c8-2134b190d456",
+        "email": "test-customer-mshvhybe@example.com",
+        "phone": "+16025555303",
         "fullName": "Test Customer",
         "firstName": "Test",
         "lastName": "Customer",
@@ -125,9 +125,9 @@
         },
         "promoEmailOptIn": false,
         "promoSmsOptIn": false,
-        "termsAcceptedAt": "2026-08-06T16:01:02.152Z",
-        "privacyAcceptedAt": "2026-08-06T16:01:02.152Z",
-        "eulaAcceptedAt": "2026-08-06T16:01:02.152Z"
+        "termsAcceptedAt": "2026-08-06T18:52:26.503Z",
+        "privacyAcceptedAt": "2026-08-06T18:52:26.503Z",
+        "eulaAcceptedAt": "2026-08-06T18:52:26.503Z"
       }
     }
   },
@@ -138,10 +138,10 @@
     "status": 200,
     "ok": true,
     "body": {
-      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0NjAwYThkMy00OTZiLTQ5YTUtOTA3Mi0wNzI5YzFiZWI0YzgiLCJyb2xlIjoiY3VzdG9tZXIiLCJlbWFpbCI6bnVsbCwiaWF0IjoxNzg2MDMyMDYyLCJleHAiOjE4MTc1NjgwNjJ9.VBDHBJtx57J0dZWw37s4SNCE2g48C-tIEFUGeq8IdBk",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxZmQyOGYyNi1hNmNlLTQzZDMtYTIxNC03YTljZTE0NjAxZjUiLCJyb2xlIjoiY3VzdG9tZXIiLCJlbWFpbCI6bnVsbCwiaWF0IjoxNzg2MDQyMzQ2LCJleHAiOjE4MTc1NzgzNDZ9.6__Rj5_QB6HH9dg-izlw6wNXnYBi1-KkcG9R4bid20I",
       "expiresIn": "365d",
       "profile": {
-        "id": "4600a8d3-496b-49a5-9072-0729c1beb4c8",
+        "id": "1fd28f26-a6ce-43d3-a214-7a9ce14601f5",
         "email": null,
         "phone": null,
         "fullName": "Social User",
@@ -159,6 +159,58 @@
         "termsAcceptedAt": null,
         "privacyAcceptedAt": null,
         "eulaAcceptedAt": null
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/auth/forgot-password",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "message": "If an account exists with this phone number, a verification code has been sent.",
+      "verificationCode": "604392"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/auth/reset-password",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "success": true
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/auth/login (after reset)",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2MjM4OWJlMi01YzFmLTQ5M2MtODljOC0yMTM0YjE5MGQ0NTYiLCJyb2xlIjoiY3VzdG9tZXIiLCJlbWFpbCI6InRlc3QtY3VzdG9tZXItbXNodmh5YmVAZXhhbXBsZS5jb20iLCJpYXQiOjE3ODYwNDIzNDcsImV4cCI6MTgxNzU3ODM0N30.gck7d9eVFxGHZQLD1b98MQFcd3YDh7APgzLFG7IESo0",
+      "expiresIn": "365d",
+      "profile": {
+        "id": "62389be2-5c1f-493c-89c8-2134b190d456",
+        "email": "test-customer-mshvhybe@example.com",
+        "phone": "+16025555303",
+        "fullName": "Test Customer",
+        "firstName": "Test",
+        "lastName": "Customer",
+        "city": null,
+        "status": "active",
+        "pushPreferences": {
+          "newVendor": true,
+          "expiringDeal": true,
+          "localEvent": true
+        },
+        "promoEmailOptIn": false,
+        "promoSmsOptIn": false,
+        "termsAcceptedAt": "2026-08-06T18:52:26.503Z",
+        "privacyAcceptedAt": "2026-08-06T18:52:26.503Z",
+        "eulaAcceptedAt": "2026-08-06T18:52:26.503Z"
       }
     }
   },
@@ -319,6 +371,28 @@
           "boosted": false
         },
         {
+          "id": "d1a9c095-077d-4314-80ab-c37ad9ef253f",
+          "name": "Updated Vendor mshpdix4",
+          "city": null,
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "3e68cf8d-1295-4bbf-8008-5743041cd08e",
+          "type": "percent",
+          "value": "15",
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 1,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T16:01:02.412Z",
+          "updated_at": "2026-08-06T16:01:02.900Z",
+          "discount_code": "VEND-ADMINV-15PCT-BHWX",
+          "description": "15% Off member discount",
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false
+        },
+        {
           "id": "6684f663-3e11-47e5-bc0a-05bdec45fef8",
           "name": "Updated Vendor mshpc141",
           "city": null,
@@ -351,15 +425,15 @@
     "ok": true,
     "body": {
       "vendor": {
-        "id": "3e68cf8d-1295-4bbf-8008-5743041cd08e",
-        "name": "Admin Vendor mshpdix4",
+        "id": "5118fef6-f51f-455d-9a95-ca27ad220f2b",
+        "name": "Admin Vendor mshvhybe",
         "ownerName": "Owner",
         "address": "456 Oak Ave, Phoenix, AZ 85001",
         "category": "Dining"
       },
-      "discountCode": "VEND-ADMINV-15PCT-PG3M",
+      "discountCode": "VEND-ADMINV-15PCT-R8Z8",
       "discount": {
-        "id": "d1a9c095-077d-4314-80ab-c37ad9ef253f",
+        "id": "cc15a270-3df3-4772-b63f-9210fbb11960",
         "type": "percent",
         "value": 15,
         "label": "15% Off"
@@ -368,7 +442,7 @@
         "id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
         "name": "Light Rail Membership"
       },
-      "posInstructions": "Ask the customer to show their Light Rail Membership pass, scan its barcode, then apply code VEND-ADMINV-15PCT-PG3M in your POS. No NFC required."
+      "posInstructions": "Ask the customer to show their Light Rail Membership pass, scan its barcode, then apply code VEND-ADMINV-15PCT-R8Z8 in your POS. No NFC required."
     }
   },
   {
@@ -377,26 +451,26 @@
     "expected": 200,
     "status": 200,
     "ok": true,
-    "count": 17
+    "count": 19
   },
   {
     "method": "GET",
-    "path": "/admin/vendors/3e68cf8d-1295-4bbf-8008-5743041cd08e",
+    "path": "/admin/vendors/5118fef6-f51f-455d-9a95-ca27ad220f2b",
     "expected": 200,
     "status": 200,
     "ok": true,
     "body": {
-      "id": "3e68cf8d-1295-4bbf-8008-5743041cd08e",
-      "name": "Admin Vendor mshpdix4",
+      "id": "5118fef6-f51f-455d-9a95-ca27ad220f2b",
+      "name": "Admin Vendor mshvhybe",
       "location": "456 Oak Ave, Phoenix, AZ 85001",
       "city": null,
       "category": "Dining",
       "pos_type": null,
-      "email": "admin-vendor-mshpdix4@example.com",
+      "email": "admin-vendor-mshvhybe@example.com",
       "password_hash": null,
       "status": "approved",
-      "created_at": "2026-08-06T16:01:02.406Z",
-      "updated_at": "2026-08-06T16:01:02.406Z",
+      "created_at": "2026-08-06T18:52:27.057Z",
+      "updated_at": "2026-08-06T18:52:27.057Z",
       "address": "456 Oak Ave, Phoenix, AZ 85001",
       "pos_system": null,
       "icon_url": null,
@@ -408,7 +482,7 @@
       "discount_terms": null,
       "discount_type": "percent",
       "discount_value": "15",
-      "discount_code": "VEND-ADMINV-15PCT-PG3M",
+      "discount_code": "VEND-ADMINV-15PCT-R8Z8",
       "discount_description": "15% Off member discount",
       "discount_starts_at": null,
       "discount_ends_at": null,
@@ -424,13 +498,18 @@
     "ok": true,
     "body": {
       "totals": {
-        "redemptions": 7,
+        "redemptions": 8,
         "uniqueCustomers": 2
       },
       "usageByVendor": [
         {
           "vendorId": "b9274779-4397-44ea-bfb7-45127df1564c",
           "vendorName": "Scottsdale Shops",
+          "redemptions": 1
+        },
+        {
+          "vendorId": "3e68cf8d-1295-4bbf-8008-5743041cd08e",
+          "vendorName": "Updated Vendor mshpdix4",
           "redemptions": 1
         },
         {
@@ -468,7 +547,7 @@
         {
           "cardId": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
           "cardName": "Light Rail Membership",
-          "redemptions": 5
+          "redemptions": 6
         },
         {
           "cardId": "e42a6686-06ef-4820-a444-9f29f74cc388",
@@ -492,13 +571,18 @@
         },
         {
           "day": "2026-08-06",
-          "redemptions": 5
+          "redemptions": 6
         }
       ],
       "topPerformers": [
         {
           "vendorId": "b9274779-4397-44ea-bfb7-45127df1564c",
           "vendorName": "Scottsdale Shops",
+          "redemptions": 1
+        },
+        {
+          "vendorId": "3e68cf8d-1295-4bbf-8008-5743041cd08e",
+          "vendorName": "Updated Vendor mshpdix4",
           "redemptions": 1
         },
         {
@@ -515,30 +599,25 @@
           "vendorId": "f2af2f47-a159-431c-8654-abd591915077",
           "vendorName": "Updated Vendor mshpd9hh",
           "redemptions": 1
-        },
-        {
-          "vendorId": "017c001a-2998-45ba-9124-4b2bcf057a48",
-          "vendorName": "Updated Vendor mshlq194",
-          "redemptions": 1
         }
       ]
     }
   },
   {
     "method": "POST",
-    "path": "/admin/vendors/3e68cf8d-1295-4bbf-8008-5743041cd08e/approve",
+    "path": "/admin/vendors/5118fef6-f51f-455d-9a95-ca27ad220f2b/approve",
     "expected": 200,
     "status": 200,
     "ok": true
   },
   {
     "method": "GET",
-    "path": "/admin/vendors/3e68cf8d-1295-4bbf-8008-5743041cd08e/pass",
+    "path": "/admin/vendors/5118fef6-f51f-455d-9a95-ca27ad220f2b/pass",
     "expected": 200,
     "status": 200,
     "ok": true,
     "body": {
-      "discountCode": "VEND-ADMINV-15PCT-PG3M",
+      "discountCode": "VEND-ADMINV-15PCT-R8Z8",
       "discount": {
         "type": "percent",
         "value": 15,
@@ -548,47 +627,47 @@
         "id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
         "name": "Light Rail Membership"
       },
-      "posInstructions": "Ask the customer to show their Light Rail Membership pass, scan its barcode, then apply code VEND-ADMINV-15PCT-PG3M in your POS. No NFC required."
+      "posInstructions": "Ask the customer to show their Light Rail Membership pass, scan its barcode, then apply code VEND-ADMINV-15PCT-R8Z8 in your POS. No NFC required."
     }
   },
   {
     "method": "POST",
-    "path": "/admin/vendors/3e68cf8d-1295-4bbf-8008-5743041cd08e/reset-password",
+    "path": "/admin/vendors/5118fef6-f51f-455d-9a95-ca27ad220f2b/reset-password",
     "expected": 200,
     "status": 200,
     "ok": true,
     "body": {
-      "tempPassword": "XyTo_UtwqndE"
+      "tempPassword": "smtfi5ZbXigO"
     }
   },
   {
     "method": "POST",
-    "path": "/admin/vendors/3e68cf8d-1295-4bbf-8008-5743041cd08e/qr",
+    "path": "/admin/vendors/5118fef6-f51f-455d-9a95-ca27ad220f2b/qr",
     "expected": 200,
     "status": 200,
     "ok": true,
     "body": {
-      "discountCode": "VEND-ADMINV-15PCT-BHWX",
-      "qrUrl": "https://quickchart.io/qr?text=VEND-ADMINV-15PCT-BHWX&size=300"
+      "discountCode": "VEND-ADMINV-15PCT-X62S",
+      "qrUrl": "https://quickchart.io/qr?text=VEND-ADMINV-15PCT-X62S&size=300"
     }
   },
   {
     "method": "POST",
-    "path": "/admin/vendors/3e68cf8d-1295-4bbf-8008-5743041cd08e/reject",
+    "path": "/admin/vendors/5118fef6-f51f-455d-9a95-ca27ad220f2b/reject",
     "expected": 200,
     "status": 200,
     "ok": true
   },
   {
     "method": "GET",
-    "path": "/admin/vendors/3e68cf8d-1295-4bbf-8008-5743041cd08e/activity",
+    "path": "/admin/vendors/5118fef6-f51f-455d-9a95-ca27ad220f2b/activity",
     "expected": 200,
     "status": 200,
     "ok": true
   },
   {
     "method": "GET",
-    "path": "/admin/vendors/3e68cf8d-1295-4bbf-8008-5743041cd08e/analytics",
+    "path": "/admin/vendors/5118fef6-f51f-455d-9a95-ca27ad220f2b/analytics",
     "expected": 200,
     "status": 200,
     "ok": true,
@@ -603,7 +682,7 @@
   },
   {
     "method": "PATCH",
-    "path": "/admin/vendors/3e68cf8d-1295-4bbf-8008-5743041cd08e",
+    "path": "/admin/vendors/5118fef6-f51f-455d-9a95-ca27ad220f2b",
     "expected": 200,
     "status": 200,
     "ok": true
@@ -614,7 +693,7 @@
     "expected": 200,
     "status": 200,
     "ok": true,
-    "count": 7
+    "count": 8
   },
   {
     "method": "POST",
@@ -623,33 +702,33 @@
     "status": 201,
     "ok": true,
     "body": {
-      "id": "6025e5d9-d93e-4950-8592-6817901d8638"
+      "id": "8a0794dc-1f4f-491c-8afc-926bbf2df7c7"
     }
   },
   {
     "method": "PATCH",
-    "path": "/admin/cards/6025e5d9-d93e-4950-8592-6817901d8638",
+    "path": "/admin/cards/8a0794dc-1f4f-491c-8afc-926bbf2df7c7",
     "expected": 200,
     "status": 200,
     "ok": true
   },
   {
     "method": "POST",
-    "path": "/admin/cards/6025e5d9-d93e-4950-8592-6817901d8638/vendors",
+    "path": "/admin/cards/8a0794dc-1f4f-491c-8afc-926bbf2df7c7/vendors",
     "expected": 200,
     "status": 200,
     "ok": true,
     "body": [
       {
-        "card_id": "6025e5d9-d93e-4950-8592-6817901d8638",
-        "vendor_id": "3e68cf8d-1295-4bbf-8008-5743041cd08e",
-        "joined_at": "2026-08-06T16:01:02.589Z"
+        "card_id": "8a0794dc-1f4f-491c-8afc-926bbf2df7c7",
+        "vendor_id": "5118fef6-f51f-455d-9a95-ca27ad220f2b",
+        "joined_at": "2026-08-06T18:52:27.279Z"
       }
     ]
   },
   {
     "method": "DELETE",
-    "path": "/admin/cards/6025e5d9-d93e-4950-8592-6817901d8638/vendors/3e68cf8d-1295-4bbf-8008-5743041cd08e",
+    "path": "/admin/cards/8a0794dc-1f4f-491c-8afc-926bbf2df7c7/vendors/5118fef6-f51f-455d-9a95-ca27ad220f2b",
     "expected": 200,
     "status": 200,
     "ok": true
@@ -661,26 +740,26 @@
     "status": 201,
     "ok": true,
     "body": {
-      "id": "524469a1-9673-423c-bd56-a9e97456c12e"
+      "id": "da15a06b-0b5b-4738-8af8-579bb743e2bc"
     }
   },
   {
     "method": "PATCH",
-    "path": "/admin/discounts/524469a1-9673-423c-bd56-a9e97456c12e",
+    "path": "/admin/discounts/da15a06b-0b5b-4738-8af8-579bb743e2bc",
     "expected": 200,
     "status": 200,
     "ok": true
   },
   {
     "method": "DELETE",
-    "path": "/admin/discounts/524469a1-9673-423c-bd56-a9e97456c12e",
+    "path": "/admin/discounts/da15a06b-0b5b-4738-8af8-579bb743e2bc",
     "expected": 200,
     "status": 200,
     "ok": true
   },
   {
     "method": "DELETE",
-    "path": "/admin/cards/6025e5d9-d93e-4950-8592-6817901d8638",
+    "path": "/admin/cards/8a0794dc-1f4f-491c-8afc-926bbf2df7c7",
     "expected": 200,
     "status": 200,
     "ok": true
@@ -699,9 +778,9 @@
     "status": 201,
     "ok": true,
     "body": {
-      "id": "ba282d6c-7749-46d0-b442-6d2a9a1116db",
-      "created_at": "2026-08-06T16:01:02.648Z",
-      "updated_at": "2026-08-06T16:01:02.648Z",
+      "id": "d6e429ea-6d84-4ded-867b-da552c5fb623",
+      "created_at": "2026-08-06T18:52:27.361Z",
+      "updated_at": "2026-08-06T18:52:27.361Z",
       "slot": 1,
       "image_url": "https://via.placeholder.com/300x150?text=Ad1",
       "link_url": "https://example.com",
@@ -715,18 +794,66 @@
     "status": 201,
     "ok": true,
     "body": {
-      "id": "d6f71073-059c-43da-ba15-04f0de58d48c",
-      "created_at": "2026-08-06T16:01:02.655Z",
-      "updated_at": "2026-08-06T16:01:02.655Z",
+      "id": "a29d4415-a875-4460-ad9d-da83e6a3530b",
+      "created_at": "2026-08-06T18:52:27.369Z",
+      "updated_at": "2026-08-06T18:52:27.369Z",
       "slot": 2,
       "image_url": "https://via.placeholder.com/300x150?text=Ad2",
-      "link_url": "https://example.org",
+      "link_url": "https://example.com",
+      "active": true
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/admin/ads",
+    "expected": 201,
+    "status": 201,
+    "ok": true,
+    "body": {
+      "id": "732d4b48-f649-4117-8b00-20fba21f8c83",
+      "created_at": "2026-08-06T15:21:55.407Z",
+      "updated_at": "2026-08-06T18:52:27.380Z",
+      "slot": 3,
+      "image_url": "https://via.placeholder.com/300x150?text=Ad3",
+      "link_url": "https://example.com",
+      "active": true
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/admin/ads",
+    "expected": 201,
+    "status": 201,
+    "ok": true,
+    "body": {
+      "id": "27c36555-6d65-4179-b11b-8de7a379604e",
+      "created_at": "2026-08-06T18:52:27.386Z",
+      "updated_at": "2026-08-06T18:52:27.386Z",
+      "slot": 4,
+      "image_url": "https://via.placeholder.com/300x150?text=Ad4",
+      "link_url": "https://example.com",
+      "active": true
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/admin/ads",
+    "expected": 201,
+    "status": 201,
+    "ok": true,
+    "body": {
+      "id": "323e83df-ebe0-40f2-9763-ba99929381d9",
+      "created_at": "2026-08-06T18:52:27.392Z",
+      "updated_at": "2026-08-06T18:52:27.392Z",
+      "slot": 5,
+      "image_url": "https://via.placeholder.com/300x150?text=Ad5",
+      "link_url": "https://example.com",
       "active": true
     }
   },
   {
     "method": "PATCH",
-    "path": "/admin/ads/d6f71073-059c-43da-ba15-04f0de58d48c",
+    "path": "/admin/ads/:id",
     "expected": 200,
     "status": 200,
     "ok": true
@@ -734,21 +861,42 @@
   {
     "method": "GET",
     "path": "/ads",
-    "expected": 200,
+    "expected": 5,
     "status": 200,
     "ok": true,
-    "count": 3
+    "count": 5
   },
   {
     "method": "DELETE",
-    "path": "/admin/ads/ba282d6c-7749-46d0-b442-6d2a9a1116db",
+    "path": "/admin/ads/:id",
     "expected": 200,
     "status": 200,
     "ok": true
   },
   {
     "method": "DELETE",
-    "path": "/admin/ads/d6f71073-059c-43da-ba15-04f0de58d48c",
+    "path": "/admin/ads/:id",
+    "expected": 200,
+    "status": 200,
+    "ok": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/admin/ads/:id",
+    "expected": 200,
+    "status": 200,
+    "ok": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/admin/ads/:id",
+    "expected": 200,
+    "status": 200,
+    "ok": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/admin/ads/:id",
     "expected": 200,
     "status": 200,
     "ok": true
@@ -778,16 +926,16 @@
     "status": 201,
     "ok": true,
     "body": {
-      "id": "eb8956de-9c00-4c7b-8581-d604e5838e64",
-      "title": "Event mshpdix4",
+      "id": "2031b3c0-4575-4489-b383-468d8f8380d8",
+      "title": "Event mshvhybe",
       "description": "Test event",
       "eventDate": "2026-08-06",
-      "createdAt": "2026-08-06T16:01:02.695Z"
+      "createdAt": "2026-08-06T18:52:27.449Z"
     }
   },
   {
     "method": "PATCH",
-    "path": "/admin/events/custom/eb8956de-9c00-4c7b-8581-d604e5838e64",
+    "path": "/admin/events/custom/2031b3c0-4575-4489-b383-468d8f8380d8",
     "expected": 200,
     "status": 200,
     "ok": true
@@ -801,7 +949,7 @@
   },
   {
     "method": "DELETE",
-    "path": "/admin/events/custom/eb8956de-9c00-4c7b-8581-d604e5838e64",
+    "path": "/admin/events/custom/2031b3c0-4575-4489-b383-468d8f8380d8",
     "expected": 204,
     "status": 204,
     "ok": true
@@ -820,11 +968,11 @@
     "status": 201,
     "ok": true,
     "body": {
-      "id": "91fdd0e4-f63e-4e3b-b120-83f84472babc",
-      "created_at": "2026-08-06T16:01:02.721Z",
-      "updated_at": "2026-08-06T16:01:02.721Z",
+      "id": "32dbaa48-b0ce-4949-be36-1324e20522dc",
+      "created_at": "2026-08-06T18:52:27.477Z",
+      "updated_at": "2026-08-06T18:52:27.477Z",
       "kind": "text",
-      "title": "Content mshpdix4",
+      "title": "Content mshvhybe",
       "body": "Hello world",
       "position": 0,
       "published": true,
@@ -840,14 +988,14 @@
   },
   {
     "method": "PATCH",
-    "path": "/admin/content/91fdd0e4-f63e-4e3b-b120-83f84472babc",
+    "path": "/admin/content/32dbaa48-b0ce-4949-be36-1324e20522dc",
     "expected": 200,
     "status": 200,
     "ok": true
   },
   {
     "method": "DELETE",
-    "path": "/admin/content/91fdd0e4-f63e-4e3b-b120-83f84472babc",
+    "path": "/admin/content/32dbaa48-b0ce-4949-be36-1324e20522dc",
     "expected": 200,
     "status": 200,
     "ok": true
@@ -951,9 +1099,9 @@
     "status": 200,
     "ok": true,
     "body": {
-      "id": "74c5b110-866c-48eb-9213-cf78e3b69c8b",
-      "email": "test-customer-mshpdix4@example.com",
-      "phone": null,
+      "id": "62389be2-5c1f-493c-89c8-2134b190d456",
+      "email": "test-customer-mshvhybe@example.com",
+      "phone": "+16025555303",
       "fullName": "Test Customer",
       "firstName": "Test",
       "lastName": "Customer",
@@ -966,9 +1114,9 @@
       },
       "promoEmailOptIn": false,
       "promoSmsOptIn": false,
-      "termsAcceptedAt": "2026-08-06T16:01:02.152Z",
-      "privacyAcceptedAt": "2026-08-06T16:01:02.152Z",
-      "eulaAcceptedAt": "2026-08-06T16:01:02.152Z"
+      "termsAcceptedAt": "2026-08-06T18:52:26.503Z",
+      "privacyAcceptedAt": "2026-08-06T18:52:26.503Z",
+      "eulaAcceptedAt": "2026-08-06T18:52:26.503Z"
     }
   },
   {
@@ -990,9 +1138,9 @@
     "status": 200,
     "ok": true,
     "body": {
-      "id": "74c5b110-866c-48eb-9213-cf78e3b69c8b",
-      "email": "test-customer-mshpdix4@example.com",
-      "phone": null,
+      "id": "62389be2-5c1f-493c-89c8-2134b190d456",
+      "email": "test-customer-mshvhybe@example.com",
+      "phone": "+16025555303",
       "fullName": "Test Customer",
       "firstName": "Test",
       "lastName": "Customer",
@@ -1005,9 +1153,9 @@
       },
       "promoEmailOptIn": false,
       "promoSmsOptIn": false,
-      "termsAcceptedAt": "2026-08-06T16:01:02.152Z",
-      "privacyAcceptedAt": "2026-08-06T16:01:02.152Z",
-      "eulaAcceptedAt": "2026-08-06T16:01:02.152Z"
+      "termsAcceptedAt": "2026-08-06T18:52:26.503Z",
+      "privacyAcceptedAt": "2026-08-06T18:52:26.503Z",
+      "eulaAcceptedAt": "2026-08-06T18:52:26.503Z"
     }
   },
   {
@@ -1028,10 +1176,10 @@
     "ok": true,
     "body": {
       "pass": {
-        "passId": "c2e49897-2085-4bb3-9483-0dcada80d801",
-        "serialNumber": "Hu8wbO7-CrK8r795",
-        "lookupToken": "G3uGMLVHc6X_SMiNPv2-tkHM",
-        "barcodeValue": "G3uGMLVHc6X_SMiNPv2-tkHM",
+        "passId": "763ccb7a-20d7-4f6e-99eb-0789da792ddc",
+        "serialNumber": "1PNxHQS-u6ry1_XC",
+        "lookupToken": "Ss3G3c3SRhcVVhgbO9fP5BZv",
+        "barcodeValue": "Ss3G3c3SRhcVVhgbO9fP5BZv",
         "cardId": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e"
       },
       "walletUrl": null,
@@ -1048,10 +1196,10 @@
     "ok": true,
     "body": {
       "pass": {
-        "passId": "c2e49897-2085-4bb3-9483-0dcada80d801",
-        "serialNumber": "Hu8wbO7-CrK8r795",
-        "lookupToken": "G3uGMLVHc6X_SMiNPv2-tkHM",
-        "barcodeValue": "G3uGMLVHc6X_SMiNPv2-tkHM",
+        "passId": "763ccb7a-20d7-4f6e-99eb-0789da792ddc",
+        "serialNumber": "1PNxHQS-u6ry1_XC",
+        "lookupToken": "Ss3G3c3SRhcVVhgbO9fP5BZv",
+        "barcodeValue": "Ss3G3c3SRhcVVhgbO9fP5BZv",
         "cardId": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e"
       },
       "walletUrl": null,
@@ -1068,10 +1216,10 @@
     "ok": true,
     "body": {
       "pass": {
-        "passId": "3c69cbf8-7214-4155-83e3-8f9e63eed055",
-        "serialNumber": "7bBojmzrNpoyAyAp",
-        "lookupToken": "JYNDTskkTubCOAMxYFYSg7-3",
-        "authToken": "NAnMtcorEFYHppMp67c4M2Kl",
+        "passId": "e0a1bdf3-7270-43be-b365-944843950feb",
+        "serialNumber": "C2UenTOxR5DCJz9q",
+        "lookupToken": "Bd-Y1b2iJNTEpHx_7U4WrrIo",
+        "authToken": "kmgKMf16ytJED6TsSfoxlJmr",
         "cardName": "Light Rail Membership",
         "description": "Your all-in-one membership card. Show it at any participating business for member discounts."
       },
@@ -1079,27 +1227,27 @@
         "configured": false,
         "message": "Google Wallet not configured"
       },
-      "downloadUrl": "/api/passes/7bBojmzrNpoyAyAp"
+      "downloadUrl": "/api/passes/C2UenTOxR5DCJz9q"
     }
   },
   {
     "method": "GET",
-    "path": "/passes/7bBojmzrNpoyAyAp",
+    "path": "/passes/C2UenTOxR5DCJz9q",
     "expected": 200,
     "status": 200,
     "ok": true,
     "body": {
-      "id": "3c69cbf8-7214-4155-83e3-8f9e63eed055",
-      "user_id": "74c5b110-866c-48eb-9213-cf78e3b69c8b",
+      "id": "e0a1bdf3-7270-43be-b365-944843950feb",
+      "user_id": "62389be2-5c1f-493c-89c8-2134b190d456",
       "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
       "platform": "google",
-      "serial_number": "7bBojmzrNpoyAyAp",
-      "auth_token": "NAnMtcorEFYHppMp67c4M2Kl",
-      "lookup_token": "JYNDTskkTubCOAMxYFYSg7-3",
+      "serial_number": "C2UenTOxR5DCJz9q",
+      "auth_token": "kmgKMf16ytJED6TsSfoxlJmr",
+      "lookup_token": "Bd-Y1b2iJNTEpHx_7U4WrrIo",
       "device_library_id": null,
       "push_token": null,
-      "created_at": "2026-08-06T16:01:02.816Z",
-      "updated_at": "2026-08-06T16:01:02.816Z",
+      "created_at": "2026-08-06T18:52:27.581Z",
+      "updated_at": "2026-08-06T18:52:27.581Z",
       "passcreator_id": null,
       "passcreator_url": null,
       "passcreator_iphone_uri": null,
@@ -1111,7 +1259,7 @@
   },
   {
     "method": "POST",
-    "path": "/passes/7bBojmzrNpoyAyAp/registrations/dev-lib-mshpdix4",
+    "path": "/passes/C2UenTOxR5DCJz9q/registrations/dev-lib-mshvhybe",
     "expected": 200,
     "status": 200,
     "ok": true,
@@ -1121,7 +1269,7 @@
   },
   {
     "method": "DELETE",
-    "path": "/passes/7bBojmzrNpoyAyAp/registrations/dev-lib-mshpdix4",
+    "path": "/passes/C2UenTOxR5DCJz9q/registrations/dev-lib-mshvhybe",
     "expected": 200,
     "status": 200,
     "ok": true,
@@ -1131,7 +1279,7 @@
   },
   {
     "method": "GET",
-    "path": "/lookup/G3uGMLVHc6X_SMiNPv2-tkHM",
+    "path": "/lookup/Ss3G3c3SRhcVVhgbO9fP5BZv",
     "expected": [
       200,
       404
@@ -1140,11 +1288,11 @@
     "ok": true,
     "body": {
       "pass": {
-        "pass_id": "c2e49897-2085-4bb3-9483-0dcada80d801",
-        "user_id": "74c5b110-866c-48eb-9213-cf78e3b69c8b",
+        "pass_id": "763ccb7a-20d7-4f6e-99eb-0789da792ddc",
+        "user_id": "62389be2-5c1f-493c-89c8-2134b190d456",
         "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
-        "user_email": "test-customer-mshpdix4@example.com",
-        "user_phone": null,
+        "user_email": "test-customer-mshvhybe@example.com",
+        "user_phone": "+16025555303",
         "user_full_name": "Test Customer",
         "card_name": "Light Rail Membership",
         "card_theme": "shops_restaurants",
@@ -1331,12 +1479,40 @@
           "min_purchase": "0",
           "max_uses_total": null,
           "max_uses_per_customer": null,
-          "uses_count": 0,
+          "uses_count": 1,
           "city_overrides": {},
           "active": true,
           "created_at": "2026-08-06T16:01:02.412Z",
-          "updated_at": "2026-08-06T16:01:02.536Z",
+          "updated_at": "2026-08-06T16:01:02.900Z",
           "discount_code": "VEND-ADMINV-15PCT-BHWX",
+          "description": "15% Off member discount",
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false,
+          "minPurchase": 0,
+          "cityOverrides": {},
+          "applied": {
+            "type": "percent",
+            "value": 15,
+            "description": "15% Off member discount",
+            "instruction": "Purchase amount required for percent discounts."
+          }
+        },
+        {
+          "id": "cc15a270-3df3-4772-b63f-9210fbb11960",
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "5118fef6-f51f-455d-9a95-ca27ad220f2b",
+          "type": "percent",
+          "value": 15,
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 0,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T18:52:27.071Z",
+          "updated_at": "2026-08-06T18:52:27.220Z",
+          "discount_code": "VEND-ADMINV-15PCT-X62S",
           "description": "15% Off member discount",
           "starts_at": null,
           "ends_at": null,
@@ -1364,11 +1540,11 @@
     "ok": true,
     "body": {
       "pass": {
-        "pass_id": "c2e49897-2085-4bb3-9483-0dcada80d801",
-        "user_id": "74c5b110-866c-48eb-9213-cf78e3b69c8b",
+        "pass_id": "763ccb7a-20d7-4f6e-99eb-0789da792ddc",
+        "user_id": "62389be2-5c1f-493c-89c8-2134b190d456",
         "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
-        "user_email": "test-customer-mshpdix4@example.com",
-        "user_phone": null,
+        "user_email": "test-customer-mshvhybe@example.com",
+        "user_phone": "+16025555303",
         "user_full_name": "Test Customer",
         "card_name": "Light Rail Membership",
         "card_theme": "shops_restaurants",
@@ -1555,12 +1731,40 @@
           "min_purchase": "0",
           "max_uses_total": null,
           "max_uses_per_customer": null,
-          "uses_count": 0,
+          "uses_count": 1,
           "city_overrides": {},
           "active": true,
           "created_at": "2026-08-06T16:01:02.412Z",
-          "updated_at": "2026-08-06T16:01:02.536Z",
+          "updated_at": "2026-08-06T16:01:02.900Z",
           "discount_code": "VEND-ADMINV-15PCT-BHWX",
+          "description": "15% Off member discount",
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false,
+          "minPurchase": 0,
+          "cityOverrides": {},
+          "applied": {
+            "type": "percent",
+            "value": 15,
+            "description": "15% Off member discount",
+            "instruction": "Purchase amount required for percent discounts."
+          }
+        },
+        {
+          "id": "cc15a270-3df3-4772-b63f-9210fbb11960",
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "5118fef6-f51f-455d-9a95-ca27ad220f2b",
+          "type": "percent",
+          "value": 15,
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 0,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T18:52:27.071Z",
+          "updated_at": "2026-08-06T18:52:27.220Z",
+          "discount_code": "VEND-ADMINV-15PCT-X62S",
           "description": "15% Off member discount",
           "starts_at": null,
           "ends_at": null,
@@ -1803,12 +2007,40 @@
           "min_purchase": "0",
           "max_uses_total": null,
           "max_uses_per_customer": null,
-          "uses_count": 0,
+          "uses_count": 1,
           "city_overrides": {},
           "active": true,
           "created_at": "2026-08-06T16:01:02.412Z",
-          "updated_at": "2026-08-06T16:01:02.536Z",
+          "updated_at": "2026-08-06T16:01:02.900Z",
           "discount_code": "VEND-ADMINV-15PCT-BHWX",
+          "description": "15% Off member discount",
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false,
+          "minPurchase": 0,
+          "cityOverrides": {},
+          "applied": {
+            "type": "percent",
+            "value": 15,
+            "description": "15% Off member discount",
+            "instruction": "Purchase amount required for percent discounts."
+          }
+        },
+        {
+          "id": "cc15a270-3df3-4772-b63f-9210fbb11960",
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "5118fef6-f51f-455d-9a95-ca27ad220f2b",
+          "type": "percent",
+          "value": 15,
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 0,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T18:52:27.071Z",
+          "updated_at": "2026-08-06T18:52:27.220Z",
+          "discount_code": "VEND-ADMINV-15PCT-X62S",
           "description": "15% Off member discount",
           "starts_at": null,
           "ends_at": null,
@@ -1863,14 +2095,14 @@
     "status": 200,
     "ok": true,
     "body": {
-      "token": "N1wreJG_jsE91Pjc_Wp3EL5e",
-      "url": "/redeem/N1wreJG_jsE91Pjc_Wp3EL5e",
-      "vendorName": "Updated Vendor mshpdix4",
+      "token": "xcRK_PF9tEhaDJOfRiFUmAVx",
+      "url": "/redeem/xcRK_PF9tEhaDJOfRiFUmAVx",
+      "vendorName": "Updated Vendor mshvhybe",
       "discountLabel": "15% off",
       "discountDescription": "15% Off member discount",
       "terms": "Cannot be applied with any other offer\nNot redeemable for cash\nCan be used 1 time per week",
       "amountApplied": 0,
-      "expiresAt": "2026-08-06T16:06:02.885Z"
+      "expiresAt": "2026-08-06T18:57:27.656Z"
     }
   },
   {
@@ -1886,12 +2118,12 @@
       "ok": true,
       "discountLabel": "15% Off member discount",
       "amountApplied": 0,
-      "redemptionId": "ec6f5808-9f7e-4274-9a29-363558634b6c"
+      "redemptionId": "16fc1b35-dddf-4d0c-9eb8-0fa7313406b3"
     }
   },
   {
     "method": "GET",
-    "path": "http://localhost:4000/redeem/N1wreJG_jsE91Pjc_Wp3EL5e",
+    "path": "http://localhost:4000/redeem/xcRK_PF9tEhaDJOfRiFUmAVx",
     "expected": [
       200,
       302
@@ -1910,7 +2142,7 @@
     ],
     "status": 302,
     "ok": true,
-    "location": "https://quickchart.io/qr?text=lrcard%3A%2F%2Fonboard%3Fcode%3DeyJ2ZW5kb3JJZCI6IjNlNjhjZjhkLTEyOTUtNGJiZi04MDA4LTU3NDMwNDFjZDA4ZSIsImNhcmRJZCI6IjFmOTNlMmU4LWYzZTMtNDU2NS05MmJmLTZiYWViODc4M2E5ZSJ9%0Ahttps%3A%2F%2Flightraildeals.com%2Fonboard%3Fcode%3DeyJ2ZW5kb3JJZCI6IjNlNjhjZjhkLTEyOTUtNGJiZi04MDA4LTU3NDMwNDFjZDA4ZSIsImNhcmRJZCI6IjFmOTNlMmU4LWYzZTMtNDU2NS05MmJmLTZiYWViODc4M2E5ZSJ9&size=300"
+    "location": "https://quickchart.io/qr?text=lrcard%3A%2F%2Fonboard%3Fcode%3DeyJ2ZW5kb3JJZCI6IjUxMThmZWY2LWY1MWYtNDU1ZC05YTk1LWNhMjdhZDIyMGYyYiIsImNhcmRJZCI6IjFmOTNlMmU4LWYzZTMtNDU2NS05MmJmLTZiYWViODc4M2E5ZSJ9%0Ahttps%3A%2F%2Flightraildeals.com%2Fonboard%3Fcode%3DeyJ2ZW5kb3JJZCI6IjUxMThmZWY2LWY1MWYtNDU1ZC05YTk1LWNhMjdhZDIyMGYyYiIsImNhcmRJZCI6IjFmOTNlMmU4LWYzZTMtNDU2NS05MmJmLTZiYWViODc4M2E5ZSJ9&size=300"
   },
   {
     "method": "GET",
@@ -1922,7 +2154,7 @@
     ],
     "status": 302,
     "ok": true,
-    "location": "https://quickchart.io/qr?text=G3uGMLVHc6X_SMiNPv2-tkHM&size=300"
+    "location": "https://quickchart.io/qr?text=Ss3G3c3SRhcVVhgbO9fP5BZv&size=300"
   },
   {
     "method": "GET",
@@ -1936,7 +2168,7 @@
     "body": {
       "theme": "shops_restaurants",
       "card": "Light Rail Membership",
-      "vendor": "Updated Vendor mshpdix4",
+      "vendor": "Updated Vendor mshvhybe",
       "appStoreUrl": "https://apps.apple.com/",
       "playStoreUrl": "https://play.google.com/store"
     },
@@ -2007,19 +2239,19 @@
       "mode": "simulated",
       "status": "connected",
       "connection": {
-        "id": "9baf8a3e-3bcc-4b53-8008-59e522847b99",
-        "vendorId": "f75e8dc7-23de-494a-8960-3599f92fb567",
+        "id": "4e67a4e6-e9f9-4a53-be3a-42ae3fce13ea",
+        "vendorId": "c6f57fe5-5b1a-4758-b42a-8814c9b4d98c",
         "provider": "square",
         "mode": "simulated",
         "status": "connected",
-        "merchantId": "square-merchant-7b01aed0",
-        "locationId": "square-location-7b01aed0",
+        "merchantId": "square-merchant-633b1653",
+        "locationId": "square-location-633b1653",
         "scope": "discounts.read discounts.write",
-        "tokenExpiresAt": "2027-08-06T16:01:02.965Z",
+        "tokenExpiresAt": "2027-08-06T18:52:27.733Z",
         "lastSyncedAt": null,
         "lastErrorMessage": null,
-        "createdAt": "2026-08-06T16:01:02.968Z",
-        "updatedAt": "2026-08-06T16:01:02.968Z"
+        "createdAt": "2026-08-06T18:52:27.739Z",
+        "updatedAt": "2026-08-06T18:52:27.739Z"
       },
       "message": "square connection completed in simulation mode"
     }
@@ -2051,8 +2283,8 @@
     "status": 200,
     "ok": true,
     "body": {
-      "id": "9baf8a3e-3bcc-4b53-8008-59e522847b99",
-      "vendorId": "f75e8dc7-23de-494a-8960-3599f92fb567",
+      "id": "4e67a4e6-e9f9-4a53-be3a-42ae3fce13ea",
+      "vendorId": "c6f57fe5-5b1a-4758-b42a-8814c9b4d98c",
       "provider": "square",
       "mode": "simulated",
       "status": "disconnected",
@@ -2062,8 +2294,8 @@
       "tokenExpiresAt": null,
       "lastSyncedAt": null,
       "lastErrorMessage": null,
-      "createdAt": "2026-08-06T16:01:02.968Z",
-      "updatedAt": "2026-08-06T16:01:02.999Z"
+      "createdAt": "2026-08-06T18:52:27.739Z",
+      "updatedAt": "2026-08-06T18:52:27.773Z"
     }
   },
   {
