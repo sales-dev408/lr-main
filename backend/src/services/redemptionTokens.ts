@@ -109,6 +109,8 @@ export interface RedeemTokenResult {
   discount?: AppliedDiscount;
   amountApplied?: number;
   redemptionId?: string;
+  memberName?: string;
+  memberId?: string;
   error?: string;
 }
 
@@ -179,6 +181,17 @@ export async function redeemByToken(token: string, ip?: string | null): Promise<
     if (!result.ok) {
       return result;
     }
+
+    const memberRows = await client.query<{ full_name: string; serial_number: string | null }>(
+      `SELECT u.full_name, p.serial_number
+       FROM users u
+       LEFT JOIN passes p ON p.user_id = u.id AND p.card_id = $2
+       WHERE u.id = $1`,
+      [row.user_id, row.card_id],
+    );
+    const member = memberRows.rows[0];
+    result.memberName = member?.full_name ?? 'Member';
+    result.memberId = member?.serial_number ?? row.user_id;
 
     await markTokenUsed(client, token, result.redemptionId!);
     return result;

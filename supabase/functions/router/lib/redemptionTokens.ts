@@ -25,6 +25,8 @@ export interface RedeemTokenResult {
   discount?: { type: 'fixed' | 'percent' | 'bogo'; value: number; description: string; instruction?: string };
   amountApplied?: number;
   redemptionId?: string;
+  memberName?: string;
+  memberId?: string;
   error?: string;
 }
 
@@ -142,6 +144,15 @@ export async function redeemByToken(token: string, ip?: string | null): Promise<
         return { ok: false, error: result.reason ?? 'Unable to apply discount' };
       }
 
+      const memberRows = await client.query<{ full_name: string; serial_number: string | null }>(
+        `SELECT u.full_name, p.serial_number
+         FROM users u
+         LEFT JOIN passes p ON p.user_id = u.id AND p.card_id = $2
+         WHERE u.id = $1`,
+        [row.user_id, row.card_id],
+      );
+      const member = memberRows.rows[0];
+
       await client.query(
         "UPDATE redemption_tokens SET status = 'used', used_at = now(), redemption_id = $2 WHERE token = $1",
         [token, result.redemptionId],
@@ -154,6 +165,8 @@ export async function redeemByToken(token: string, ip?: string | null): Promise<
         discount: result.discount,
         amountApplied: result.amountApplied,
         redemptionId: result.redemptionId,
+        memberName: member?.full_name ?? 'Member',
+        memberId: member?.serial_number ?? row.user_id,
       };
     } catch (error) {
       await client.query('ROLLBACK');

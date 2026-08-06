@@ -50,10 +50,9 @@ export async function registerRedemptionRoutes(fastify: FastifyInstance): Promis
 
 function renderRedemptionPage(result: Awaited<ReturnType<typeof redeemByToken>>): string {
   const success = result.ok;
-  const title = success ? 'Membership Accepted' : 'Unable to Redeem';
-  const discountLabel = result.discount?.description ?? humanDiscountLabel(result.discount?.type ?? 'fixed', result.discount?.value ?? 0);
+  const title = success ? 'Membership Approved' : 'Unable to Apply Discount';
 
-  let discountAmount = discountLabel;
+  let discountAmount = result.discount?.description ?? humanDiscountLabel(result.discount?.type ?? 'fixed', result.discount?.value ?? 0);
   if (success) {
     if (result.discount?.type === 'fixed') {
       discountAmount = `$${(result.amountApplied ?? 0).toFixed(2)}`;
@@ -62,8 +61,9 @@ function renderRedemptionPage(result: Awaited<ReturnType<typeof redeemByToken>>)
     }
   }
 
+  const memberName = escapeHtml(result.memberName ?? 'Member');
+  const memberId = escapeHtml(result.memberId ?? '');
   const errorMessage = escapeHtml(result.error ?? 'This QR code is invalid or has already been used.');
-  const redemptionId = result.redemptionId ? escapeHtml(result.redemptionId) : '';
 
   const icon = success
     ? `<svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:40px;height:40px;"><polyline points="20 6 9 17 4 12"></polyline></svg>`
@@ -73,13 +73,11 @@ function renderRedemptionPage(result: Awaited<ReturnType<typeof redeemByToken>>)
     <div class="icon-ring" style="background:${success ? 'linear-gradient(135deg,#16a34a,#22c55e)' : 'linear-gradient(135deg,#dc2626,#ef4444)'}">
       <div class="icon">${icon}</div>
     </div>
-    <h1>${escapeHtml(title)}</h1>
-    ${success ? '<p class="subtitle">Show this screen to the vendor.</p>' : ''}
-    <p class="message">${success ? 'Light Rail Deals Membership Accepted' : errorMessage}</p>
-    ${success ? `<p class="amount">Applied discount amount: <span>${escapeHtml(discountAmount)}</span></p>` : ''}
-    ${success && redemptionId ? `<p class="tracking">Tracking ID: <code>${redemptionId}</code></p>` : ''}
-    ${success && result.discount?.instruction ? `<p class="instruction">${escapeHtml(result.discount.instruction)}</p>` : ''}
-    <p class="footer">${success ? 'Redemption recorded in Light Rail Deals.' : 'Ask the member to refresh their discount QR code.'}</p>
+    ${success ? `<h1 class="member-name">${memberName}</h1>` : `<h1>${escapeHtml(title)}</h1>`}
+    ${success && memberId ? `<p class="member-id">Member ID: ${memberId}</p>` : ''}
+    ${success ? `<p class="message">Membership approved. Apply <strong>${escapeHtml(discountAmount)}</strong> to the bill.</p>` : `<p class="message">${errorMessage}</p>`}
+    ${!success ? `<p class="footer">Ask the member to refresh their discount QR code.</p>` : ''}
+    ${success ? '<p class="footer">Redemption recorded in Light Rail Deals.</p>' : ''}
   `;
 
   return pageShell(title, bodyContent, success ? 'success' : 'error');
@@ -159,6 +157,9 @@ function pageShell(title: string, body: string, tone: 'success' | 'error' | 'neu
     h1 { font-size: 26px; font-weight: 800; margin: 0 0 8px; color: #111827; letter-spacing: -0.5px; }
     .subtitle { font-size: 15px; color: #6b7280; margin: 0 0 22px; line-height: 1.45; }
     .message { font-size: 16px; line-height: 1.6; margin: 0 0 18px; color: #4b5563; }
+    .message strong { color: ${brandColor}; }
+    .member-name { font-size: 26px; font-weight: 800; margin: 0 0 6px; color: #111827; letter-spacing: -0.5px; }
+    .member-id { font-size: 15px; font-weight: 500; color: #6b7280; margin: 0 0 22px; letter-spacing: 0.2px; }
     .amount { font-size: 17px; font-weight: 600; color: #111827; margin: 0 0 8px; }
     .amount span { color: ${brandColor}; }
     .tracking { font-size: 13px; color: #6b7280; margin: 0 0 24px; word-break: break-all; }

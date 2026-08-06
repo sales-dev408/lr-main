@@ -261,9 +261,9 @@ function escapeHtml(input: string): string {
     .replace(/'/g, '&#39;');
 }
 
-function renderRedemptionPage(result: { ok: boolean; discount?: { type: 'fixed' | 'percent' | 'bogo'; value: number; description: string; instruction?: string } | null; amountApplied?: number; redemptionId?: string; error?: string }) {
+function renderRedemptionPage(result: { ok: boolean; discount?: { type: 'fixed' | 'percent' | 'bogo'; value: number; description: string; instruction?: string } | null; amountApplied?: number; redemptionId?: string; memberName?: string; memberId?: string; error?: string }) {
   const success = result.ok;
-  const title = success ? 'Membership Accepted' : 'Unable to Redeem';
+  const title = success ? 'Membership Approved' : 'Unable to Apply Discount';
 
   let discountAmount = result.discount?.description ?? 'discount';
   if (success) {
@@ -274,8 +274,9 @@ function renderRedemptionPage(result: { ok: boolean; discount?: { type: 'fixed' 
     }
   }
 
+  const memberName = escapeHtml(result.memberName ?? 'Member');
+  const memberId = escapeHtml(result.memberId ?? '');
   const errorMessage = escapeHtml(result.error ?? 'This QR code is invalid or has already been used.');
-  const redemptionId = result.redemptionId ? escapeHtml(result.redemptionId) : '';
 
   const icon = success
     ? `<svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:40px;height:40px;"><polyline points="20 6 9 17 4 12"></polyline></svg>`
@@ -285,13 +286,11 @@ function renderRedemptionPage(result: { ok: boolean; discount?: { type: 'fixed' 
     <div class="icon-ring" style="background:${success ? 'linear-gradient(135deg,#16a34a,#22c55e)' : 'linear-gradient(135deg,#dc2626,#ef4444)'}">
       <div class="icon">${icon}</div>
     </div>
-    <h1>${escapeHtml(title)}</h1>
-    ${success ? '<p class="subtitle">Show this screen to the vendor.</p>' : ''}
-    <p class="message">${success ? 'Light Rail Deals Membership Accepted' : errorMessage}</p>
-    ${success ? `<p class="amount">Applied discount amount: <span>${escapeHtml(discountAmount)}</span></p>` : ''}
-    ${success && redemptionId ? `<p class="tracking">Tracking ID: <code>${redemptionId}</code></p>` : ''}
-    ${success && result.discount?.instruction ? `<p class="instruction">${escapeHtml(result.discount.instruction)}</p>` : ''}
-    <p class="footer">${success ? 'Redemption recorded in Light Rail Deals.' : 'Ask the member to refresh their discount QR code.'}</p>
+    ${success ? `<h1 class="member-name">${memberName}</h1>` : `<h1>${escapeHtml(title)}</h1>`}
+    ${success && memberId ? `<p class="member-id">Member ID: ${memberId}</p>` : ''}
+    ${success ? `<p class="message">Membership approved. Apply <strong>${escapeHtml(discountAmount)}</strong> to the bill.</p>` : `<p class="message">${errorMessage}</p>`}
+    ${!success ? `<p class="footer">Ask the member to refresh their discount QR code.</p>` : ''}
+    ${success ? '<p class="footer">Redemption recorded in Light Rail Deals.</p>' : ''}
   `;
 
   return pageShell(title, bodyContent, success ? 'success' : 'error');
@@ -371,6 +370,9 @@ function pageShell(title: string, body: string, tone: 'success' | 'error' | 'neu
     h1 { font-size: 26px; font-weight: 800; margin: 0 0 8px; color: #111827; letter-spacing: -0.5px; }
     .subtitle { font-size: 15px; color: #6b7280; margin: 0 0 22px; line-height: 1.45; }
     .message { font-size: 16px; line-height: 1.6; margin: 0 0 18px; color: #4b5563; }
+    .message strong { color: ${brandColor}; }
+    .member-name { font-size: 26px; font-weight: 800; margin: 0 0 6px; color: #111827; letter-spacing: -0.5px; }
+    .member-id { font-size: 15px; font-weight: 500; color: #6b7280; margin: 0 0 22px; letter-spacing: 0.2px; }
     .amount { font-size: 17px; font-weight: 600; color: #111827; margin: 0 0 8px; }
     .amount span { color: ${brandColor}; }
     .tracking { font-size: 13px; color: #6b7280; margin: 0 0 24px; word-break: break-all; }
@@ -1366,6 +1368,13 @@ Deno.serve(async (request) => {
     // Public: published content blocks rendered in the app's Discover feed.
     if (path === '/api/content' && request.method === 'GET') {
       return json(request, await listContentBlocks({ publishedOnly: true }));
+    }
+    // Public: active ads shown in the mobile app.
+    if (path === '/api/ads' && request.method === 'GET') {
+      const rows = await dbQuery<{ id: string; slot: number; image_url: string; link_url: string | null; active: boolean; created_at: string; updated_at: string }>(
+        'SELECT id, slot, image_url, link_url, active, created_at, updated_at FROM ads WHERE active = true ORDER BY slot',
+      );
+      return json(request, rows);
     }
     // Public: shared theme (blue/red/green bottom-tab styling) for app + admin.
     if (path === '/api/settings/theme' && request.method === 'GET') {
