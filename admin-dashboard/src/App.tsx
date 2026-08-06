@@ -8,8 +8,8 @@ import { MarketingPage } from './pages/MarketingPage';
 import { OverviewPage } from './pages/OverviewPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ThemePage } from './pages/ThemePage';
-import { TicketsPage } from './pages/TicketsPage';
 import { EventsPage } from './pages/EventsPage';
+import { AdsPage } from './pages/AdsPage';
 import { VendorsPage } from './pages/VendorsPage';
 
 export function App() {
@@ -28,8 +28,8 @@ export function App() {
         <Route path="/marketing" element={<MarketingPage />} />
         <Route path="/cards" element={<CardsPage />} />
         <Route path="/content" element={<ContentPage />} />
+        <Route path="/ads" element={<AdsPage />} />
         <Route path="/theme" element={<ThemePage />} />
-        <Route path="/tickets" element={<TicketsPage />} />
         <Route path="/events" element={<EventsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>

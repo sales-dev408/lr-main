@@ -263,24 +263,6 @@ export interface RedeemResult {
   redemptionId?: string;
 }
 
-export interface Ticket {
-  id: string;
-  name: string;
-  barcode: string;
-  barcodeFormat: string | null;
-  allowedUses: number;
-  usedUses: number;
-  remainingUses: number;
-  availableCount: number;
-  barcodes: { barcode: string; format: string }[];
-  status: 'active' | 'used' | 'disabled';
-  drawingDeadline?: string | null;
-  drawingStatus?: 'open' | 'drawn' | 'closed';
-  entryCount?: number;
-  userId?: string | null;
-  createdAt?: string;
-}
-
 export interface UserAnalytics {
   totalRedemptions: number;
   byVendor: { vendorId: string; vendorName: string; redemptions: number }[];
@@ -303,6 +285,14 @@ export interface RssEvent {
   link: string | null;
   pubDate: string | null;
   sourceName: string | null;
+}
+
+export interface Ad {
+  id: string;
+  slot: number;
+  image_url: string;
+  link_url: string | null;
+  active: boolean;
 }
 
 export interface ErrorShape {

@@ -12,10 +12,10 @@ import { registerLookupRoutes } from './routes/lookup.js';
 import { registerRedemptionRoutes } from './routes/redemptions.js';
 import { registerQrRoutes } from './routes/qr.js';
 import { registerPosRoutes } from './routes/pos.js';
-import { registerTicketRoutes } from './routes/tickets.js';
 import { registerEventsRoutes } from './routes/events.js';
 import { registerSettingsRoutes } from './routes/settings.js';
 import { registerMePassRoutes } from './routes/mePass.js';
+import { registerAdsRoutes } from './routes/ads.js';
 
 export async function buildApp() {
   const app = fastify({
@@ -37,10 +37,10 @@ export async function buildApp() {
   await registerRedemptionRoutes(app);
   await registerQrRoutes(app);
   await registerPosRoutes(app);
-  await registerTicketRoutes(app);
   await registerEventsRoutes(app);
   await registerSettingsRoutes(app);
   await registerMePassRoutes(app);
+  await registerAdsRoutes(app);
 
   return app;
 }

@@ -456,7 +456,7 @@ export default function LiveTrainsScreen() {
           alignItems: compact ? 'center' : 'stretch',
         }}
       >
-        <BrandHeader subtitle={`Live train times · ${formatTime(now)} · ${dayLabel(dayType(now))}`} />
+        <BrandHeader subtitle={`Train Schedule · ${formatTime(now)} · ${dayLabel(dayType(now))}`} />
 
         <Card>
           <SectionTitle title="Current trains" subtitle="Next stop and estimated arrival" />
@@ -480,7 +480,7 @@ export default function LiveTrainsScreen() {
           }}
           allowFontScaling={false}
         >
-          Live positions are estimated from the published schedule and may be inaccurate due to construction, traffic, and service changes.
+          The information provided is merely a schedule. Data may not be completely accurate and can change due to service changes, weather, and other conditions. The Light Rail Deals app and Sun Ray LLC are not liable for any issues with this train schedule or the arrival of trains.
         </Text>
       </ScrollView>
     </Screen>

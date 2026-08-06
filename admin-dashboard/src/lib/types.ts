@@ -108,27 +108,6 @@ export interface VendorActivityRecord {
   created_at: string;
 }
 
-export interface TicketBarcode {
-  barcode: string;
-  format: string;
-}
-
-export interface TicketRecord {
-  id: string;
-  name: string;
-  barcode: string;
-  barcodeFormat: string | null;
-  allowedUses: number;
-  usedUses: number;
-  remainingUses: number;
-  availableCount: number;
-  barcodes: TicketBarcode[];
-  status: 'active' | 'used' | 'disabled';
-  userId: string | null;
-  drawingDate: string | null;
-  createdAt?: string;
-}
-
 export type CardLayout = 'qr_top' | 'qr_bottom' | 'qr_left' | 'qr_right';
 
 export interface CardSummary {
@@ -219,6 +198,16 @@ export interface AdminEvent {
   description: string | null;
   eventDate: string | null;
   createdAt: string;
+}
+
+export interface AdRecord {
+  id: string;
+  slot: number;
+  image_url: string;
+  link_url: string | null;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface PublicCardsResponseItem {
