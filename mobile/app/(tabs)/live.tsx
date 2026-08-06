@@ -207,25 +207,36 @@ function lastValidIndex(trip: number[]) {
 
 function getScheduleStatus(line: ScheduleLineInfo, now: Date): LineStatus {
   const nowMinutes = minutesSinceMidnight(now);
-  const schedule = scheduleFor(now, line.line, line.direction);
   const currentDay = dayType(now);
 
-  if (!schedule || schedule.trips.length === 0) {
-    return { current: '—', next: '—', minutes: 0, segmentDuration: 0, progress: 0, day: currentDay };
-  }
+  const candidates: { status: LineStatus; nextArrival: number; day: DayType }[] = [];
 
-  const candidate = findBestTrip(schedule.trips, nowMinutes, line.stations);
-  if (candidate) return { ...candidate, day: currentDay };
+  const addCandidate = (date: Date, timeOffset: number, dayLabel: DayType) => {
+    const schedule = scheduleFor(date, line.line, line.direction);
+    if (!schedule || schedule.trips.length === 0) return;
+    const status = findBestTrip(schedule.trips, nowMinutes + timeOffset, line.stations);
+    if (status && status.next !== '—') {
+      candidates.push({ status, nextArrival: nowMinutes + status.minutes, day: dayLabel });
+    }
+  };
+
+  const previousDay = new Date(now);
+  previousDay.setDate(now.getDate() - 1);
+  addCandidate(previousDay, 1440, dayType(previousDay));
+
+  addCandidate(now, 0, currentDay);
 
   const nextDay = new Date(now);
   nextDay.setDate(now.getDate() + 1);
-  const nextSchedule = scheduleFor(nextDay, line.line, line.direction) ?? schedule;
-  const nextTrips = nextSchedule?.trips ?? schedule.trips;
-  const nextDayCandidate = findBestTrip(nextTrips, nowMinutes - 1440, line.stations);
-  if (nextDayCandidate) return { ...nextDayCandidate, day: dayType(nextDay) };
+  addCandidate(nextDay, -1440, dayType(nextDay));
 
-  const fallbackTrip = schedule.trips[0];
-  return { ...statusFromTrip(fallbackTrip, line.stations, -1440), day: currentDay };
+  if (candidates.length > 0) {
+    candidates.sort((a, b) => a.nextArrival - b.nextArrival);
+    const best = candidates[0];
+    return { ...best.status, day: best.day };
+  }
+
+  return { current: '—', next: '—', minutes: 0, segmentDuration: 0, progress: 0, day: currentDay };
 }
 
 function findBestTrip(trips: number[][], nowMinutes: number, stations: string[]): LineStatus | null {
