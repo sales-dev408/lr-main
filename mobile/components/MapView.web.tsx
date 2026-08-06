@@ -11,6 +11,7 @@ export interface Region {
 type MapViewProps = {
   style?: object;
   initialRegion?: Region;
+  region?: Region;
   showsUserLocation?: boolean;
   onRegionChangeComplete?: (region: Region) => void;
   children?: ReactNode;

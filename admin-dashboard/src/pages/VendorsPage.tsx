@@ -13,6 +13,21 @@ import { useAuth } from '../lib/auth';
 import { parseVendorFields, scanImageToText } from '../lib/ocr';
 import { qrCodeUrl } from '../lib/qr';
 
+const mapboxToken = (import.meta.env as Record<string, string | undefined>).VITE_MAPBOX_ACCESS_TOKEN;
+
+async function geocodeAddress(address: string): Promise<{ latitude: number; longitude: number } | null> {
+  if (!mapboxToken || !address.trim()) return null;
+  const response = await fetch(
+    `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(address)}.json?access_token=${mapboxToken}&limit=1`,
+  );
+  if (!response.ok) return null;
+  const data = (await response.json()) as { features?: Array<{ center: [number, number] }> };
+  const feature = data.features?.[0];
+  if (!feature?.center) return null;
+  const [longitude, latitude] = feature.center;
+  return { latitude, longitude };
+}
+
 const CATEGORIES: VendorCategory[] = ['Sports', 'Dining', 'Entertainment'];
 
 type DiscountKind = 'percent' | 'fixed' | 'bogo';
@@ -23,6 +38,8 @@ const blankVendor = {
   name: '',
   ownerName: '',
   address: '',
+  latitude: '',
+  longitude: '',
   email: '',
   phone: '',
   category: 'Dining' as VendorCategory,
@@ -247,6 +264,12 @@ export function VendorsPage() {
       setError('BOGO discounts require a description.');
       return;
     }
+    const latitude = form.latitude.trim() ? Number(form.latitude) : undefined;
+    const longitude = form.longitude.trim() ? Number(form.longitude) : undefined;
+    if ((form.latitude.trim() && !Number.isFinite(latitude)) || (form.longitude.trim() && !Number.isFinite(longitude))) {
+      setError('Enter valid latitude and longitude values.');
+      return;
+    }
     setCreating(true);
     setError(null);
     try {
@@ -254,6 +277,8 @@ export function VendorsPage() {
         name: form.name,
         ownerName: form.ownerName || undefined,
         address: form.address || undefined,
+        latitude,
+        longitude,
         category: form.category,
         email: form.email || undefined,
         phone: form.phone || undefined,
@@ -292,6 +317,8 @@ export function VendorsPage() {
         name: editing.name,
         ownerName: editing.owner_name ?? undefined,
         address: editing.address ?? editing.location ?? undefined,
+        latitude: editing.latitude ?? undefined,
+        longitude: editing.longitude ?? undefined,
         category: (editing.category as VendorCategory | null) ?? undefined,
         email: editing.email ?? undefined,
         phone: editing.phone ?? undefined,
@@ -392,6 +419,31 @@ export function VendorsPage() {
               Address
               <Input placeholder="Address" value={form.address} onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))} />
             </label>
+            <div className="grid-2">
+              <label>
+                Latitude
+                <Input type="number" step="any" placeholder="33.45" value={form.latitude} onChange={(e) => setForm((prev) => ({ ...prev, latitude: e.target.value }))} />
+              </label>
+              <label>
+                Longitude
+                <Input type="number" step="any" placeholder="-112.07" value={form.longitude} onChange={(e) => setForm((prev) => ({ ...prev, longitude: e.target.value }))} />
+              </label>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={!mapboxToken || !form.address.trim()}
+              onClick={async () => {
+                const coords = await geocodeAddress(form.address);
+                if (coords) {
+                  setForm((prev) => ({ ...prev, latitude: String(coords.latitude), longitude: String(coords.longitude) }));
+                } else {
+                  setError('Unable to look up coordinates. Check the address and Mapbox token.');
+                }
+              }}
+            >
+              {mapboxToken ? 'Look up coordinates' : 'Mapbox token missing'}
+            </Button>
             <label>
               Category
               <Select value={form.category} onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value as VendorCategory }))}>
@@ -513,6 +565,32 @@ export function VendorsPage() {
               Address
               <Input value={editing.address ?? editing.location ?? ''} onChange={(e) => setEditing({ ...editing, address: e.target.value })} />
             </label>
+            <div className="grid-2">
+              <label>
+                Latitude
+                <Input type="number" step="any" placeholder="33.45" value={editing.latitude ?? ''} onChange={(e) => setEditing({ ...editing, latitude: e.target.value ? Number(e.target.value) : null })} />
+              </label>
+              <label>
+                Longitude
+                <Input type="number" step="any" placeholder="-112.07" value={editing.longitude ?? ''} onChange={(e) => setEditing({ ...editing, longitude: e.target.value ? Number(e.target.value) : null })} />
+              </label>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={!mapboxToken || !(editing.address ?? editing.location ?? '').trim()}
+              onClick={async () => {
+                const address = editing.address ?? editing.location ?? '';
+                const coords = await geocodeAddress(address);
+                if (coords) {
+                  setEditing({ ...editing, latitude: coords.latitude, longitude: coords.longitude });
+                } else {
+                  setError('Unable to look up coordinates. Check the address and Mapbox token.');
+                }
+              }}
+            >
+              {mapboxToken ? 'Look up coordinates' : 'Mapbox token missing'}
+            </Button>
             <label>
               Category
               <Select value={editing.category ?? 'Dining'} onChange={(e) => setEditing({ ...editing, category: e.target.value })}>
