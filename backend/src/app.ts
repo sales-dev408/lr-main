@@ -21,6 +21,9 @@ export async function buildApp() {
   const app = fastify({
     logger: true,
     bodyLimit: 1_000_000,
+    routerOptions: {
+      maxParamLength: 256,
+    },
   });
 
   await app.register(securityPlugin);

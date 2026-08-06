@@ -117,6 +117,32 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
     return rows;
   });
 
+  fastify.get('/api/admin/vendors/:id', { preHandler: fastify.requireRole(['admin']) }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const rows = await dbQuery(
+      `
+        SELECT v.*, d.type AS discount_type, d.value AS discount_value, d.discount_code, d.description AS discount_description,
+               d.starts_at AS discount_starts_at, d.ends_at AS discount_ends_at, d.boosted AS discount_boosted
+        FROM vendors v
+        LEFT JOIN LATERAL (
+          SELECT d.type, d.value, d.discount_code, d.description, d.starts_at, d.ends_at, d.boosted
+          FROM discounts d
+          JOIN cards c ON c.id = d.card_id AND c.is_membership = true
+          WHERE d.vendor_id = v.id
+          ORDER BY d.created_at DESC
+          LIMIT 1
+        ) d ON true
+        WHERE v.id = $1
+        LIMIT 1
+      `,
+      [id],
+    );
+    if (rows.length === 0) {
+      return reply.code(404).send({ error: 'Vendor not found' });
+    }
+    return rows[0];
+  });
+
   fastify.post('/api/admin/vendors', { preHandler: fastify.requireRole(['admin']) }, async (request, reply) => {
     const body = vendorSchema.parse(request.body);
     if (body.discountType === 'bogo' && (!body.discountDescription || !body.discountDescription.trim())) {

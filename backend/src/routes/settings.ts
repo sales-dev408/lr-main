@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import bcrypt from 'bcrypt';
 import { dbQuery } from '../db/pool.js';
 
 const themeTabSchema = z.object({
@@ -23,6 +24,12 @@ const contentSchema = z.object({
   dataUrl: z.string().optional(),
   position: z.number().int().default(0),
   published: z.boolean().default(true),
+});
+
+const adminSettingsSchema = z.object({
+  email: z.string().email().optional(),
+  password: z.string().min(8).optional(),
+  location: z.string().optional(),
 });
 
 async function getThemeValue(): Promise<unknown> {
@@ -113,5 +120,63 @@ export async function registerSettingsRoutes(fastify: FastifyInstance): Promise<
       return reply.code(404).send({ error: 'Content not found' });
     }
     return { deleted: true };
+  });
+
+  async function getAdminRow(adminId: string): Promise<{ id: string; email: string; role: string; location: string | null } | undefined> {
+    const rows = await dbQuery<{ id: string; email: string; role: string; location: string | null }>(
+      'SELECT id, email::text AS email, role, location FROM admins WHERE id = $1 LIMIT 1',
+      [adminId],
+    );
+    return rows[0];
+  }
+
+  fastify.get('/api/admin/profile', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (request) => {
+    const admin = request.user!;
+    const row = await getAdminRow(admin.sub);
+    return row ?? { id: admin.sub, email: admin.email ?? '', role: admin.role, location: null };
+  });
+
+  fastify.get('/api/admin/settings', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (request) => {
+    const admin = request.user!;
+    const row = await getAdminRow(admin.sub);
+    return row ?? { id: admin.sub, email: admin.email ?? '', role: admin.role, location: null };
+  });
+
+  fastify.patch('/api/admin/settings', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (request, reply) => {
+    const admin = request.user!;
+    const body = adminSettingsSchema.parse(request.body);
+    const updates: string[] = [];
+    const values: unknown[] = [];
+    let idx = 1;
+
+    if (body.email !== undefined) {
+      updates.push(`email = $${idx++}`);
+      values.push(body.email);
+    }
+    if (body.location !== undefined) {
+      updates.push(`location = $${idx++}`);
+      values.push(body.location);
+    }
+    if (body.password !== undefined) {
+      updates.push(`password_hash = $${idx++}`);
+      values.push(await bcrypt.hash(body.password, 10));
+    }
+
+    if (updates.length === 0) {
+      return reply.code(400).send({ error: 'No fields to update' });
+    }
+
+    updates.push('updated_at = now()');
+    values.push(admin.sub);
+
+    const rows = await dbQuery<{ id: string; email: string; role: string; location: string | null }>(
+      `UPDATE admins SET ${updates.join(', ')} WHERE id = $${idx} RETURNING id, email::text AS email, role, location`,
+      values,
+    );
+
+    if (rows.length === 0) {
+      return reply.code(404).send({ error: 'Admin not found' });
+    }
+    return rows[0];
   });
 }
