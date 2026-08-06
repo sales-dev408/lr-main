@@ -142,7 +142,7 @@ export function AdsPage() {
 
       <PageCard title="Current ads">
         {loading ? <Spinner /> : null}
-        {!loading && ads.length === 0 ? <EmptyState title="No ads" description="Use the form above to add up to 3 ads." /> : null}
+        {!loading && ads.length === 0 ? <EmptyState title="No ads" description="Use the form above to add up to 5 ads." /> : null}
         {!loading && ads.length > 0 ? (
           <div className="stack" style={{ gap: 12 }}>
             {ads.map((ad) => (
