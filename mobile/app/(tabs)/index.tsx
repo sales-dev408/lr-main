@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Image, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { Link, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { AdBanner } from '@/components/AdBanner';
 import { AppButton, Banner, Card, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { useAuth } from '@/lib/auth';
 import { getMyAnalytics, listVendors } from '@/lib/api';
@@ -109,22 +110,17 @@ export default function HomeScreen() {
                 <AppButton>My membership card</AppButton>
               </Link>
             </View>
-            <View style={{ width: '48%', minWidth: 140 }}>
-              <Link href="/(tabs)/tickets" asChild>
-                <AppButton>Event tickets</AppButton>
-              </Link>
-            </View>
+
           </View>
         </Card>
 
+        <AdBanner />
+
         <Card>
-          <SectionTitle title="More" subtitle="Events, tickets, settings, and curated content" />
+          <SectionTitle title="More" subtitle="Events, settings, and curated content" />
           <View style={{ gap: 10 }}>
             <Link href="/(tabs)/events" asChild>
               <AppButton variant="secondary">Local events</AppButton>
-            </Link>
-            <Link href="/(tabs)/tickets" asChild>
-              <AppButton variant="secondary">Event tickets & drawings</AppButton>
             </Link>
             <Link href="/(tabs)/discover" asChild>
               <AppButton variant="secondary">Discover content</AppButton>

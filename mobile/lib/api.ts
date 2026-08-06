@@ -1,6 +1,7 @@
 import { getApiBaseUrl } from './config';
 import { ApiError } from './errors';
 import type {
+  Ad,
   AdminAuthProfile,
   AuthResponse,
   CityOverrideMap,
@@ -20,7 +21,6 @@ import type {
   RedeemResult,
   RssEvent,
   ThemeSettings,
-  Ticket,
   UserAnalytics,
   UserProfile,
   VendorListItem,
@@ -352,28 +352,11 @@ export async function redeem(body: {
   return apiRequest<RedeemResult>('/redeem', { method: 'POST', body: JSON.stringify(body) });
 }
 
-// ---- Event tickets ---------------------------------------------------------
-
-export async function listTickets() {
-  return apiRequest<Ticket[]>('/tickets');
-}
-
-export async function enterTicketDrawing(ticketId: string, requestedCount: number) {
-  return apiRequest<{ success: boolean; ticketId: string; requestedCount: number }>('/tickets/enter', {
-    method: 'POST',
-    body: JSON.stringify({ ticketId, requestedCount }),
-  });
-}
-
-export async function getTicket(id: string) {
-  return apiRequest<Ticket>(`/tickets/${encodeURIComponent(id)}`);
-}
-
-export async function useTicket(id: string) {
-  return apiRequest<Ticket>(`/tickets/${encodeURIComponent(id)}/use`, { method: 'POST' });
-}
-
 // ---- CMS content + theme --------------------------------------------------
+
+export async function listAds(): Promise<Ad[]> {
+  return apiRequest<Ad[]>('/ads');
+}
 
 export async function getAppTheme() {
   return apiRequest<ThemeSettings>('/settings/theme');

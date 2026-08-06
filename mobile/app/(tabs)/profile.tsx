@@ -172,12 +172,9 @@ export default function ProfileScreen() {
         </Card>
 
         <Card>
-          <SectionTitle title="Membership & tickets" subtitle="Passes and event tickets" />
+          <SectionTitle title="Membership" subtitle="Passes and membership" />
           <AppButton variant="secondary" onPress={() => router.push('/(tabs)/mypass')}>
             My membership pass
-          </AppButton>
-          <AppButton variant="secondary" onPress={() => router.push('/(tabs)/tickets')}>
-            My event tickets
           </AppButton>
         </Card>
 

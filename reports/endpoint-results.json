@@ -1,0 +1,2092 @@
+[
+  {
+    "method": "GET",
+    "path": "/health",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "status": "ok",
+      "db": true
+    }
+  },
+  {
+    "method": "GET",
+    "path": "http://localhost:4000/",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "name": "Master Gift/Discount Card System Backend",
+      "version": "0.1.0"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/auth/admin/login",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlNTUxMmMwMC1jOTQzLTQxYzEtOWZhNC03MjhkYTllODBmOGYiLCJyb2xlIjoiYWRtaW4iLCJlbWFpbCI6Im93bmVyQGV4YW1wbGUuY29tIiwiaWF0IjoxNzg2MDMyMDYyLCJleHAiOjE3ODY2MzY4NjJ9.Dl8qWqB6mXztyFE4nA6pE1YvZ-hY_91hoimcNaUns-g",
+      "expiresIn": "7d",
+      "profile": {
+        "id": "e5512c00-c943-41c1-9fa4-728da9e80f8f",
+        "email": "owner@example.com",
+        "role": "owner"
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/auth/register",
+    "expected": 201,
+    "status": 201,
+    "ok": true,
+    "body": {
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3NGM1YjExMC04NjZjLTQ4ZWItOTIxMy1jZjc4ZTNiNjljOGIiLCJyb2xlIjoiY3VzdG9tZXIiLCJlbWFpbCI6InRlc3QtY3VzdG9tZXItbXNocGRpeDRAZXhhbXBsZS5jb20iLCJpYXQiOjE3ODYwMzIwNjIsImV4cCI6MTgxNzU2ODA2Mn0.5ygIp2R20kM_WNCFbc_37wGnuPuYFeKsOj_ntVVx7AY",
+      "expiresIn": "365d",
+      "profile": {
+        "id": "74c5b110-866c-48eb-9213-cf78e3b69c8b",
+        "email": "test-customer-mshpdix4@example.com",
+        "phone": null,
+        "fullName": "Test Customer",
+        "firstName": "Test",
+        "lastName": "Customer",
+        "city": null,
+        "status": "active",
+        "pushPreferences": {
+          "newVendor": true,
+          "expiringDeal": true,
+          "localEvent": true
+        },
+        "promoEmailOptIn": false,
+        "promoSmsOptIn": false,
+        "termsAcceptedAt": "2026-08-06T16:01:02.152Z",
+        "privacyAcceptedAt": "2026-08-06T16:01:02.152Z",
+        "eulaAcceptedAt": "2026-08-06T16:01:02.152Z"
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/vendor/register",
+    "expected": 201,
+    "status": 201,
+    "ok": true,
+    "body": {
+      "id": "f75e8dc7-23de-494a-8960-3599f92fb567",
+      "status": "pending"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/auth/vendor/login",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmNzVlOGRjNy0yM2RlLTQ5NGEtODk2MC0zNTk5ZjkyZmI1NjciLCJyb2xlIjoidmVuZG9yIiwiZW1haWwiOiJ0ZXN0LXZlbmRvci1tc2hwZGl4NEBleGFtcGxlLmNvbSIsImlhdCI6MTc4NjAzMjA2MiwiZXhwIjoxNzg2NjM2ODYyfQ.Vk64kjPC4RjAUW0pOe8ex_FP0QIzIgg5yjMoZ_F1Mw4",
+      "expiresIn": "7d",
+      "profile": {
+        "id": "f75e8dc7-23de-494a-8960-3599f92fb567",
+        "email": "test-vendor-mshpdix4@example.com",
+        "name": "Test Vendor mshpdix4",
+        "location": "123 Main St",
+        "city": "Phoenix",
+        "category": "Dining",
+        "posType": "square",
+        "status": "pending"
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/auth/login",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3NGM1YjExMC04NjZjLTQ4ZWItOTIxMy1jZjc4ZTNiNjljOGIiLCJyb2xlIjoiY3VzdG9tZXIiLCJlbWFpbCI6InRlc3QtY3VzdG9tZXItbXNocGRpeDRAZXhhbXBsZS5jb20iLCJpYXQiOjE3ODYwMzIwNjIsImV4cCI6MTgxNzU2ODA2Mn0.5ygIp2R20kM_WNCFbc_37wGnuPuYFeKsOj_ntVVx7AY",
+      "expiresIn": "365d",
+      "profile": {
+        "id": "74c5b110-866c-48eb-9213-cf78e3b69c8b",
+        "email": "test-customer-mshpdix4@example.com",
+        "phone": null,
+        "fullName": "Test Customer",
+        "firstName": "Test",
+        "lastName": "Customer",
+        "city": null,
+        "status": "active",
+        "pushPreferences": {
+          "newVendor": true,
+          "expiringDeal": true,
+          "localEvent": true
+        },
+        "promoEmailOptIn": false,
+        "promoSmsOptIn": false,
+        "termsAcceptedAt": "2026-08-06T16:01:02.152Z",
+        "privacyAcceptedAt": "2026-08-06T16:01:02.152Z",
+        "eulaAcceptedAt": "2026-08-06T16:01:02.152Z"
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/auth/social",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0NjAwYThkMy00OTZiLTQ5YTUtOTA3Mi0wNzI5YzFiZWI0YzgiLCJyb2xlIjoiY3VzdG9tZXIiLCJlbWFpbCI6bnVsbCwiaWF0IjoxNzg2MDMyMDYyLCJleHAiOjE4MTc1NjgwNjJ9.VBDHBJtx57J0dZWw37s4SNCE2g48C-tIEFUGeq8IdBk",
+      "expiresIn": "365d",
+      "profile": {
+        "id": "4600a8d3-496b-49a5-9072-0729c1beb4c8",
+        "email": null,
+        "phone": null,
+        "fullName": "Social User",
+        "firstName": null,
+        "lastName": null,
+        "city": null,
+        "status": "active",
+        "pushPreferences": {
+          "newVendor": true,
+          "expiringDeal": true,
+          "localEvent": true
+        },
+        "promoEmailOptIn": false,
+        "promoSmsOptIn": false,
+        "termsAcceptedAt": null,
+        "privacyAcceptedAt": null,
+        "eulaAcceptedAt": null
+      }
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/admin/cards",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "count": 1
+  },
+  {
+    "method": "GET",
+    "path": "/cards",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "count": 4
+  },
+  {
+    "method": "GET",
+    "path": "/cards/1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+      "name": "Light Rail Membership",
+      "theme": "shops_restaurants",
+      "description": "Your all-in-one membership card. Show it at any participating business for member discounts.",
+      "image_url": null,
+      "expiration_date": null,
+      "max_uses": null,
+      "status": "active",
+      "created_at": "2026-08-06T14:08:55.947Z",
+      "updated_at": "2026-08-06T14:08:55.947Z",
+      "discount_type": null,
+      "discount_value": null,
+      "discount_code": null,
+      "pkpass_pass_id": null,
+      "pkpass_url": null,
+      "icon_url": null,
+      "logo_url": null,
+      "is_membership": true,
+      "primary_color": null,
+      "secondary_color": null,
+      "qr_size": 240,
+      "layout": "qr_bottom",
+      "participatingBusinesses": [
+        {
+          "id": "560a0a2b-ab8e-4c94-a1a8-60e6c27287d0",
+          "name": "Downtown Diner (Example)",
+          "city": null,
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "27efbc17-d578-4922-8e33-7d1467a40be1",
+          "type": "percent",
+          "value": "15",
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 0,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T14:08:55.920Z",
+          "updated_at": "2026-08-06T14:08:55.920Z",
+          "discount_code": "MBR-560A0A2BAB",
+          "description": null,
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false
+        },
+        {
+          "id": "dc40e51a-0335-4656-80d4-1c7a6e31b314",
+          "name": "Updated Vendor mshlq194",
+          "city": null,
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "017c001a-2998-45ba-9124-4b2bcf057a48",
+          "type": "percent",
+          "value": "15",
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 1,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T14:18:47.735Z",
+          "updated_at": "2026-08-06T14:18:48.412Z",
+          "discount_code": "VEND-ADMINV-15PCT-C7G9",
+          "description": "15% Off member discount",
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false
+        },
+        {
+          "id": "815cd789-2dad-45da-83b9-6e26e658c7af",
+          "name": "Updated Vendor mshpd9hh",
+          "city": null,
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "f2af2f47-a159-431c-8654-abd591915077",
+          "type": "percent",
+          "value": "15",
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 1,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T16:00:50.215Z",
+          "updated_at": "2026-08-06T16:00:50.729Z",
+          "discount_code": "VEND-ADMINV-15PCT-JCUN",
+          "description": "15% Off member discount",
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false
+        },
+        {
+          "id": "6e1d508e-ddef-48cc-b570-e35673da0db3",
+          "name": "Updated Vendor mshls6g3",
+          "city": null,
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "63b3d134-fb3d-4051-b5a0-513a97b96686",
+          "type": "percent",
+          "value": "15",
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 1,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T14:20:27.706Z",
+          "updated_at": "2026-08-06T14:20:28.252Z",
+          "discount_code": "VEND-ADMINV-15PCT-2ZSR",
+          "description": "15% Off member discount",
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false
+        },
+        {
+          "id": "6ab773ac-bb5a-4270-9df5-c6df74391c4d",
+          "name": "Updated Vendor mshpbsiw",
+          "city": null,
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "65bc7c45-b356-4ea5-9d86-34c3be44b381",
+          "type": "percent",
+          "value": "15",
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 1,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T15:59:41.618Z",
+          "updated_at": "2026-08-06T15:59:42.134Z",
+          "discount_code": "VEND-ADMINV-15PCT-7MZB",
+          "description": "15% Off member discount",
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false
+        },
+        {
+          "id": "6684f663-3e11-47e5-bc0a-05bdec45fef8",
+          "name": "Updated Vendor mshpc141",
+          "city": null,
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "5cb5bba5-98ab-4456-9806-d0db70560934",
+          "type": "percent",
+          "value": "15",
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 1,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T15:59:52.692Z",
+          "updated_at": "2026-08-06T15:59:53.190Z",
+          "discount_code": "VEND-ADMINV-15PCT-5LE8",
+          "description": "15% Off member discount",
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false
+        }
+      ]
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/admin/vendors",
+    "expected": 201,
+    "status": 201,
+    "ok": true,
+    "body": {
+      "vendor": {
+        "id": "3e68cf8d-1295-4bbf-8008-5743041cd08e",
+        "name": "Admin Vendor mshpdix4",
+        "ownerName": "Owner",
+        "address": "456 Oak Ave, Phoenix, AZ 85001",
+        "category": "Dining"
+      },
+      "discountCode": "VEND-ADMINV-15PCT-PG3M",
+      "discount": {
+        "id": "d1a9c095-077d-4314-80ab-c37ad9ef253f",
+        "type": "percent",
+        "value": 15,
+        "label": "15% Off"
+      },
+      "membershipCard": {
+        "id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+        "name": "Light Rail Membership"
+      },
+      "posInstructions": "Ask the customer to show their Light Rail Membership pass, scan its barcode, then apply code VEND-ADMINV-15PCT-PG3M in your POS. No NFC required."
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/admin/vendors",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "count": 17
+  },
+  {
+    "method": "GET",
+    "path": "/admin/vendors/3e68cf8d-1295-4bbf-8008-5743041cd08e",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "id": "3e68cf8d-1295-4bbf-8008-5743041cd08e",
+      "name": "Admin Vendor mshpdix4",
+      "location": "456 Oak Ave, Phoenix, AZ 85001",
+      "city": null,
+      "category": "Dining",
+      "pos_type": null,
+      "email": "admin-vendor-mshpdix4@example.com",
+      "password_hash": null,
+      "status": "approved",
+      "created_at": "2026-08-06T16:01:02.406Z",
+      "updated_at": "2026-08-06T16:01:02.406Z",
+      "address": "456 Oak Ave, Phoenix, AZ 85001",
+      "pos_system": null,
+      "icon_url": null,
+      "logo_url": null,
+      "phone": "6025550000",
+      "latitude": null,
+      "longitude": null,
+      "owner_name": "Owner",
+      "discount_terms": null,
+      "discount_type": "percent",
+      "discount_value": "15",
+      "discount_code": "VEND-ADMINV-15PCT-PG3M",
+      "discount_description": "15% Off member discount",
+      "discount_starts_at": null,
+      "discount_ends_at": null,
+      "discount_boosted": false
+    },
+    "note": "no individual vendor GET route exists in admin.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/admin/analytics",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "totals": {
+        "redemptions": 7,
+        "uniqueCustomers": 2
+      },
+      "usageByVendor": [
+        {
+          "vendorId": "b9274779-4397-44ea-bfb7-45127df1564c",
+          "vendorName": "Scottsdale Shops",
+          "redemptions": 1
+        },
+        {
+          "vendorId": "5cb5bba5-98ab-4456-9806-d0db70560934",
+          "vendorName": "Updated Vendor mshpc141",
+          "redemptions": 1
+        },
+        {
+          "vendorId": "78ac6e98-3c78-4304-aa70-cd89bc19c7a4",
+          "vendorName": "Sunrise Sports Bar",
+          "redemptions": 1
+        },
+        {
+          "vendorId": "f2af2f47-a159-431c-8654-abd591915077",
+          "vendorName": "Updated Vendor mshpd9hh",
+          "redemptions": 1
+        },
+        {
+          "vendorId": "017c001a-2998-45ba-9124-4b2bcf057a48",
+          "vendorName": "Updated Vendor mshlq194",
+          "redemptions": 1
+        },
+        {
+          "vendorId": "63b3d134-fb3d-4051-b5a0-513a97b96686",
+          "vendorName": "Updated Vendor mshls6g3",
+          "redemptions": 1
+        },
+        {
+          "vendorId": "65bc7c45-b356-4ea5-9d86-34c3be44b381",
+          "vendorName": "Updated Vendor mshpbsiw",
+          "redemptions": 1
+        }
+      ],
+      "usageByCard": [
+        {
+          "cardId": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "cardName": "Light Rail Membership",
+          "redemptions": 5
+        },
+        {
+          "cardId": "e42a6686-06ef-4820-a444-9f29f74cc388",
+          "cardName": "Local Favorites",
+          "redemptions": 1
+        },
+        {
+          "cardId": "fe8dba27-6f94-416e-92f6-c26277cf892c",
+          "cardName": "Play Pass",
+          "redemptions": 1
+        }
+      ],
+      "timeSeries": [
+        {
+          "day": "2026-08-01",
+          "redemptions": 1
+        },
+        {
+          "day": "2026-08-04",
+          "redemptions": 1
+        },
+        {
+          "day": "2026-08-06",
+          "redemptions": 5
+        }
+      ],
+      "topPerformers": [
+        {
+          "vendorId": "b9274779-4397-44ea-bfb7-45127df1564c",
+          "vendorName": "Scottsdale Shops",
+          "redemptions": 1
+        },
+        {
+          "vendorId": "5cb5bba5-98ab-4456-9806-d0db70560934",
+          "vendorName": "Updated Vendor mshpc141",
+          "redemptions": 1
+        },
+        {
+          "vendorId": "78ac6e98-3c78-4304-aa70-cd89bc19c7a4",
+          "vendorName": "Sunrise Sports Bar",
+          "redemptions": 1
+        },
+        {
+          "vendorId": "f2af2f47-a159-431c-8654-abd591915077",
+          "vendorName": "Updated Vendor mshpd9hh",
+          "redemptions": 1
+        },
+        {
+          "vendorId": "017c001a-2998-45ba-9124-4b2bcf057a48",
+          "vendorName": "Updated Vendor mshlq194",
+          "redemptions": 1
+        }
+      ]
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/admin/vendors/3e68cf8d-1295-4bbf-8008-5743041cd08e/approve",
+    "expected": 200,
+    "status": 200,
+    "ok": true
+  },
+  {
+    "method": "GET",
+    "path": "/admin/vendors/3e68cf8d-1295-4bbf-8008-5743041cd08e/pass",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "discountCode": "VEND-ADMINV-15PCT-PG3M",
+      "discount": {
+        "type": "percent",
+        "value": 15,
+        "label": "15% Off"
+      },
+      "membershipCard": {
+        "id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+        "name": "Light Rail Membership"
+      },
+      "posInstructions": "Ask the customer to show their Light Rail Membership pass, scan its barcode, then apply code VEND-ADMINV-15PCT-PG3M in your POS. No NFC required."
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/admin/vendors/3e68cf8d-1295-4bbf-8008-5743041cd08e/reset-password",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "tempPassword": "XyTo_UtwqndE"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/admin/vendors/3e68cf8d-1295-4bbf-8008-5743041cd08e/qr",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "discountCode": "VEND-ADMINV-15PCT-BHWX",
+      "qrUrl": "https://quickchart.io/qr?text=VEND-ADMINV-15PCT-BHWX&size=300"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/admin/vendors/3e68cf8d-1295-4bbf-8008-5743041cd08e/reject",
+    "expected": 200,
+    "status": 200,
+    "ok": true
+  },
+  {
+    "method": "GET",
+    "path": "/admin/vendors/3e68cf8d-1295-4bbf-8008-5743041cd08e/activity",
+    "expected": 200,
+    "status": 200,
+    "ok": true
+  },
+  {
+    "method": "GET",
+    "path": "/admin/vendors/3e68cf8d-1295-4bbf-8008-5743041cd08e/analytics",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "totals": {
+        "redemptions": 0,
+        "uniqueCustomers": 0
+      },
+      "daily": [],
+      "byCard": []
+    }
+  },
+  {
+    "method": "PATCH",
+    "path": "/admin/vendors/3e68cf8d-1295-4bbf-8008-5743041cd08e",
+    "expected": 200,
+    "status": 200,
+    "ok": true
+  },
+  {
+    "method": "GET",
+    "path": "/vendors",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "count": 7
+  },
+  {
+    "method": "POST",
+    "path": "/admin/cards",
+    "expected": 201,
+    "status": 201,
+    "ok": true,
+    "body": {
+      "id": "6025e5d9-d93e-4950-8592-6817901d8638"
+    }
+  },
+  {
+    "method": "PATCH",
+    "path": "/admin/cards/6025e5d9-d93e-4950-8592-6817901d8638",
+    "expected": 200,
+    "status": 200,
+    "ok": true
+  },
+  {
+    "method": "POST",
+    "path": "/admin/cards/6025e5d9-d93e-4950-8592-6817901d8638/vendors",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": [
+      {
+        "card_id": "6025e5d9-d93e-4950-8592-6817901d8638",
+        "vendor_id": "3e68cf8d-1295-4bbf-8008-5743041cd08e",
+        "joined_at": "2026-08-06T16:01:02.589Z"
+      }
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/admin/cards/6025e5d9-d93e-4950-8592-6817901d8638/vendors/3e68cf8d-1295-4bbf-8008-5743041cd08e",
+    "expected": 200,
+    "status": 200,
+    "ok": true
+  },
+  {
+    "method": "POST",
+    "path": "/admin/discounts",
+    "expected": 201,
+    "status": 201,
+    "ok": true,
+    "body": {
+      "id": "524469a1-9673-423c-bd56-a9e97456c12e"
+    }
+  },
+  {
+    "method": "PATCH",
+    "path": "/admin/discounts/524469a1-9673-423c-bd56-a9e97456c12e",
+    "expected": 200,
+    "status": 200,
+    "ok": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/admin/discounts/524469a1-9673-423c-bd56-a9e97456c12e",
+    "expected": 200,
+    "status": 200,
+    "ok": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/admin/cards/6025e5d9-d93e-4950-8592-6817901d8638",
+    "expected": 200,
+    "status": 200,
+    "ok": true
+  },
+  {
+    "method": "GET",
+    "path": "/admin/ads",
+    "expected": 200,
+    "status": 200,
+    "ok": true
+  },
+  {
+    "method": "POST",
+    "path": "/admin/ads",
+    "expected": 201,
+    "status": 201,
+    "ok": true,
+    "body": {
+      "id": "ba282d6c-7749-46d0-b442-6d2a9a1116db",
+      "created_at": "2026-08-06T16:01:02.648Z",
+      "updated_at": "2026-08-06T16:01:02.648Z",
+      "slot": 1,
+      "image_url": "https://via.placeholder.com/300x150?text=Ad1",
+      "link_url": "https://example.com",
+      "active": true
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/admin/ads",
+    "expected": 201,
+    "status": 201,
+    "ok": true,
+    "body": {
+      "id": "d6f71073-059c-43da-ba15-04f0de58d48c",
+      "created_at": "2026-08-06T16:01:02.655Z",
+      "updated_at": "2026-08-06T16:01:02.655Z",
+      "slot": 2,
+      "image_url": "https://via.placeholder.com/300x150?text=Ad2",
+      "link_url": "https://example.org",
+      "active": true
+    }
+  },
+  {
+    "method": "PATCH",
+    "path": "/admin/ads/d6f71073-059c-43da-ba15-04f0de58d48c",
+    "expected": 200,
+    "status": 200,
+    "ok": true
+  },
+  {
+    "method": "GET",
+    "path": "/ads",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "count": 3
+  },
+  {
+    "method": "DELETE",
+    "path": "/admin/ads/ba282d6c-7749-46d0-b442-6d2a9a1116db",
+    "expected": 200,
+    "status": 200,
+    "ok": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/admin/ads/d6f71073-059c-43da-ba15-04f0de58d48c",
+    "expected": 200,
+    "status": 200,
+    "ok": true
+  },
+  {
+    "method": "GET",
+    "path": "/admin/events",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "urls": [],
+      "events": []
+    }
+  },
+  {
+    "method": "PATCH",
+    "path": "/admin/events",
+    "expected": 200,
+    "status": 200,
+    "ok": true
+  },
+  {
+    "method": "POST",
+    "path": "/admin/events/custom",
+    "expected": 201,
+    "status": 201,
+    "ok": true,
+    "body": {
+      "id": "eb8956de-9c00-4c7b-8581-d604e5838e64",
+      "title": "Event mshpdix4",
+      "description": "Test event",
+      "eventDate": "2026-08-06",
+      "createdAt": "2026-08-06T16:01:02.695Z"
+    }
+  },
+  {
+    "method": "PATCH",
+    "path": "/admin/events/custom/eb8956de-9c00-4c7b-8581-d604e5838e64",
+    "expected": 200,
+    "status": 200,
+    "ok": true
+  },
+  {
+    "method": "GET",
+    "path": "/events",
+    "expected": 200,
+    "status": 200,
+    "ok": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/admin/events/custom/eb8956de-9c00-4c7b-8581-d604e5838e64",
+    "expected": 204,
+    "status": 204,
+    "ok": true
+  },
+  {
+    "method": "GET",
+    "path": "/admin/content",
+    "expected": 200,
+    "status": 200,
+    "ok": true
+  },
+  {
+    "method": "POST",
+    "path": "/admin/content",
+    "expected": 201,
+    "status": 201,
+    "ok": true,
+    "body": {
+      "id": "91fdd0e4-f63e-4e3b-b120-83f84472babc",
+      "created_at": "2026-08-06T16:01:02.721Z",
+      "updated_at": "2026-08-06T16:01:02.721Z",
+      "kind": "text",
+      "title": "Content mshpdix4",
+      "body": "Hello world",
+      "position": 0,
+      "published": true,
+      "url": null
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/content",
+    "expected": 200,
+    "status": 200,
+    "ok": true
+  },
+  {
+    "method": "PATCH",
+    "path": "/admin/content/91fdd0e4-f63e-4e3b-b120-83f84472babc",
+    "expected": 200,
+    "status": 200,
+    "ok": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/admin/content/91fdd0e4-f63e-4e3b-b120-83f84472babc",
+    "expected": 200,
+    "status": 200,
+    "ok": true
+  },
+  {
+    "method": "GET",
+    "path": "/settings/theme",
+    "expected": 200,
+    "status": 200,
+    "ok": true
+  },
+  {
+    "method": "GET",
+    "path": "/admin/settings/theme",
+    "expected": 200,
+    "status": 200,
+    "ok": true
+  },
+  {
+    "method": "PATCH",
+    "path": "/admin/settings/theme",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "brand": "#0d9488",
+      "primaryGradient": [
+        "#0d9488",
+        "#6366f1"
+      ],
+      "tabs": [
+        {
+          "key": "index",
+          "label": "Home",
+          "color": "#0d9488",
+          "gradient": [
+            "#14b8a6",
+            "#0d9488"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/admin/settings",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "id": "e5512c00-c943-41c1-9fa4-728da9e80f8f",
+      "email": "owner@example.com",
+      "role": "owner",
+      "location": "Phoenix, AZ"
+    }
+  },
+  {
+    "method": "PATCH",
+    "path": "/admin/settings",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "id": "e5512c00-c943-41c1-9fa4-728da9e80f8f",
+      "email": "owner@example.com",
+      "role": "owner",
+      "location": "Phoenix, AZ"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/admin/profile",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "id": "e5512c00-c943-41c1-9fa4-728da9e80f8f",
+      "email": "owner@example.com",
+      "role": "owner",
+      "location": "Phoenix, AZ"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/admin/marketing/blast",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "emails": 0,
+      "sms": 0,
+      "errors": [
+        "No opted-in recipients"
+      ]
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/me",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "id": "74c5b110-866c-48eb-9213-cf78e3b69c8b",
+      "email": "test-customer-mshpdix4@example.com",
+      "phone": null,
+      "fullName": "Test Customer",
+      "firstName": "Test",
+      "lastName": "Customer",
+      "city": null,
+      "status": "active",
+      "pushPreferences": {
+        "newVendor": true,
+        "expiringDeal": true,
+        "localEvent": true
+      },
+      "promoEmailOptIn": false,
+      "promoSmsOptIn": false,
+      "termsAcceptedAt": "2026-08-06T16:01:02.152Z",
+      "privacyAcceptedAt": "2026-08-06T16:01:02.152Z",
+      "eulaAcceptedAt": "2026-08-06T16:01:02.152Z"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/me/analytics",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "totalRedemptions": 0,
+      "byVendor": [],
+      "daily": []
+    }
+  },
+  {
+    "method": "PATCH",
+    "path": "/me",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "id": "74c5b110-866c-48eb-9213-cf78e3b69c8b",
+      "email": "test-customer-mshpdix4@example.com",
+      "phone": null,
+      "fullName": "Test Customer",
+      "firstName": "Test",
+      "lastName": "Customer",
+      "city": "Phoenix",
+      "status": "active",
+      "pushPreferences": {
+        "newVendor": true,
+        "expiringDeal": true,
+        "localEvent": true
+      },
+      "promoEmailOptIn": false,
+      "promoSmsOptIn": false,
+      "termsAcceptedAt": "2026-08-06T16:01:02.152Z",
+      "privacyAcceptedAt": "2026-08-06T16:01:02.152Z",
+      "eulaAcceptedAt": "2026-08-06T16:01:02.152Z"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/me/push-token",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "registered": true
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/me/pass",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "pass": {
+        "passId": "c2e49897-2085-4bb3-9483-0dcada80d801",
+        "serialNumber": "Hu8wbO7-CrK8r795",
+        "lookupToken": "G3uGMLVHc6X_SMiNPv2-tkHM",
+        "barcodeValue": "G3uGMLVHc6X_SMiNPv2-tkHM",
+        "cardId": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e"
+      },
+      "walletUrl": null,
+      "androidUrl": null,
+      "passUrl": null,
+      "downloadUrl": ""
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/me/pass",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "pass": {
+        "passId": "c2e49897-2085-4bb3-9483-0dcada80d801",
+        "serialNumber": "Hu8wbO7-CrK8r795",
+        "lookupToken": "G3uGMLVHc6X_SMiNPv2-tkHM",
+        "barcodeValue": "G3uGMLVHc6X_SMiNPv2-tkHM",
+        "cardId": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e"
+      },
+      "walletUrl": null,
+      "androidUrl": null,
+      "passUrl": null,
+      "downloadUrl": ""
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/passes",
+    "expected": 201,
+    "status": 201,
+    "ok": true,
+    "body": {
+      "pass": {
+        "passId": "3c69cbf8-7214-4155-83e3-8f9e63eed055",
+        "serialNumber": "7bBojmzrNpoyAyAp",
+        "lookupToken": "JYNDTskkTubCOAMxYFYSg7-3",
+        "authToken": "NAnMtcorEFYHppMp67c4M2Kl",
+        "cardName": "Light Rail Membership",
+        "description": "Your all-in-one membership card. Show it at any participating business for member discounts."
+      },
+      "wallet": {
+        "configured": false,
+        "message": "Google Wallet not configured"
+      },
+      "downloadUrl": "/api/passes/7bBojmzrNpoyAyAp"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/passes/7bBojmzrNpoyAyAp",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "id": "3c69cbf8-7214-4155-83e3-8f9e63eed055",
+      "user_id": "74c5b110-866c-48eb-9213-cf78e3b69c8b",
+      "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+      "platform": "google",
+      "serial_number": "7bBojmzrNpoyAyAp",
+      "auth_token": "NAnMtcorEFYHppMp67c4M2Kl",
+      "lookup_token": "JYNDTskkTubCOAMxYFYSg7-3",
+      "device_library_id": null,
+      "push_token": null,
+      "created_at": "2026-08-06T16:01:02.816Z",
+      "updated_at": "2026-08-06T16:01:02.816Z",
+      "passcreator_id": null,
+      "passcreator_url": null,
+      "passcreator_iphone_uri": null,
+      "passcreator_android_uri": null,
+      "barcode_value": null,
+      "card_name": "Light Rail Membership",
+      "card_description": "Your all-in-one membership card. Show it at any participating business for member discounts."
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/passes/7bBojmzrNpoyAyAp/registrations/dev-lib-mshpdix4",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "registered": true
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/passes/7bBojmzrNpoyAyAp/registrations/dev-lib-mshpdix4",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "deleted": true
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/lookup/G3uGMLVHc6X_SMiNPv2-tkHM",
+    "expected": [
+      200,
+      404
+    ],
+    "status": 200,
+    "ok": true,
+    "body": {
+      "pass": {
+        "pass_id": "c2e49897-2085-4bb3-9483-0dcada80d801",
+        "user_id": "74c5b110-866c-48eb-9213-cf78e3b69c8b",
+        "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+        "user_email": "test-customer-mshpdix4@example.com",
+        "user_phone": null,
+        "user_full_name": "Test Customer",
+        "card_name": "Light Rail Membership",
+        "card_theme": "shops_restaurants",
+        "card_description": "Your all-in-one membership card. Show it at any participating business for member discounts.",
+        "card_image_url": null,
+        "vendor_id": null,
+        "vendor_name": null
+      },
+      "discounts": [
+        {
+          "id": "560a0a2b-ab8e-4c94-a1a8-60e6c27287d0",
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "27efbc17-d578-4922-8e33-7d1467a40be1",
+          "type": "percent",
+          "value": 15,
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 0,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T14:08:55.920Z",
+          "updated_at": "2026-08-06T14:08:55.920Z",
+          "discount_code": "MBR-560A0A2BAB",
+          "description": null,
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false,
+          "minPurchase": 0,
+          "cityOverrides": {},
+          "applied": {
+            "type": "percent",
+            "value": 15,
+            "description": "15% off",
+            "instruction": "Purchase amount required for percent discounts."
+          }
+        },
+        {
+          "id": "dc40e51a-0335-4656-80d4-1c7a6e31b314",
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "017c001a-2998-45ba-9124-4b2bcf057a48",
+          "type": "percent",
+          "value": 15,
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 1,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T14:18:47.735Z",
+          "updated_at": "2026-08-06T14:18:48.412Z",
+          "discount_code": "VEND-ADMINV-15PCT-C7G9",
+          "description": "15% Off member discount",
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false,
+          "minPurchase": 0,
+          "cityOverrides": {},
+          "applied": {
+            "type": "percent",
+            "value": 15,
+            "description": "15% Off member discount",
+            "instruction": "Purchase amount required for percent discounts."
+          }
+        },
+        {
+          "id": "6e1d508e-ddef-48cc-b570-e35673da0db3",
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "63b3d134-fb3d-4051-b5a0-513a97b96686",
+          "type": "percent",
+          "value": 15,
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 1,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T14:20:27.706Z",
+          "updated_at": "2026-08-06T14:20:28.252Z",
+          "discount_code": "VEND-ADMINV-15PCT-2ZSR",
+          "description": "15% Off member discount",
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false,
+          "minPurchase": 0,
+          "cityOverrides": {},
+          "applied": {
+            "type": "percent",
+            "value": 15,
+            "description": "15% Off member discount",
+            "instruction": "Purchase amount required for percent discounts."
+          }
+        },
+        {
+          "id": "6ab773ac-bb5a-4270-9df5-c6df74391c4d",
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "65bc7c45-b356-4ea5-9d86-34c3be44b381",
+          "type": "percent",
+          "value": 15,
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 1,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T15:59:41.618Z",
+          "updated_at": "2026-08-06T15:59:42.134Z",
+          "discount_code": "VEND-ADMINV-15PCT-7MZB",
+          "description": "15% Off member discount",
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false,
+          "minPurchase": 0,
+          "cityOverrides": {},
+          "applied": {
+            "type": "percent",
+            "value": 15,
+            "description": "15% Off member discount",
+            "instruction": "Purchase amount required for percent discounts."
+          }
+        },
+        {
+          "id": "6684f663-3e11-47e5-bc0a-05bdec45fef8",
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "5cb5bba5-98ab-4456-9806-d0db70560934",
+          "type": "percent",
+          "value": 15,
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 1,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T15:59:52.692Z",
+          "updated_at": "2026-08-06T15:59:53.190Z",
+          "discount_code": "VEND-ADMINV-15PCT-5LE8",
+          "description": "15% Off member discount",
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false,
+          "minPurchase": 0,
+          "cityOverrides": {},
+          "applied": {
+            "type": "percent",
+            "value": 15,
+            "description": "15% Off member discount",
+            "instruction": "Purchase amount required for percent discounts."
+          }
+        },
+        {
+          "id": "815cd789-2dad-45da-83b9-6e26e658c7af",
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "f2af2f47-a159-431c-8654-abd591915077",
+          "type": "percent",
+          "value": 15,
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 1,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T16:00:50.215Z",
+          "updated_at": "2026-08-06T16:00:50.729Z",
+          "discount_code": "VEND-ADMINV-15PCT-JCUN",
+          "description": "15% Off member discount",
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false,
+          "minPurchase": 0,
+          "cityOverrides": {},
+          "applied": {
+            "type": "percent",
+            "value": 15,
+            "description": "15% Off member discount",
+            "instruction": "Purchase amount required for percent discounts."
+          }
+        },
+        {
+          "id": "d1a9c095-077d-4314-80ab-c37ad9ef253f",
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "3e68cf8d-1295-4bbf-8008-5743041cd08e",
+          "type": "percent",
+          "value": 15,
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 0,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T16:01:02.412Z",
+          "updated_at": "2026-08-06T16:01:02.536Z",
+          "discount_code": "VEND-ADMINV-15PCT-BHWX",
+          "description": "15% Off member discount",
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false,
+          "minPurchase": 0,
+          "cityOverrides": {},
+          "applied": {
+            "type": "percent",
+            "value": 15,
+            "description": "15% Off member discount",
+            "instruction": "Purchase amount required for percent discounts."
+          }
+        }
+      ]
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/discounts/lookup",
+    "expected": [
+      200,
+      404
+    ],
+    "status": 200,
+    "ok": true,
+    "body": {
+      "pass": {
+        "pass_id": "c2e49897-2085-4bb3-9483-0dcada80d801",
+        "user_id": "74c5b110-866c-48eb-9213-cf78e3b69c8b",
+        "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+        "user_email": "test-customer-mshpdix4@example.com",
+        "user_phone": null,
+        "user_full_name": "Test Customer",
+        "card_name": "Light Rail Membership",
+        "card_theme": "shops_restaurants",
+        "card_description": "Your all-in-one membership card. Show it at any participating business for member discounts.",
+        "card_image_url": null,
+        "vendor_id": null,
+        "vendor_name": null
+      },
+      "discounts": [
+        {
+          "id": "560a0a2b-ab8e-4c94-a1a8-60e6c27287d0",
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "27efbc17-d578-4922-8e33-7d1467a40be1",
+          "type": "percent",
+          "value": 15,
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 0,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T14:08:55.920Z",
+          "updated_at": "2026-08-06T14:08:55.920Z",
+          "discount_code": "MBR-560A0A2BAB",
+          "description": null,
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false,
+          "minPurchase": 0,
+          "cityOverrides": {},
+          "applied": {
+            "type": "percent",
+            "value": 15,
+            "description": "15% off",
+            "instruction": "Purchase amount required for percent discounts."
+          }
+        },
+        {
+          "id": "dc40e51a-0335-4656-80d4-1c7a6e31b314",
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "017c001a-2998-45ba-9124-4b2bcf057a48",
+          "type": "percent",
+          "value": 15,
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 1,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T14:18:47.735Z",
+          "updated_at": "2026-08-06T14:18:48.412Z",
+          "discount_code": "VEND-ADMINV-15PCT-C7G9",
+          "description": "15% Off member discount",
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false,
+          "minPurchase": 0,
+          "cityOverrides": {},
+          "applied": {
+            "type": "percent",
+            "value": 15,
+            "description": "15% Off member discount",
+            "instruction": "Purchase amount required for percent discounts."
+          }
+        },
+        {
+          "id": "6e1d508e-ddef-48cc-b570-e35673da0db3",
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "63b3d134-fb3d-4051-b5a0-513a97b96686",
+          "type": "percent",
+          "value": 15,
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 1,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T14:20:27.706Z",
+          "updated_at": "2026-08-06T14:20:28.252Z",
+          "discount_code": "VEND-ADMINV-15PCT-2ZSR",
+          "description": "15% Off member discount",
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false,
+          "minPurchase": 0,
+          "cityOverrides": {},
+          "applied": {
+            "type": "percent",
+            "value": 15,
+            "description": "15% Off member discount",
+            "instruction": "Purchase amount required for percent discounts."
+          }
+        },
+        {
+          "id": "6ab773ac-bb5a-4270-9df5-c6df74391c4d",
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "65bc7c45-b356-4ea5-9d86-34c3be44b381",
+          "type": "percent",
+          "value": 15,
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 1,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T15:59:41.618Z",
+          "updated_at": "2026-08-06T15:59:42.134Z",
+          "discount_code": "VEND-ADMINV-15PCT-7MZB",
+          "description": "15% Off member discount",
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false,
+          "minPurchase": 0,
+          "cityOverrides": {},
+          "applied": {
+            "type": "percent",
+            "value": 15,
+            "description": "15% Off member discount",
+            "instruction": "Purchase amount required for percent discounts."
+          }
+        },
+        {
+          "id": "6684f663-3e11-47e5-bc0a-05bdec45fef8",
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "5cb5bba5-98ab-4456-9806-d0db70560934",
+          "type": "percent",
+          "value": 15,
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 1,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T15:59:52.692Z",
+          "updated_at": "2026-08-06T15:59:53.190Z",
+          "discount_code": "VEND-ADMINV-15PCT-5LE8",
+          "description": "15% Off member discount",
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false,
+          "minPurchase": 0,
+          "cityOverrides": {},
+          "applied": {
+            "type": "percent",
+            "value": 15,
+            "description": "15% Off member discount",
+            "instruction": "Purchase amount required for percent discounts."
+          }
+        },
+        {
+          "id": "815cd789-2dad-45da-83b9-6e26e658c7af",
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "f2af2f47-a159-431c-8654-abd591915077",
+          "type": "percent",
+          "value": 15,
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 1,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T16:00:50.215Z",
+          "updated_at": "2026-08-06T16:00:50.729Z",
+          "discount_code": "VEND-ADMINV-15PCT-JCUN",
+          "description": "15% Off member discount",
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false,
+          "minPurchase": 0,
+          "cityOverrides": {},
+          "applied": {
+            "type": "percent",
+            "value": 15,
+            "description": "15% Off member discount",
+            "instruction": "Purchase amount required for percent discounts."
+          }
+        },
+        {
+          "id": "d1a9c095-077d-4314-80ab-c37ad9ef253f",
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "3e68cf8d-1295-4bbf-8008-5743041cd08e",
+          "type": "percent",
+          "value": 15,
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 0,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T16:01:02.412Z",
+          "updated_at": "2026-08-06T16:01:02.536Z",
+          "discount_code": "VEND-ADMINV-15PCT-BHWX",
+          "description": "15% Off member discount",
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false,
+          "minPurchase": 0,
+          "cityOverrides": {},
+          "applied": {
+            "type": "percent",
+            "value": 15,
+            "description": "15% Off member discount",
+            "instruction": "Purchase amount required for percent discounts."
+          }
+        }
+      ]
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/discounts/by-code/:code",
+    "expected": [
+      200,
+      409
+    ],
+    "status": 409,
+    "ok": true,
+    "body": {
+      "error": "Discount not found"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/lookup/card/1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+    "expected": [
+      200,
+      404
+    ],
+    "status": 200,
+    "ok": true,
+    "body": {
+      "card": {
+        "id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+        "name": "Light Rail Membership",
+        "theme": "shops_restaurants",
+        "description": "Your all-in-one membership card. Show it at any participating business for member discounts.",
+        "image_url": null,
+        "expiration_date": null,
+        "max_uses": null,
+        "status": "active",
+        "created_at": "2026-08-06T14:08:55.947Z",
+        "updated_at": "2026-08-06T14:08:55.947Z",
+        "discount_type": null,
+        "discount_value": null,
+        "discount_code": null,
+        "pkpass_pass_id": null,
+        "pkpass_url": null,
+        "icon_url": null,
+        "logo_url": null,
+        "is_membership": true,
+        "primary_color": null,
+        "secondary_color": null,
+        "qr_size": 240,
+        "layout": "qr_bottom",
+        "vendor_name": null
+      },
+      "discounts": [
+        {
+          "id": "560a0a2b-ab8e-4c94-a1a8-60e6c27287d0",
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "27efbc17-d578-4922-8e33-7d1467a40be1",
+          "type": "percent",
+          "value": 15,
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 0,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T14:08:55.920Z",
+          "updated_at": "2026-08-06T14:08:55.920Z",
+          "discount_code": "MBR-560A0A2BAB",
+          "description": null,
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false,
+          "minPurchase": 0,
+          "cityOverrides": {},
+          "applied": {
+            "type": "percent",
+            "value": 15,
+            "description": "15% off",
+            "instruction": "Purchase amount required for percent discounts."
+          }
+        },
+        {
+          "id": "dc40e51a-0335-4656-80d4-1c7a6e31b314",
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "017c001a-2998-45ba-9124-4b2bcf057a48",
+          "type": "percent",
+          "value": 15,
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 1,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T14:18:47.735Z",
+          "updated_at": "2026-08-06T14:18:48.412Z",
+          "discount_code": "VEND-ADMINV-15PCT-C7G9",
+          "description": "15% Off member discount",
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false,
+          "minPurchase": 0,
+          "cityOverrides": {},
+          "applied": {
+            "type": "percent",
+            "value": 15,
+            "description": "15% Off member discount",
+            "instruction": "Purchase amount required for percent discounts."
+          }
+        },
+        {
+          "id": "6e1d508e-ddef-48cc-b570-e35673da0db3",
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "63b3d134-fb3d-4051-b5a0-513a97b96686",
+          "type": "percent",
+          "value": 15,
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 1,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T14:20:27.706Z",
+          "updated_at": "2026-08-06T14:20:28.252Z",
+          "discount_code": "VEND-ADMINV-15PCT-2ZSR",
+          "description": "15% Off member discount",
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false,
+          "minPurchase": 0,
+          "cityOverrides": {},
+          "applied": {
+            "type": "percent",
+            "value": 15,
+            "description": "15% Off member discount",
+            "instruction": "Purchase amount required for percent discounts."
+          }
+        },
+        {
+          "id": "6ab773ac-bb5a-4270-9df5-c6df74391c4d",
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "65bc7c45-b356-4ea5-9d86-34c3be44b381",
+          "type": "percent",
+          "value": 15,
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 1,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T15:59:41.618Z",
+          "updated_at": "2026-08-06T15:59:42.134Z",
+          "discount_code": "VEND-ADMINV-15PCT-7MZB",
+          "description": "15% Off member discount",
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false,
+          "minPurchase": 0,
+          "cityOverrides": {},
+          "applied": {
+            "type": "percent",
+            "value": 15,
+            "description": "15% Off member discount",
+            "instruction": "Purchase amount required for percent discounts."
+          }
+        },
+        {
+          "id": "6684f663-3e11-47e5-bc0a-05bdec45fef8",
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "5cb5bba5-98ab-4456-9806-d0db70560934",
+          "type": "percent",
+          "value": 15,
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 1,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T15:59:52.692Z",
+          "updated_at": "2026-08-06T15:59:53.190Z",
+          "discount_code": "VEND-ADMINV-15PCT-5LE8",
+          "description": "15% Off member discount",
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false,
+          "minPurchase": 0,
+          "cityOverrides": {},
+          "applied": {
+            "type": "percent",
+            "value": 15,
+            "description": "15% Off member discount",
+            "instruction": "Purchase amount required for percent discounts."
+          }
+        },
+        {
+          "id": "815cd789-2dad-45da-83b9-6e26e658c7af",
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "f2af2f47-a159-431c-8654-abd591915077",
+          "type": "percent",
+          "value": 15,
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 1,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T16:00:50.215Z",
+          "updated_at": "2026-08-06T16:00:50.729Z",
+          "discount_code": "VEND-ADMINV-15PCT-JCUN",
+          "description": "15% Off member discount",
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false,
+          "minPurchase": 0,
+          "cityOverrides": {},
+          "applied": {
+            "type": "percent",
+            "value": 15,
+            "description": "15% Off member discount",
+            "instruction": "Purchase amount required for percent discounts."
+          }
+        },
+        {
+          "id": "d1a9c095-077d-4314-80ab-c37ad9ef253f",
+          "card_id": "1f93e2e8-f3e3-4565-92bf-6baeb8783a9e",
+          "vendor_id": "3e68cf8d-1295-4bbf-8008-5743041cd08e",
+          "type": "percent",
+          "value": 15,
+          "min_purchase": "0",
+          "max_uses_total": null,
+          "max_uses_per_customer": null,
+          "uses_count": 0,
+          "city_overrides": {},
+          "active": true,
+          "created_at": "2026-08-06T16:01:02.412Z",
+          "updated_at": "2026-08-06T16:01:02.536Z",
+          "discount_code": "VEND-ADMINV-15PCT-BHWX",
+          "description": "15% Off member discount",
+          "starts_at": null,
+          "ends_at": null,
+          "boosted": false,
+          "minPurchase": 0,
+          "cityOverrides": {},
+          "applied": {
+            "type": "percent",
+            "value": 15,
+            "description": "15% Off member discount",
+            "instruction": "Purchase amount required for percent discounts."
+          }
+        }
+      ]
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/redeem",
+    "expected": [
+      200,
+      409
+    ],
+    "status": 200,
+    "ok": true,
+    "body": {
+      "valid": false,
+      "reason": "Discount not found"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/redeem (with purchase)",
+    "expected": [
+      200,
+      409
+    ],
+    "status": 200,
+    "ok": true,
+    "body": {
+      "valid": false,
+      "reason": "Discount not found"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/discounts/tokens",
+    "expected": [
+      200,
+      409
+    ],
+    "status": 200,
+    "ok": true,
+    "body": {
+      "token": "N1wreJG_jsE91Pjc_Wp3EL5e",
+      "url": "/redeem/N1wreJG_jsE91Pjc_Wp3EL5e",
+      "vendorName": "Updated Vendor mshpdix4",
+      "discountLabel": "15% off",
+      "discountDescription": "15% Off member discount",
+      "terms": "Cannot be applied with any other offer\nNot redeemable for cash\nCan be used 1 time per week",
+      "amountApplied": 0,
+      "expiresAt": "2026-08-06T16:06:02.885Z"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/discounts/tokens/:token/affirm",
+    "expected": [
+      200,
+      409
+    ],
+    "status": 200,
+    "ok": true,
+    "body": {
+      "ok": true,
+      "discountLabel": "15% Off member discount",
+      "amountApplied": 0,
+      "redemptionId": "ec6f5808-9f7e-4274-9a29-363558634b6c"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "http://localhost:4000/redeem/N1wreJG_jsE91Pjc_Wp3EL5e",
+    "expected": [
+      200,
+      302
+    ],
+    "status": 200,
+    "ok": true,
+    "bodyPreview": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"v"
+  },
+  {
+    "method": "GET",
+    "path": "/qr/onboarding.png",
+    "expected": [
+      200,
+      302,
+      307
+    ],
+    "status": 302,
+    "ok": true,
+    "location": "https://quickchart.io/qr?text=lrcard%3A%2F%2Fonboard%3Fcode%3DeyJ2ZW5kb3JJZCI6IjNlNjhjZjhkLTEyOTUtNGJiZi04MDA4LTU3NDMwNDFjZDA4ZSIsImNhcmRJZCI6IjFmOTNlMmU4LWYzZTMtNDU2NS05MmJmLTZiYWViODc4M2E5ZSJ9%0Ahttps%3A%2F%2Flightraildeals.com%2Fonboard%3Fcode%3DeyJ2ZW5kb3JJZCI6IjNlNjhjZjhkLTEyOTUtNGJiZi04MDA4LTU3NDMwNDFjZDA4ZSIsImNhcmRJZCI6IjFmOTNlMmU4LWYzZTMtNDU2NS05MmJmLTZiYWViODc4M2E5ZSJ9&size=300"
+  },
+  {
+    "method": "GET",
+    "path": "/qr/lookup/:token.png",
+    "expected": [
+      200,
+      302,
+      307
+    ],
+    "status": 302,
+    "ok": true,
+    "location": "https://quickchart.io/qr?text=G3uGMLVHc6X_SMiNPv2-tkHM&size=300"
+  },
+  {
+    "method": "GET",
+    "path": "/onboarding/:code",
+    "expected": [
+      200,
+      404
+    ],
+    "status": 200,
+    "ok": true,
+    "body": {
+      "theme": "shops_restaurants",
+      "card": "Light Rail Membership",
+      "vendor": "Updated Vendor mshpdix4",
+      "appStoreUrl": "https://apps.apple.com/",
+      "playStoreUrl": "https://play.google.com/store"
+    },
+    "note": "code length 132; may exceed Fastify default maxParamLength"
+  },
+  {
+    "method": "GET",
+    "path": "/onboarding/invalid-short-code",
+    "expected": [
+      200,
+      404
+    ],
+    "status": 404,
+    "ok": true,
+    "body": {
+      "error": "Invalid onboarding code"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/vendor/cards",
+    "expected": [
+      200,
+      404
+    ],
+    "status": 200,
+    "ok": true,
+    "body": []
+  },
+  {
+    "method": "GET",
+    "path": "/vendor/analytics",
+    "expected": 200,
+    "status": 200,
+    "ok": true,
+    "body": {
+      "totals": {
+        "redemptions": 0,
+        "uniqueCustomers": 0
+      },
+      "daily": [],
+      "byCard": []
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/vendor/pos/connections",
+    "expected": [
+      200,
+      404
+    ],
+    "status": 200,
+    "ok": true,
+    "body": []
+  },
+  {
+    "method": "POST",
+    "path": "/vendor/pos/connections/square/connect",
+    "expected": [
+      200,
+      400,
+      500
+    ],
+    "status": 200,
+    "ok": true,
+    "body": {
+      "provider": "square",
+      "mode": "simulated",
+      "status": "connected",
+      "connection": {
+        "id": "9baf8a3e-3bcc-4b53-8008-59e522847b99",
+        "vendorId": "f75e8dc7-23de-494a-8960-3599f92fb567",
+        "provider": "square",
+        "mode": "simulated",
+        "status": "connected",
+        "merchantId": "square-merchant-7b01aed0",
+        "locationId": "square-location-7b01aed0",
+        "scope": "discounts.read discounts.write",
+        "tokenExpiresAt": "2027-08-06T16:01:02.965Z",
+        "lastSyncedAt": null,
+        "lastErrorMessage": null,
+        "createdAt": "2026-08-06T16:01:02.968Z",
+        "updatedAt": "2026-08-06T16:01:02.968Z"
+      },
+      "message": "square connection completed in simulation mode"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/vendor/pos/connections/square/sync",
+    "expected": [
+      200,
+      404,
+      500
+    ],
+    "status": 200,
+    "ok": true,
+    "body": {
+      "provider": "square",
+      "synced": 0,
+      "results": [],
+      "status": "connected"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/vendor/pos/connections/square",
+    "expected": [
+      200,
+      404
+    ],
+    "status": 200,
+    "ok": true,
+    "body": {
+      "id": "9baf8a3e-3bcc-4b53-8008-59e522847b99",
+      "vendorId": "f75e8dc7-23de-494a-8960-3599f92fb567",
+      "provider": "square",
+      "mode": "simulated",
+      "status": "disconnected",
+      "merchantId": null,
+      "locationId": null,
+      "scope": null,
+      "tokenExpiresAt": null,
+      "lastSyncedAt": null,
+      "lastErrorMessage": null,
+      "createdAt": "2026-08-06T16:01:02.968Z",
+      "updatedAt": "2026-08-06T16:01:02.999Z"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/pos/oauth/callback (manual redirect)",
+    "expected": [
+      302,
+      400,
+      500
+    ],
+    "status": 302,
+    "ok": true,
+    "location": "http://localhost:5174/pos-integration?pos=error&message=Invalid+POS+state"
+  },
+  {
+    "method": "DELETE",
+    "path": "/me",
+    "expected": [
+      204,
+      500
+    ],
+    "status": 204,
+    "ok": true,
+    "body": null
+  }
+]

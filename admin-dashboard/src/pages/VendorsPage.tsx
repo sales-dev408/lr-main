@@ -70,6 +70,56 @@ function toLocalDatetime(iso: string | null | undefined): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function parseName(fullName: string | null | undefined): { firstName: string; lastName: string } {
+  const name = (fullName ?? '').trim();
+  if (!name) return { firstName: '', lastName: '' };
+  const parts = name.split(/\s+/);
+  const firstName = parts[0] ?? '';
+  const lastName = parts.slice(1).join(' ');
+  return { firstName, lastName };
+}
+
+function parseAddress(raw: string | null | undefined) {
+  const address = (raw ?? '').trim();
+  const parts = address.split(',').map((part) => part.trim());
+  const street = parts[0] ?? '';
+  const city = parts[1] ?? '';
+  const stateZip = parts[2] ?? '';
+  const stateZipParts = stateZip.split(/\s+/).filter(Boolean);
+  const state = stateZipParts[0] ?? '';
+  const zip = stateZipParts.slice(1).join(' ');
+  return { street, city, state, zip };
+}
+
+function csvEscape(value: string): string {
+  const str = String(value ?? '');
+  if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+function downloadCsv(vendors: VendorRecord[]) {
+  const header = ['Biz Name', 'First Name', 'Last Name', 'Street Address', 'City', 'State', 'Zip Code', 'Phone Number', 'Additional Info'];
+  const rows = vendors.map((vendor) => {
+    const { firstName, lastName } = parseName(vendor.owner_name);
+    const { street, city, state, zip } = parseAddress(vendor.address ?? vendor.location);
+    const discount = formatDiscount(vendor.discount_type ?? null, vendor.discount_value ?? null);
+    const additional = [vendor.email, vendor.category, discount].filter(Boolean).join(' · ');
+    return [vendor.name, firstName, lastName, street, city, state, zip, vendor.phone ?? '', additional];
+  });
+  const csv = [header.map(csvEscape).join(','), ...rows.map((row) => row.map(csvEscape).join(','))].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `vendors-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 function downloadQrPdf(vendorName: string, code: string, discountLabel: string) {
   const qr = qrCodeUrl(code, 260);
   const html = `
@@ -310,6 +360,7 @@ export function VendorsPage() {
               <option key={c} value={c}>{c}</option>
             ))}
           </Select>
+          <Button variant="secondary" onClick={() => downloadCsv(sorted)}>Export to CSV</Button>
         </div>
       </div>
 
