@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { login as loginRequest, register as registerRequest, updateMe, deleteMe } from './api';
+import { clearApiCache, clearSecureCache } from './cache';
 import { initPushNotifications } from './notifications';
 import { getItem, removeItem, setItem } from './storage';
 import type { AuthResponse, PushPreferences, UserProfile } from './types';
@@ -68,6 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(auth.token);
       setProfile(normalizeProfile(auth.profile));
       await setItem(AUTH_KEY, JSON.stringify(auth));
+      await clearApiCache();
+      await clearSecureCache('my-pass');
       void initPushNotifications();
     },
     [],
@@ -120,11 +123,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setToken(null);
         setProfile(null);
         await removeItem(AUTH_KEY);
+        await clearApiCache();
+        await clearSecureCache('my-pass');
       },
       logout: async () => {
         setToken(null);
         setProfile(null);
         await removeItem(AUTH_KEY);
+        await clearApiCache();
+        await clearSecureCache('my-pass');
       },
     }),
     [loading, persist, profile, token, updateProfile],

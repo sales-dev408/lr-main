@@ -114,7 +114,7 @@ export default function HomeScreen() {
           </View>
         </Card>
 
-        <AdBanner />
+        <AdBanner slot={1} />
 
         <Card>
           <SectionTitle title="More" subtitle="Events, settings, and curated content" />

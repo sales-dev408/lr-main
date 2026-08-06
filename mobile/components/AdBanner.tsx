@@ -6,7 +6,7 @@ import { useThemeColors } from '@/lib/useThemeColors';
 import { useDynamicType } from '@/lib/dynamicType';
 import type { Ad } from '@/lib/types';
 
-export function AdBanner() {
+export function AdBanner({ slot, title = 'Sponsors' }: { slot?: number; title?: string }) {
   const colors = useThemeColors();
   const { width } = useWindowDimensions();
   const { effectiveScale } = useDynamicType();
@@ -17,7 +17,9 @@ export function AdBanner() {
     let mounted = true;
     listAds()
       .then((data) => {
-        if (mounted) setAds(data.slice(0, 3));
+        const active = data.filter((ad) => ad.active);
+        const filtered = slot ? active.filter((ad) => ad.slot === slot).slice(0, 1) : active.slice(0, 5);
+        if (mounted) setAds(filtered);
       })
       .catch(() => {
         // Ads are optional; fail silently so the home screen still loads.
@@ -25,15 +27,12 @@ export function AdBanner() {
       .finally(() => {
         if (mounted) setLoading(false);
       });
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  }, [slot]);
 
   if (loading) {
     return (
       <Card>
-        <SectionTitle title="Sponsors" subtitle="Loading…" />
+        <SectionTitle title={title} subtitle="Loading…" />
         <Spinner />
       </Card>
     );
@@ -48,7 +47,7 @@ export function AdBanner() {
 
   return (
     <Card>
-      <SectionTitle title="Sponsors" subtitle="Featured partners" />
+      <SectionTitle title={title} subtitle="Featured partners" />
       <ScrollView
         horizontal
         pagingEnabled

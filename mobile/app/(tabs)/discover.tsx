@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Image, Linking, ScrollView, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
+import { AdBanner } from '@/components/AdBanner';
 import { adminDeleteContent, adminListContent, listPublishedContent } from '@/lib/api';
 import { useAdmin } from '@/lib/admin';
 import { useThemeColors } from '@/lib/useThemeColors';
@@ -85,6 +86,8 @@ export default function DiscoverScreen() {
     <Screen>
       <ScrollView contentContainerStyle={{ gap: 14, paddingBottom: 24 }}>
         <BrandHeader subtitle="Discover" />
+
+        <AdBanner slot={3} />
 
         {admin.isAdmin ? (
           <Card>

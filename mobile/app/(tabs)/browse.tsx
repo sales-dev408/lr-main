@@ -3,6 +3,7 @@ import { Image, Linking, Platform, Pressable, RefreshControl, ScrollView, Switch
 import { Link, useFocusEffect } from 'expo-router';
 import * as Location from 'expo-location';
 import { AppButton, Banner, BrandHeader, Card, FieldInput, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
+import { AdBanner } from '@/components/AdBanner';
 import { listVendors } from '@/lib/api';
 import { shareDeal } from '@/lib/share';
 import { useThemeColors } from '@/lib/useThemeColors';
@@ -169,6 +170,8 @@ export default function BrowseScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
         <BrandHeader subtitle="Browse discounts & participating businesses" />
+
+        <AdBanner slot={2} />
 
         <Card>
           <SectionTitle title="Browse by type" subtitle="Filter participating businesses by category" />

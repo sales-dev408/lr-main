@@ -1,5 +1,6 @@
 import { getApiBaseUrl } from './config';
 import { ApiError } from './errors';
+import { fetchCached, clearCache, getSecureCache, setSecureCache, clearSecureCache } from './cache';
 import type {
   Ad,
   AdminAuthProfile,
@@ -265,8 +266,15 @@ export async function listVendors(params: { category?: string } = {}) {
     query.set('category', params.category);
   }
   const queryString = query.toString();
-  const vendors = await apiRequest<Record<string, unknown>[]>(`/vendors${queryString ? `?${queryString}` : ''}`);
-  return vendors.map(normalizeVendor);
+  const cacheKey = `vendors:${params.category ?? 'all'}`;
+  return fetchCached(
+    cacheKey,
+    async () => {
+      const vendors = await apiRequest<Record<string, unknown>[]>(`/vendors${queryString ? `?${queryString}` : ''}`);
+      return vendors.map(normalizeVendor);
+    },
+    2 * 60 * 1000,
+  );
 }
 
 export async function socialLogin(body: { provider: string; token: string; email?: string; fullName?: string }) {
@@ -286,29 +294,61 @@ export async function listCards(params: { theme?: string; city?: string }) {
     query.set('city', params.city);
   }
   const queryString = query.toString();
-  const cards = await apiRequest<Record<string, unknown>[]>(`/cards${queryString ? `?${queryString}` : ''}`);
-  return cards.map(normalizeCard);
+  const cacheKey = `cards:${params.theme ?? 'all'}:${params.city ?? 'all'}`;
+  return fetchCached(
+    cacheKey,
+    async () => {
+      const cards = await apiRequest<Record<string, unknown>[]>(`/cards${queryString ? `?${queryString}` : ''}`);
+      return cards.map(normalizeCard);
+    },
+    5 * 60 * 1000,
+  );
 }
 
 export async function getCard(id: string, city?: string) {
   const query = city ? `?city=${encodeURIComponent(city)}` : '';
-  const card = await apiRequest<Record<string, unknown>>(`/cards/${encodeURIComponent(id)}${query}`);
-  return normalizeCard(card) as CardDetail;
+  const cacheKey = `card:${id}:${city ?? 'all'}`;
+  return fetchCached(
+    cacheKey,
+    async () => {
+      const card = await apiRequest<Record<string, unknown>>(`/cards/${encodeURIComponent(id)}${query}`);
+      return normalizeCard(card) as CardDetail;
+    },
+    10 * 60 * 1000,
+  );
 }
 
 // Fetches (creating if needed) the current member's single membership pass.
+const MY_PASS_CACHE_KEY = 'my-pass';
 export async function getMyPass() {
-  return apiRequest<CreatePassResponse>('/me/pass');
+  const cached = await getSecureCache<CreatePassResponse>(MY_PASS_CACHE_KEY, 60 * 1000);
+  if (cached) {
+    return cached;
+  }
+  try {
+    const fresh = await apiRequest<CreatePassResponse>('/me/pass');
+    await setSecureCache(MY_PASS_CACHE_KEY, fresh);
+    return fresh;
+  } catch (error) {
+    const stale = await getSecureCache<CreatePassResponse>(MY_PASS_CACHE_KEY, Number.MAX_SAFE_INTEGER);
+    if (stale) {
+      return stale;
+    }
+    throw error;
+  }
 }
 
 // Ensures the member's membership pass exists and returns it. `cardId` is
 // accepted for backwards compatibility but ignored — there is one membership
 // pass per user.
 export async function createPass(body: { cardId?: string; platform?: WalletPlatform } = {}) {
-  return apiRequest<CreatePassResponse>('/me/pass', {
+  const result = await apiRequest<CreatePassResponse>('/me/pass', {
     method: 'POST',
     body: JSON.stringify(body.platform ? { platform: body.platform } : {}),
   });
+  await clearSecureCache(MY_PASS_CACHE_KEY);
+  await setSecureCache(MY_PASS_CACHE_KEY, result);
+  return result;
 }
 
 export async function getPass(serial: string) {
@@ -355,19 +395,19 @@ export async function redeem(body: {
 // ---- CMS content + theme --------------------------------------------------
 
 export async function listAds(): Promise<Ad[]> {
-  return apiRequest<Ad[]>('/ads');
+  return fetchCached('ads', () => apiRequest<Ad[]>('/ads'), 60 * 1000);
 }
 
 export async function getAppTheme() {
-  return apiRequest<ThemeSettings>('/settings/theme');
+  return fetchCached('theme', () => apiRequest<ThemeSettings>('/settings/theme'), 5 * 60 * 1000);
 }
 
 export async function listPublishedContent() {
-  return apiRequest<ContentBlock[]>('/content');
+  return fetchCached('content', () => apiRequest<ContentBlock[]>('/content'), 2 * 60 * 1000);
 }
 
 export async function getEvents(): Promise<RssEvent[]> {
-  return apiRequest<RssEvent[]>('/events');
+  return fetchCached('events', () => apiRequest<RssEvent[]>('/events'), 15 * 60 * 1000);
 }
 
 export async function registerPushToken(token: string, city?: string | null) {
@@ -375,15 +415,18 @@ export async function registerPushToken(token: string, city?: string | null) {
 }
 
 export async function getMe(): Promise<UserProfile> {
-  return apiRequest<UserProfile>('/me');
+  return fetchCached('me', () => apiRequest<UserProfile>('/me'), 60 * 1000);
 }
 
 export async function updateMe(body: { city?: string | null; pushPreferences?: PushPreferences; promoEmailOptIn?: boolean; promoSmsOptIn?: boolean }): Promise<UserProfile> {
-  return apiRequest<UserProfile>('/me', { method: 'PATCH', body: JSON.stringify(body) });
+  const result = await apiRequest<UserProfile>('/me', { method: 'PATCH', body: JSON.stringify(body) });
+  await clearCache('me');
+  return result;
 }
 
 export async function deleteMe(): Promise<void> {
-  return apiRequest('/me', { method: 'DELETE' });
+  await apiRequest('/me', { method: 'DELETE' });
+  await clearCache('me');
 }
 
 // ---- In-app admin editing -------------------------------------------------
@@ -430,7 +473,7 @@ export async function adminSaveTheme(token: string, theme: ThemeSettings) {
 }
 
 export async function getMyAnalytics(): Promise<UserAnalytics> {
-  return apiRequest<UserAnalytics>('/me/analytics');
+  return fetchCached('my-analytics', () => apiRequest<UserAnalytics>('/me/analytics'), 60 * 1000);
 }
 
 export async function lookupDiscountByCode(code: string): Promise<DiscountLookup> {
@@ -454,4 +497,21 @@ export async function createRedemptionToken(vendorId: string): Promise<Redemptio
 
 export async function affirmRedemptionToken(token: string, affirmationName: string): Promise<{ ok: boolean; discountLabel: string; amountApplied: number; redemptionId: string }> {
   return apiRequest(`/discounts/tokens/${encodeURIComponent(token)}/affirm`, { method: 'POST', body: JSON.stringify({ affirmationName }) });
+}
+
+export interface PasswordResetRequest {
+  message: string;
+  verificationCode?: string;
+}
+
+export interface PasswordReset {
+  success: boolean;
+}
+
+export async function requestPasswordReset(phone: string): Promise<PasswordResetRequest> {
+  return apiRequest<PasswordResetRequest>('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ phone }) });
+}
+
+export async function resetPassword(body: { phone: string; code: string; password: string }): Promise<PasswordReset> {
+  return apiRequest<PasswordReset>('/auth/reset-password', { method: 'POST', body: JSON.stringify(body) });
 }

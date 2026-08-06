@@ -3,7 +3,7 @@ import { Button, EmptyState, ErrorBanner, Input, PageCard, Select, SuccessBanner
 import { createAd, deleteAd, fileToDataUrl, listAds, updateAd } from '../lib/api';
 import type { AdRecord } from '../lib/types';
 
-const SLOT_OPTIONS = [1, 2, 3];
+const SLOT_OPTIONS = [1, 2, 3, 4, 5];
 
 const EMPTY_FORM = {
   slot: 1,
@@ -107,7 +107,7 @@ export function AdsPage() {
   return (
     <div className="stack">
       {toast ? <SuccessBanner message={toast} /> : null}
-      <PageCard title="Ad placements" subtitle="Manage up to 3 sponsor ads shown in the app.">
+      <PageCard title="Ad placements" subtitle="Manage up to 5 sponsor ads shown in the app.">
         {error ? <ErrorBanner message={error} /> : null}
         <form onSubmit={handleSubmit} className="stack" style={{ gap: 12 }}>
           <label>
