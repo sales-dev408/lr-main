@@ -53,7 +53,12 @@
           "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to show nearby participating stores on the map."
         }
       ],
-      "react-native-maps",
+      [
+        "@rnmapbox/maps",
+        {
+          "RNMapboxMapsVersion": "11.27.1"
+        }
+      ],
       [
         "expo-notifications",
         {
