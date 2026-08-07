@@ -1,12 +1,21 @@
 import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
-import { SchedulableTriggerInputTypes } from 'expo-notifications';
 import Constants from 'expo-constants';
 import { registerPushToken } from './api';
 import type { CardSummary, PushPreferences, RssEvent } from './types';
 
+type NotificationsModule = typeof import('expo-notifications');
+
+// Only load the notifications module on native platforms. Loading it on web
+// triggers expo-notifications' auto-registration FX, which logs a "not supported
+// on web" warning and stack trace to the console.
+const Notifications: NotificationsModule | null =
+  Platform.OS === 'web'
+    ? null
+    : // eslint-disable-next-line @typescript-eslint/no-require-imports
+      (require('expo-notifications') as NotificationsModule);
+
 export async function initPushNotifications(): Promise<string | null> {
-  if (Platform.OS === 'web') return null;
+  if (Platform.OS === 'web' || !Notifications) return null;
 
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -36,7 +45,7 @@ export async function initPushNotifications(): Promise<string | null> {
 }
 
 export function listenForNotifications() {
-  if (Platform.OS === 'web') return () => {};
+  if (Platform.OS === 'web' || !Notifications) return () => {};
   const sub = Notifications.addNotificationReceivedListener(() => {
     // Notifications are handled by the system UI; analytics/logging can go here.
   });
@@ -47,7 +56,7 @@ const DEAL_NOTIFICATION_PREFIX = 'deal-';
 const EVENT_NOTIFICATION_PREFIX = 'event-';
 
 async function cancelScheduledNotifications(prefix: string) {
-  if (Platform.OS === 'web') return;
+  if (Platform.OS === 'web' || !Notifications) return;
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
   for (const n of scheduled) {
     if (n.identifier.startsWith(prefix)) {
@@ -57,7 +66,7 @@ async function cancelScheduledNotifications(prefix: string) {
 }
 
 export async function scheduleDealNotifications(cards: CardSummary[], prefs?: PushPreferences): Promise<void> {
-  if (Platform.OS === 'web' || prefs?.expiringDeal === false) return;
+  if (Platform.OS === 'web' || !Notifications || prefs?.expiringDeal === false) return;
   await cancelScheduledNotifications(DEAL_NOTIFICATION_PREFIX);
 
   const now = Date.now();
@@ -74,7 +83,7 @@ export async function scheduleDealNotifications(cards: CardSummary[], prefs?: Pu
         body: `${card.name} expires ${new Date(card.expiration_date).toLocaleDateString()}. Use it before it's gone!`,
         data: { type: 'expiring_deal', cardId: card.id },
       },
-      trigger: { type: SchedulableTriggerInputTypes.DATE, date: reminder },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: reminder },
     });
   }
 }
@@ -86,7 +95,7 @@ function eventMatchesCity(event: RssEvent, city: string): boolean {
 }
 
 export async function scheduleEventNotifications(events: RssEvent[], city: string, prefs?: PushPreferences): Promise<void> {
-  if (Platform.OS === 'web' || !city || prefs?.localEvent === false) return;
+  if (Platform.OS === 'web' || !Notifications || !city || prefs?.localEvent === false) return;
   await cancelScheduledNotifications(EVENT_NOTIFICATION_PREFIX);
 
   const now = Date.now();
@@ -102,7 +111,7 @@ export async function scheduleEventNotifications(events: RssEvent[], city: strin
         body: event.title,
         data: { type: 'local_event', link: event.link },
       },
-      trigger: { type: SchedulableTriggerInputTypes.DATE, date: new Date(eventTime - 60 * 60 * 1000) },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(eventTime - 60 * 60 * 1000) },
     });
   }
 }
