@@ -163,6 +163,22 @@ export default function BrowseScreen() {
     return sortedVendors.filter((v) => v.latitude != null && v.longitude != null);
   }, [sortedVendors]);
 
+  const selectVendor = useCallback(
+    (id: string) => {
+      setSelectedId(id);
+      const vendor = sortedVendors.find((v) => v.id === id) ?? vendors.find((v) => v.id === id);
+      if (vendor?.latitude != null && vendor?.longitude != null) {
+        setRegion({
+          latitude: vendor.latitude,
+          longitude: vendor.longitude,
+          latitudeDelta: 0.03,
+          longitudeDelta: 0.03,
+        });
+      }
+    },
+    [vendors, sortedVendors],
+  );
+
   return (
     <Screen>
       <ScrollView
@@ -216,7 +232,7 @@ export default function BrowseScreen() {
                       coordinate={{ latitude: vendor.latitude, longitude: vendor.longitude }}
                       title={vendor.name}
                       description={vendor.discount.label}
-                      onPress={() => setSelectedId(vendor.id)}
+                      onPress={() => selectVendor(vendor.id)}
                     />
                   ),
               )}
@@ -243,7 +259,7 @@ export default function BrowseScreen() {
                   <View key={vendor.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <AppButton
                       variant={active ? 'primary' : 'secondary'}
-                      onPress={() => setSelectedId(vendor.id)}
+                      onPress={() => selectVendor(vendor.id)}
                       style={{ flex: 1 }}
                     >
                       {vendor.boosted ? 'Flash: ' : ''}{vendor.name} · {vendor.discount.label}

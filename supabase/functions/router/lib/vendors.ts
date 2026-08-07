@@ -2,7 +2,7 @@ import { withDbClient, type PoolClient } from './db.ts';
 import { generateDiscountCode, humanDiscountLabel, type DiscountType } from './codes.ts';
 import { uploadImageDataUrl } from './storage.ts';
 import { config } from './config.ts';
-import { sendVendorWelcomeEmail } from './mailjet.ts';
+import { sendVendorWelcomeEmail } from './resend.ts';
 import { qrCodeUrl } from './quickchart.ts';
 import { getPushTokensForNewVendor, sendPushNotifications } from './push.ts';
 

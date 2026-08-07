@@ -14,7 +14,7 @@ import { generateDiscountCode, humanDiscountLabel } from './lib/codes.ts';
 import { qrCodeUrl } from './lib/quickchart.ts';
 import { normalizePhone } from './lib/phone.ts';
 import { createRedemptionToken, redeemByToken, affirmRedemptionToken } from './lib/redemptionTokens.ts';
-import { sendDealOfTheDayBlast } from './lib/mailjet.ts';
+import { sendDealOfTheDayBlast } from './lib/resend.ts';
 import {
   createContentBlock,
   deleteContentBlock,
