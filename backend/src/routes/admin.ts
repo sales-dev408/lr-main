@@ -439,8 +439,8 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
       actorType: 'admin',
       actorId: request.user?.sub ?? null,
       action: 'admin.marketing.blast',
-      entityType: 'user',
-      entityId: 'all',
+      entityType: 'marketing_blast',
+      entityId: null,
       metadata: { recipients: recipients.length, ...result },
       ip: request.ip,
     });
