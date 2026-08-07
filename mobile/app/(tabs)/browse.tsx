@@ -198,7 +198,7 @@ export default function BrowseScreen() {
           ) : null}
         </Card>
 
-        {Platform.OS !== 'web' && region ? (
+        {region ? (
           <View style={{ height: 280, borderRadius: 16, overflow: 'hidden' }}>
             <MapView
               style={{ flex: 1, borderRadius: 16 }}
@@ -222,8 +222,6 @@ export default function BrowseScreen() {
               )}
             </MapView>
           </View>
-        ) : Platform.OS === 'web' ? (
-          <Banner tone="info">Map view is available in the iOS/Android app. Nearby vendors are listed below.</Banner>
         ) : null}
 
         {loading ? <Spinner /> : null}
