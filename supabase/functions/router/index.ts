@@ -414,6 +414,11 @@ function getIp(request: Request): string | null {
   return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null;
 }
 
+function acceptsJson(request: Request): boolean {
+  const accept = request.headers.get('Accept') ?? '';
+  return accept.includes('application/json');
+}
+
 function queryObject(url: URL): Record<string, string> {
   return Object.fromEntries(url.searchParams.entries());
 }
@@ -1770,12 +1775,18 @@ Deno.serve(async (request) => {
     }
 
     if (path === '/api/redeem' && request.method === 'GET') {
+      if (acceptsJson(request)) {
+        return json(request, { ok: false, error: 'No redemption code' }, { status: 400 });
+      }
       return new Response(renderMissingTokenPage(), { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
     }
 
     if (/^\/(?:api\/)?redeem\/[^/]+$/.test(path) && request.method === 'GET') {
       const token = path.split('/').pop()!;
       const result = await redeemByToken(token, getIp(request));
+      if (acceptsJson(request)) {
+        return json(request, result);
+      }
       const html = renderRedemptionPage(result);
       return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
     }
