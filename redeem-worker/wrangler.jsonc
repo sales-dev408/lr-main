@@ -1,0 +1,9 @@
+{
+  "name": "lr-redeem",
+  "main": "src/index.ts",
+  "account_id": "88b95291d33d8ca1c4957161dcd04591",
+  "compatibility_date": "2024-11-01",
+  "vars": {
+    "SUPABASE_API_URL": "https://okbolfpndeakmchpznmt.supabase.co/functions/v1/router"
+  }
+}
