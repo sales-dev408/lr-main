@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
 import {
   createAdminVendor,
   getVendorAnalytics,
@@ -8,6 +8,8 @@ import {
 } from '../lib/api';
 import type { VendorCategory, VendorRecord } from '../lib/types';
 import type { VendorAnalyticsResponse } from '../lib/api';
+import { AddressAutofill } from '@mapbox/search-js-react';
+import type { AddressAutofillRetrieveResponse } from '@mapbox/search-js-core';
 import { Button, EmptyState, ErrorBanner, InfoCard, Modal, PageCard, Select, Input, Textarea, Badge, SuccessBanner } from '../components/Ui';
 import { useAuth } from '../lib/auth';
 import { parseVendorFields, scanImageToText } from '../lib/ocr';
@@ -182,20 +184,35 @@ export function VendorsPage() {
   const [scanNote, setScanNote] = useState<string | null>(null);
   const [statsVendor, setStatsVendor] = useState<{ vendor: VendorRecord; stats: VendorAnalyticsResponse } | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
-  const geocodeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => () => {
-    if (geocodeTimeoutRef.current) clearTimeout(geocodeTimeoutRef.current);
-  }, []);
+  function handleAutofillRetrieve(res: AddressAutofillRetrieveResponse) {
+    const feature = res.features[0];
+    if (!feature) return;
+    const [longitude, latitude] = feature.geometry.coordinates;
+    const fullAddress =
+      feature.properties.full_address ??
+      feature.properties.place_name ??
+      feature.properties.feature_name ??
+      '';
+    setForm((prev) => ({
+      ...prev,
+      address: fullAddress,
+      latitude: String(latitude),
+      longitude: String(longitude),
+    }));
+  }
 
-  const scheduleGeocode = useCallback((address: string, onResult: (coords: { latitude: number; longitude: number }) => void) => {
-    if (geocodeTimeoutRef.current) clearTimeout(geocodeTimeoutRef.current);
-    if (!mapboxToken || !address.trim()) return;
-    geocodeTimeoutRef.current = setTimeout(async () => {
-      const coords = await geocodeAddress(address);
-      if (coords) onResult(coords);
-    }, 600);
-  }, []);
+  function handleEditAutofillRetrieve(res: AddressAutofillRetrieveResponse) {
+    const feature = res.features[0];
+    if (!feature) return;
+    const [longitude, latitude] = feature.geometry.coordinates;
+    const fullAddress =
+      feature.properties.full_address ??
+      feature.properties.place_name ??
+      feature.properties.feature_name ??
+      '';
+    setEditing((prev) => (prev ? { ...prev, address: fullAddress, latitude, longitude } : prev));
+  }
 
   async function load() {
     setLoading(true);
@@ -431,20 +448,14 @@ export function VendorsPage() {
             </label>
             <label>
               Address
-              <Input
-                placeholder="Address"
-                value={form.address}
-                onChange={(e) => {
-                  const address = e.target.value;
-                  setForm((prev) => ({ ...prev, address }));
-                  scheduleGeocode(address, (coords) => {
-                    setForm((prev) => {
-                      if (prev.latitude.trim() || prev.longitude.trim()) return prev;
-                      return { ...prev, latitude: String(coords.latitude), longitude: String(coords.longitude) };
-                    });
-                  });
-                }}
-              />
+              <AddressAutofill accessToken={mapboxToken ?? ''} onRetrieve={handleAutofillRetrieve}>
+                <Input
+                  autoComplete="address-line1"
+                  placeholder="Address"
+                  value={form.address}
+                  onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))}
+                />
+              </AddressAutofill>
             </label>
             <div className="grid-2">
               <label>
@@ -590,20 +601,13 @@ export function VendorsPage() {
             </label>
             <label>
               Address
-              <Input
-                value={editing.address ?? editing.location ?? ''}
-                onChange={(e) => {
-                  const address = e.target.value;
-                  setEditing({ ...editing, address });
-                  scheduleGeocode(address, (coords) => {
-                    setEditing((prev) => {
-                      if (!prev) return prev;
-                      if (prev.latitude != null || prev.longitude != null) return prev;
-                      return { ...prev, latitude: coords.latitude, longitude: coords.longitude };
-                    });
-                  });
-                }}
-              />
+              <AddressAutofill accessToken={mapboxToken ?? ''} onRetrieve={handleEditAutofillRetrieve}>
+                <Input
+                  autoComplete="address-line1"
+                  value={editing.address ?? editing.location ?? ''}
+                  onChange={(e) => setEditing({ ...editing, address: e.target.value })}
+                />
+              </AddressAutofill>
             </label>
             <div className="grid-2">
               <label>
