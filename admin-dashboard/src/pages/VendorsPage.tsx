@@ -448,14 +448,23 @@ export function VendorsPage() {
             </label>
             <label>
               Address
-              <AddressAutofill accessToken={mapboxToken ?? ''} onRetrieve={handleAutofillRetrieve}>
+              {mapboxToken ? (
+                <AddressAutofill accessToken={mapboxToken} onRetrieve={handleAutofillRetrieve}>
+                  <Input
+                    autoComplete="address-line1"
+                    placeholder="Address"
+                    value={form.address}
+                    onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))}
+                  />
+                </AddressAutofill>
+              ) : (
                 <Input
                   autoComplete="address-line1"
                   placeholder="Address"
                   value={form.address}
                   onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))}
                 />
-              </AddressAutofill>
+              )}
             </label>
             <div className="grid-2">
               <label>
@@ -601,13 +610,21 @@ export function VendorsPage() {
             </label>
             <label>
               Address
-              <AddressAutofill accessToken={mapboxToken ?? ''} onRetrieve={handleEditAutofillRetrieve}>
+              {mapboxToken ? (
+                <AddressAutofill accessToken={mapboxToken} onRetrieve={handleEditAutofillRetrieve}>
+                  <Input
+                    autoComplete="address-line1"
+                    value={editing.address ?? editing.location ?? ''}
+                    onChange={(e) => setEditing({ ...editing, address: e.target.value })}
+                  />
+                </AddressAutofill>
+              ) : (
                 <Input
                   autoComplete="address-line1"
                   value={editing.address ?? editing.location ?? ''}
                   onChange={(e) => setEditing({ ...editing, address: e.target.value })}
                 />
-              </AddressAutofill>
+              )}
             </label>
             <div className="grid-2">
               <label>
