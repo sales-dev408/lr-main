@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import {
   createAdminVendor,
   getVendorAnalytics,
@@ -182,6 +182,20 @@ export function VendorsPage() {
   const [scanNote, setScanNote] = useState<string | null>(null);
   const [statsVendor, setStatsVendor] = useState<{ vendor: VendorRecord; stats: VendorAnalyticsResponse } | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
+  const geocodeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (geocodeTimeoutRef.current) clearTimeout(geocodeTimeoutRef.current);
+  }, []);
+
+  const scheduleGeocode = useCallback((address: string, onResult: (coords: { latitude: number; longitude: number }) => void) => {
+    if (geocodeTimeoutRef.current) clearTimeout(geocodeTimeoutRef.current);
+    if (!mapboxToken || !address.trim()) return;
+    geocodeTimeoutRef.current = setTimeout(async () => {
+      const coords = await geocodeAddress(address);
+      if (coords) onResult(coords);
+    }, 600);
+  }, []);
 
   async function load() {
     setLoading(true);
@@ -417,7 +431,20 @@ export function VendorsPage() {
             </label>
             <label>
               Address
-              <Input placeholder="Address" value={form.address} onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))} />
+              <Input
+                placeholder="Address"
+                value={form.address}
+                onChange={(e) => {
+                  const address = e.target.value;
+                  setForm((prev) => ({ ...prev, address }));
+                  scheduleGeocode(address, (coords) => {
+                    setForm((prev) => {
+                      if (prev.latitude.trim() || prev.longitude.trim()) return prev;
+                      return { ...prev, latitude: String(coords.latitude), longitude: String(coords.longitude) };
+                    });
+                  });
+                }}
+              />
             </label>
             <div className="grid-2">
               <label>
@@ -563,7 +590,20 @@ export function VendorsPage() {
             </label>
             <label>
               Address
-              <Input value={editing.address ?? editing.location ?? ''} onChange={(e) => setEditing({ ...editing, address: e.target.value })} />
+              <Input
+                value={editing.address ?? editing.location ?? ''}
+                onChange={(e) => {
+                  const address = e.target.value;
+                  setEditing({ ...editing, address });
+                  scheduleGeocode(address, (coords) => {
+                    setEditing((prev) => {
+                      if (!prev) return prev;
+                      if (prev.latitude != null || prev.longitude != null) return prev;
+                      return { ...prev, latitude: coords.latitude, longitude: coords.longitude };
+                    });
+                  });
+                }}
+              />
             </label>
             <div className="grid-2">
               <label>

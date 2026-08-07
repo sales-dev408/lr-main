@@ -1,5 +1,4 @@
 import { config } from '../config.js';
-import { normalizePhone } from '../utils/phone.js';
 
 export interface VendorWelcomeEmailInput {
   to: string;
@@ -24,13 +23,25 @@ export interface DealOfTheDayBlastInput {
   recipients: BlastRecipient[];
 }
 
+function fromHeader(): string {
+  return `${config.resendFromName} <${config.resendFromEmail}>`;
+}
+
+function escapeHtml(input: string): string {
+  return input
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export async function sendVendorWelcomeEmail(input: VendorWelcomeEmailInput): Promise<void> {
-  if (!config.mailjetApiKey || !config.mailjetSecretApiKey) {
-    console.warn('[mailjet] Mailjet credentials not configured; skipping welcome email.');
+  if (!config.resendApiKey) {
+    console.warn('[resend] API key not configured; skipping welcome email.');
     return;
   }
 
-  const auth = Buffer.from(`${config.mailjetApiKey}:${config.mailjetSecretApiKey}`).toString('base64');
   const subject = `Welcome to Light Rail Deals, ${input.vendorName}`;
   const text = [
     `Welcome to Light Rail Deals, ${input.vendorName}!`,
@@ -84,11 +95,11 @@ export async function sendVendorWelcomeEmail(input: VendorWelcomeEmailInput): Pr
           <tr>
             <td style="background:#f8fafc;padding:24px;text-align:center;color:#7c8a9d;font-size:12px;">
               <a href="https://lightraildeals.com" style="color:#7c8a9d;text-decoration:none;">Light Rail Deals</a>
-              &nbsp;·&nbsp;
+              &nbsp;&middot;&nbsp;
               <a href="https://www.lightraildeals.com/privacy-policy.html" style="color:#7c8a9d;text-decoration:none;">Privacy Policy - Light Rail Deals</a>
-              &nbsp;·&nbsp;
+              &nbsp;&middot;&nbsp;
               <a href="https://www.lightraildeals.com/terms-of-use.html" style="color:#7c8a9d;text-decoration:none;">Terms of Use</a>
-              &nbsp;·&nbsp;
+              &nbsp;&middot;&nbsp;
               <a href="https://www.lightraildeals.com/eula.html" style="color:#7c8a9d;text-decoration:none;">EULA</a>
             </td>
           </tr>
@@ -99,28 +110,24 @@ export async function sendVendorWelcomeEmail(input: VendorWelcomeEmailInput): Pr
 </body>
 </html>`;
 
-  const response = await fetch('https://api.mailjet.com/v3.1/send', {
+  const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
-      Authorization: `Basic ${auth}`,
+      Authorization: `Bearer ${config.resendApiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      Messages: [
-        {
-          From: { Email: config.mailjetFromEmail, Name: config.mailjetFromName },
-          To: [{ Email: input.to }],
-          Subject: subject,
-          TextPart: text,
-          HTMLPart: html,
-        },
-      ],
+      from: fromHeader(),
+      to: input.to,
+      subject,
+      text,
+      html,
     }),
   });
 
   if (!response.ok) {
     const body = await response.text().catch(() => 'unknown');
-    throw new Error(`Mailjet send failed (${response.status}): ${body}`);
+    throw new Error(`Resend send failed (${response.status}): ${body}`);
   }
 }
 
@@ -132,82 +139,53 @@ export async function sendDealOfTheDayBlast(input: DealOfTheDayBlastInput): Prom
   const emailRecipients = input.recipients.filter((r) => r.promoEmailOptIn && r.email && r.email.includes('@'));
   if (emailRecipients.length > 0) {
     try {
-      emails = await sendMailjetEmailBatch(input.subject, input.text, input.html, emailRecipients.map((r) => r.email!));
+      emails = await sendResendEmailBatch(input.subject, input.text, input.html, emailRecipients.map((r) => r.email!));
     } catch (err) {
       errors.push(err instanceof Error ? err.message : 'Email batch failed');
     }
   }
 
   if (input.smsText) {
-    const phoneRecipients = input.recipients.filter((r) => r.promoSmsOptIn && r.phone && normalizePhone(r.phone));
-    for (const recipient of phoneRecipients) {
-      try {
-        await sendMailjetSms(input.smsText, recipient.phone!);
-        sms += 1;
-      } catch (err) {
-        errors.push(err instanceof Error ? err.message : `SMS to ${recipient.phone} failed`);
-      }
-    }
+    errors.push('SMS blast is not configured; only email was sent.');
   }
 
   return { emails, sms, errors };
 }
 
-async function sendMailjetEmailBatch(subject: string, text: string, html: string | undefined, toList: string[]): Promise<number> {
-  if (!config.mailjetApiKey || !config.mailjetSecretApiKey) {
-    throw new Error('Mailjet API credentials are not configured');
+async function sendResendEmailBatch(subject: string, text: string, html: string | undefined, toList: string[]): Promise<number> {
+  if (!config.resendApiKey) {
+    throw new Error('Resend API key is not configured');
   }
 
-  const auth = Buffer.from(`${config.mailjetApiKey}:${config.mailjetSecretApiKey}`).toString('base64');
-  const messages = toList.map((to) => ({
-    From: { Email: config.mailjetFromEmail, Name: config.mailjetFromName },
-    To: [{ Email: to }],
-    Subject: subject,
-    TextPart: text,
-    HTMLPart: html || text.replace(/\n/g, '<br>'),
-  }));
+  if (toList.length === 0) return 0;
 
-  const response = await fetch('https://api.mailjet.com/v3.1/send', {
+  const from = fromHeader();
+  const body = toList.length === 1
+    ? JSON.stringify({ from, to: toList[0], subject, text, html })
+    : JSON.stringify(
+        toList.map((to) => ({
+          from,
+          to,
+          subject,
+          text,
+          html,
+        })),
+      );
+
+  const endpoint = toList.length === 1 ? 'https://api.resend.com/emails' : 'https://api.resend.com/emails/batch';
+  const response = await fetch(endpoint, {
     method: 'POST',
-    headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ Messages: messages }),
+    headers: {
+      Authorization: `Bearer ${config.resendApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body,
   });
 
   if (!response.ok) {
-    const body = await response.text().catch(() => 'unknown');
-    throw new Error(`Mailjet send failed (${response.status}): ${body}`);
+    const responseBody = await response.text().catch(() => 'unknown');
+    throw new Error(`Resend batch send failed (${response.status}): ${responseBody}`);
   }
 
   return toList.length;
-}
-
-async function sendMailjetSms(text: string, to: string): Promise<void> {
-  if (!config.mailjetSmsToken) {
-    throw new Error('Mailjet SMS token is not configured');
-  }
-
-  const phone = normalizePhone(to);
-  if (!phone) {
-    throw new Error(`Invalid phone number: ${to}`);
-  }
-
-  const response = await fetch('https://api.mailjet.com/v4/sms-send', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${config.mailjetSmsToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ From: 'LightRail', To: phone, Text: text }),
-  });
-
-  if (!response.ok) {
-    const body = await response.text().catch(() => 'unknown');
-    throw new Error(`Mailjet SMS failed (${response.status}): ${body}`);
-  }
-}
-
-function escapeHtml(input: string): string {
-  return input
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }

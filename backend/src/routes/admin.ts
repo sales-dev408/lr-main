@@ -6,7 +6,7 @@ import { getAdminAnalytics, getVendorAnalytics } from '../services/analytics.js'
 import { buildLookupDiscountView, generateDiscountCode, humanDiscountLabel } from '../services/discounts.js';
 import { generateTempPassword } from '../utils/ids.js';
 import { writeTransactionAudit } from '../services/audit.js';
-import { sendVendorWelcomeEmail, sendDealOfTheDayBlast } from '../services/mailjet.js';
+import { sendVendorWelcomeEmail, sendDealOfTheDayBlast } from '../services/resend.js';
 import { getPushTokensForNewVendor, sendPushNotifications } from '../services/push.js';
 import { qrCodeUrl } from '../services/quickchart.js';
 import { deleteDiscountFromVendorConnections, syncDiscountToVendorConnections } from '../services/pos.js';
