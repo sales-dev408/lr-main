@@ -99,6 +99,15 @@ const pushTokenSchema = z.object({
   city: z.string().optional(),
 });
 
+const adSchema = z.object({
+  slot: z.number().int().min(1).max(5),
+  image_url: z.string().min(1),
+  link_url: z.string().optional(),
+  active: z.boolean().default(true),
+});
+
+const adUpdateSchema = adSchema.partial();
+
 const customerLoginSchema = z
   .object({
     email: z.string().email().optional(),
@@ -1815,6 +1824,70 @@ Deno.serve(async (request) => {
         })),
       });
       return json(request, result);
+    }
+
+    // Ads: public list and admin CRUD.
+    if (path === '/api/ads' && request.method === 'GET') {
+      const rows = await dbQuery('SELECT id, slot, image_url, link_url, active, created_at, updated_at FROM ads WHERE active = true ORDER BY slot');
+      return json(request, rows);
+    }
+
+    if (path === '/api/admin/ads' && request.method === 'GET') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const rows = await dbQuery('SELECT id, slot, image_url, link_url, active, created_at, updated_at FROM ads ORDER BY slot');
+      return json(request, rows);
+    }
+
+    if (path === '/api/admin/ads' && request.method === 'POST') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const body = adSchema.parse(await readJsonBody(request, {}));
+      const rows = await dbQuery<{ id: string; created_at: string; updated_at: string }>(
+        `INSERT INTO ads (slot, image_url, link_url, active)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (slot) DO UPDATE
+         SET image_url = EXCLUDED.image_url,
+             link_url = EXCLUDED.link_url,
+             active = EXCLUDED.active,
+             updated_at = now()
+         RETURNING id, created_at, updated_at`,
+        [body.slot, body.image_url, body.link_url ?? null, body.active],
+      );
+      return json(request, { ...rows[0], ...body }, { status: 201 });
+    }
+
+    if (/^\/api\/admin\/ads\/[^/]+$/.test(path) && request.method === 'PATCH') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const id = path.split('/').pop()!;
+      const body = adUpdateSchema.parse(await readJsonBody(request, {}));
+      const rows = await dbQuery(
+        `UPDATE ads
+         SET slot = COALESCE($2, slot),
+             image_url = COALESCE($3, image_url),
+             link_url = COALESCE($4, link_url),
+             active = COALESCE($5, active),
+             updated_at = now()
+         WHERE id = $1
+         RETURNING id, slot, image_url, link_url, active, created_at, updated_at`,
+        [id, body.slot ?? null, body.image_url ?? null, body.link_url ?? null, body.active ?? null],
+      );
+      if (rows.length === 0) {
+        return json(request, { error: 'Ad not found' }, { status: 404 });
+      }
+      return json(request, rows[0]);
+    }
+
+    if (/^\/api\/admin\/ads\/[^/]+$/.test(path) && request.method === 'DELETE') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const id = path.split('/').pop()!;
+      const rows = await dbQuery<{ id: string }>('DELETE FROM ads WHERE id = $1 RETURNING id', [id]);
+      if (rows.length === 0) {
+        return json(request, { error: 'Ad not found' }, { status: 404 });
+      }
+      return json(request, { deleted: true });
     }
 
     return notFound(request);
