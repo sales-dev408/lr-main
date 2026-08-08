@@ -47,7 +47,7 @@ const envSchema = z.object({
   RESEND_FROM_EMAIL: z.string().email().default('noreply@lightraildeals.com'),
   RESEND_FROM_NAME: z.string().trim().default('Light Rail Deals'),
   MAPBOX_ACCESS_TOKEN: z.string().trim().default(''),
-  REDEEM_BASE_URL: z.string().trim().default(''),
+  REDEEM_BASE_URL: z.string().trim().default('').transform((val) => val || process.env.PUBLIC_REDEEM_URL || ''),
 });
 
 const parsed = envSchema.parse(process.env);
