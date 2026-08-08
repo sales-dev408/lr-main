@@ -8,6 +8,7 @@ import { Button } from './Ui';
 const NAV_ITEMS: Array<{ to: string; label: string; end?: boolean; icon: string }> = [
   { to: '/', label: 'Overview', end: true, icon: '◆' },
   { to: '/vendors', label: 'Vendors', icon: '▲' },
+  { to: '/users', label: 'Users', icon: '◎' },
   { to: '/marketing', label: 'Marketing', icon: '✉' },
   { to: '/cards', label: 'Cards', icon: '❖' },
   { to: '/events', label: 'Events', icon: '★' },

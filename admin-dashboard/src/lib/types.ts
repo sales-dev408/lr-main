@@ -4,6 +4,7 @@ export type VendorStatus = 'pending' | 'approved' | 'rejected' | 'suspended';
 export type CardStatus = 'draft' | 'active' | 'archived';
 export type DiscountType = 'fixed' | 'percent' | 'bogo';
 export type PosType = 'square' | 'stripe' | 'clover' | 'toast' | 'other';
+export type UserStatus = 'active' | 'suspended' | 'deleted';
 
 export interface AdminProfile {
   id: string;
@@ -208,6 +209,31 @@ export interface AdRecord {
   active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface PushPreferences {
+  newVendor: boolean;
+  expiringDeal: boolean;
+  localEvent: boolean;
+}
+
+export interface UserRecord {
+  id: string;
+  email: string | null;
+  phone: string | null;
+  fullName: string;
+  firstName: string | null;
+  lastName: string | null;
+  city: string | null;
+  status: UserStatus;
+  pushPreferences: PushPreferences;
+  promoEmailOptIn: boolean;
+  promoSmsOptIn: boolean;
+  termsAcceptedAt: string | null;
+  privacyAcceptedAt: string | null;
+  eulaAcceptedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
 }
 
 export interface PublicCardsResponseItem {

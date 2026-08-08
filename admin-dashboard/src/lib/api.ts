@@ -11,7 +11,10 @@ import type {
   ContentKind,
   CreateVendorResult,
   DiscountSummary,
+  PushPreferences,
   ThemeSettings,
+  UserRecord,
+  UserStatus,
   VendorActivityRecord,
   VendorPassResult,
   VendorRecord,
@@ -375,6 +378,36 @@ export async function updateDiscount(id: string, body: Record<string, unknown>):
 
 export async function deleteDiscount(id: string): Promise<unknown> {
   return apiRequest(`/admin/discounts/${id}`, { method: 'DELETE' });
+}
+
+// ---- Users ---------------------------------------------------------------
+
+export async function listAdminUsers(params: { status?: UserStatus; search?: string }): Promise<UserRecord[]> {
+  return apiRequest<UserRecord[]>(`/admin/users${buildQuery(params)}`);
+}
+
+export async function getAdminUser(id: string): Promise<UserRecord> {
+  return apiRequest<UserRecord>(`/admin/users/${id}`);
+}
+
+export async function updateAdminUser(
+  id: string,
+  body: Partial<{
+    fullName?: string;
+    email?: string | null;
+    phone?: string | null;
+    city?: string | null;
+    status?: UserStatus;
+    pushPreferences?: Partial<PushPreferences>;
+    promoEmailOptIn?: boolean;
+    promoSmsOptIn?: boolean;
+  }>,
+): Promise<UserRecord> {
+  return apiRequest<UserRecord>(`/admin/users/${id}`, { method: 'PATCH', body: jsonBody(body) });
+}
+
+export async function deleteAdminUser(id: string): Promise<void> {
+  return apiRequest<void>(`/admin/users/${id}`, { method: 'DELETE' });
 }
 
 // ---- CMS content ---------------------------------------------------------

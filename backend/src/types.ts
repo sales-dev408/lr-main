@@ -37,6 +37,8 @@ export interface UserProfile {
   termsAcceptedAt: string | null;
   privacyAcceptedAt: string | null;
   eulaAcceptedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
 }
 
 export interface VendorProfile {

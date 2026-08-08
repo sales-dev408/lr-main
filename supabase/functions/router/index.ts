@@ -248,6 +248,73 @@ const discountSchema = z.object({
   active: z.boolean().default(true),
 });
 
+const adminUserUpdateSchema = z.object({
+  fullName: z.string().trim().min(1).optional(),
+  email: z.string().email().optional().nullable(),
+  phone: z.string().optional().nullable(),
+  city: z.string().optional().nullable(),
+  status: z.enum(['active', 'suspended', 'deleted']).optional(),
+  pushPreferences: z
+    .object({
+      newVendor: z.boolean().optional(),
+      expiringDeal: z.boolean().optional(),
+      localEvent: z.boolean().optional(),
+    })
+    .optional(),
+  promoEmailOptIn: z.boolean().optional(),
+  promoSmsOptIn: z.boolean().optional(),
+});
+
+type UserProfileRow = {
+  id: string;
+  email: string | null;
+  phone: string | null;
+  full_name: string;
+  first_name: string | null;
+  last_name: string | null;
+  city: string | null;
+  status: string;
+  push_enabled_new_vendor: boolean;
+  push_enabled_expiring_deal: boolean;
+  push_enabled_local_event: boolean;
+  promo_email_opt_in: boolean;
+  promo_sms_opt_in: boolean;
+  terms_accepted_at: string | null;
+  privacy_accepted_at: string | null;
+  eula_accepted_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+function buildPushPreferences(row: Pick<UserProfileRow, 'push_enabled_new_vendor' | 'push_enabled_expiring_deal' | 'push_enabled_local_event'>) {
+  return {
+    newVendor: row.push_enabled_new_vendor,
+    expiringDeal: row.push_enabled_expiring_deal,
+    localEvent: row.push_enabled_local_event,
+  };
+}
+
+function mapUserProfileRow(row: UserProfileRow) {
+  return {
+    id: row.id,
+    email: row.email,
+    phone: row.phone,
+    fullName: row.full_name,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    city: row.city,
+    status: row.status,
+    pushPreferences: buildPushPreferences(row),
+    promoEmailOptIn: row.promo_email_opt_in,
+    promoSmsOptIn: row.promo_sms_opt_in,
+    termsAcceptedAt: row.terms_accepted_at,
+    privacyAcceptedAt: row.privacy_accepted_at,
+    eulaAcceptedAt: row.eula_accepted_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 function corsOrigin(request: Request): string {
   const origin = request.headers.get('origin');
   if (!origin) return '*';
@@ -1350,6 +1417,62 @@ Deno.serve(async (request) => {
       const parts = path.split('/');
       return json(request, await dbQuery('DELETE FROM card_vendors WHERE card_id = $1 AND vendor_id = $2 RETURNING *', [parts[4], parts[6]]));
     }
+    if (path === '/api/admin/users' && request.method === 'GET') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const q = queryObject(url);
+      const status = q.status ?? null;
+      const search = q.search?.trim() ? `%${q.search.trim()}%` : null;
+      const rows = await dbQuery<UserProfileRow>(
+        `SELECT id, email::text AS email, phone, full_name, first_name, last_name, city, status, push_enabled_new_vendor, push_enabled_expiring_deal, push_enabled_local_event, promo_email_opt_in, promo_sms_opt_in, terms_accepted_at, privacy_accepted_at, eula_accepted_at, created_at, updated_at FROM users WHERE ($1::text IS NULL OR status = $1) AND ($2::text IS NULL OR email::text ILIKE $2 OR phone ILIKE $2 OR full_name ILIKE $2) ORDER BY created_at DESC`,
+        [status, search],
+      );
+      return json(request, rows.map(mapUserProfileRow));
+    }
+    if (/^\/api\/admin\/users\/[^/]+$/.test(path) && request.method === 'GET') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const id = path.split('/').pop()!;
+      const rows = await dbQuery<UserProfileRow>(
+        `SELECT id, email::text AS email, phone, full_name, first_name, last_name, city, status, push_enabled_new_vendor, push_enabled_expiring_deal, push_enabled_local_event, promo_email_opt_in, promo_sms_opt_in, terms_accepted_at, privacy_accepted_at, eula_accepted_at, created_at, updated_at FROM users WHERE id = $1 LIMIT 1`,
+        [id],
+      );
+      if (rows.length === 0) return json(request, { error: 'User not found' }, { status: 404 });
+      return json(request, mapUserProfileRow(rows[0]!));
+    }
+    if (/^\/api\/admin\/users\/[^/]+$/.test(path) && request.method === 'PATCH') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const id = path.split('/').pop()!;
+      const body = adminUserUpdateSchema.parse(await readJsonBody(request, {}));
+      const rows = await dbQuery<UserProfileRow>(
+        `UPDATE users SET full_name = COALESCE($2, full_name), email = COALESCE($3, email), phone = COALESCE($4, phone), city = COALESCE($5, city), status = COALESCE($6, status), push_enabled_new_vendor = COALESCE($7, push_enabled_new_vendor), push_enabled_expiring_deal = COALESCE($8, push_enabled_expiring_deal), push_enabled_local_event = COALESCE($9, push_enabled_local_event), promo_email_opt_in = COALESCE($10, promo_email_opt_in), promo_sms_opt_in = COALESCE($11, promo_sms_opt_in), updated_at = now() WHERE id = $1 RETURNING id, email::text AS email, phone, full_name, first_name, last_name, city, status, push_enabled_new_vendor, push_enabled_expiring_deal, push_enabled_local_event, promo_email_opt_in, promo_sms_opt_in, terms_accepted_at, privacy_accepted_at, eula_accepted_at, created_at, updated_at`,
+        [
+          id,
+          body.fullName ?? null,
+          body.email ?? null,
+          body.phone ?? null,
+          body.city ?? null,
+          body.status ?? null,
+          body.pushPreferences?.newVendor ?? null,
+          body.pushPreferences?.expiringDeal ?? null,
+          body.pushPreferences?.localEvent ?? null,
+          body.promoEmailOptIn ?? null,
+          body.promoSmsOptIn ?? null,
+        ],
+      );
+      if (rows.length === 0) return json(request, { error: 'User not found' }, { status: 404 });
+      return json(request, mapUserProfileRow(rows[0]!));
+    }
+    if (/^\/api\/admin\/users\/[^/]+$/.test(path) && request.method === 'DELETE') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const id = path.split('/').pop()!;
+      const rows = await dbQuery<{ id: string }>('DELETE FROM users WHERE id = $1 RETURNING id', [id]);
+      if (rows.length === 0) return json(request, { error: 'User not found' }, { status: 404 });
+      return new Response(null, { status: 204 });
+    }
+
     if (path === '/api/admin/discounts' && request.method === 'POST') {
       const auth = requireRole(request, ['admin']);
       if (auth instanceof Response) return auth;
