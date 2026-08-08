@@ -36,9 +36,11 @@
     "@types/react": "~19.2.2",
     "eslint": "^9.39.1",
     "eslint-config-expo": "~57.0.0",
+    "patch-package": "^8.0.1",
     "typescript": "~6.0.3"
   },
   "scripts": {
+    "postinstall": "patch-package",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",

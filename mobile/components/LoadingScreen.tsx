@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Image, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, Platform, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppColorScheme } from '@/lib/colorScheme';
 import { useAppTheme } from '@/lib/appTheme';
@@ -12,6 +12,17 @@ export function LoadingScreen({ message = 'Loading your deals…' }: { message?:
 
   const isDark = scheme === 'dark';
   const logoBg = isDark ? colors.ink : colors.panel;
+
+  const logoShadow = Platform.select({
+    web: { boxShadow: '0 12px 24px rgba(15,23,42,0.18)' },
+    default: {
+      shadowColor: '#0f172a',
+      shadowOffset: { width: 0, height: 12 },
+      shadowOpacity: 0.18,
+      shadowRadius: 24,
+      elevation: 10,
+    },
+  }) as Record<string, unknown>;
 
   const mounted = useRef(true);
   const [logoScale] = useState(() => new Animated.Value(0.8));
@@ -85,6 +96,7 @@ export function LoadingScreen({ message = 'Loading your deals…' }: { message?:
             style={[
               styles.logoPanel,
               { backgroundColor: logoBg, opacity: logoOpacity, transform: [{ scale: logoScale }] },
+              logoShadow,
             ]}
           >
             <Image source={require('@/assets/images/logo.png')} style={styles.logo} resizeMode="contain" />
@@ -129,11 +141,6 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.18,
-    shadowRadius: 24,
-    elevation: 10,
   },
   logo: {
     width: 80,
