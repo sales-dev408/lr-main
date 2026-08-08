@@ -1,5 +1,6 @@
 import type { PoolClient } from '../db/pool.js';
 import { withDbClient } from '../db/pool.js';
+import { config } from '../config.js';
 import { generateOpaqueToken } from '../utils/ids.js';
 import { redeemDiscount } from './redeem.js';
 import type { AppliedDiscount } from '../types.js';
@@ -75,7 +76,7 @@ export async function createRedemptionToken(client: PoolClient, userId: string, 
     [token, userId, card.id, vendorId, discount.id, expiresAt.toISOString()],
   );
 
-  const base = process.env.REDEEM_BASE_URL || process.env.PUBLIC_REDEEM_URL || '';
+  const base = config.redeemBaseUrl || '';
   const url = `${base.replace(/\/$/, '')}/redeem/${token}`;
 
   return {

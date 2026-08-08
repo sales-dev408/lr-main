@@ -102,6 +102,8 @@ export function MarketingPage() {
     setTemplateValues((prev) => ({ ...prev, [key]: e.target.value }));
   };
 
+  const effectiveText = text.trim() || (useTemplate ? templateValues.announcement_body : '');
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSending(true);
@@ -109,7 +111,12 @@ export function MarketingPage() {
     setResult(null);
     try {
       const html = useTemplate ? generatedHtml : customHtml;
-      const res = await sendMarketingBlast({ subject, text, html: html || undefined, smsText });
+      const res = await sendMarketingBlast({
+        subject,
+        text: effectiveText,
+        html: html || undefined,
+        smsText,
+      });
       setResult(res);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Send failed');
@@ -141,8 +148,8 @@ export function MarketingPage() {
             <Input value={subject} onChange={(e) => setSubject(e.target.value)} required />
           </label>
           <label>
-            Plain text message (used as the email text fallback)
-            <Textarea value={text} onChange={(e) => setText(e.target.value)} rows={6} required />
+            Plain text message (used as the email text fallback; falls back to announcement body when using template)
+            <Textarea value={text} onChange={(e) => setText(e.target.value)} rows={6} />
           </label>
 
           <div className="flex items-center gap-2">
@@ -223,7 +230,7 @@ export function MarketingPage() {
             SMS message (optional; sent to members who opted in to text messages)
             <Textarea value={smsText} onChange={(e) => setSmsText(e.target.value)} rows={3} />
           </label>
-          <Button type="submit" disabled={sending || !text.trim() || !subject.trim()}>
+          <Button type="submit" disabled={sending || !subject.trim() || !effectiveText.trim()}>
             {sending ? 'Sending…' : 'Send blast'}
           </Button>
         </form>
