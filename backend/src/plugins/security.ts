@@ -8,41 +8,7 @@ import { config } from '../config.js';
 const RATE_LIMIT_MAX = 200;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 
-interface RateBucket {
-  count: number;
-  resetAt: number;
-}
-
-const rateBuckets = new Map<string, RateBucket>();
-let lastPrune = 0;
-
-function pruneBuckets(now: number) {
-  for (const [key, bucket] of rateBuckets.entries()) {
-    if (bucket.resetAt <= now) {
-      rateBuckets.delete(key);
-    }
-  }
-}
-
-function isRateLimited(ip: string): boolean {
-  const now = Date.now();
-  if (now - lastPrune > RATE_LIMIT_WINDOW_MS) {
-    pruneBuckets(now);
-    lastPrune = now;
-  }
-
-  let bucket = rateBuckets.get(ip);
-  if (!bucket || now >= bucket.resetAt) {
-    bucket = { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS };
-    rateBuckets.set(ip, bucket);
-    return false;
-  }
-
-  bucket.count += 1;
-  return bucket.count > RATE_LIMIT_MAX;
-}
-
-function isAuthOrRedeemPath(request: FastifyRequest): boolean {
+function isPublicPath(request: FastifyRequest): boolean {
   return request.url.startsWith('/api/auth') || request.url.startsWith('/api/redeem');
 }
 
@@ -52,30 +18,30 @@ async function securityPlugin(fastify: FastifyInstance): Promise<void> {
     origin: config.allowedOrigins.length > 0 ? config.allowedOrigins : true,
     credentials: true,
   });
+
   await fastify.register(rateLimit, {
     global: true,
     max: RATE_LIMIT_MAX,
-    timeWindow: '1 minute',
+    timeWindow: RATE_LIMIT_WINDOW_MS,
+    hook: 'preHandler',
   });
 
-  fastify.addHook('preHandler', async (request, reply) => {
-    if (isRateLimited(request.ip ?? 'unknown')) {
-      reply.code(429).send({ error: 'Too Many Requests' });
-      return;
-    }
-
-    const ua = request.headers['user-agent'];
+  // Run cheap security checks in preValidation (before the preHandler rate limit)
+  // so blocked traffic is rejected without counting against the rate limit budget.
+  fastify.addHook('preValidation', async (request, reply) => {
     if (config.blockedIps.includes(request.ip)) {
       reply.code(403).send({ error: 'Forbidden' });
       return;
     }
 
-    if (isAuthOrRedeemPath(request) && (!ua || ua.trim().length === 0)) {
+    const ua = request.headers['user-agent'];
+    if (isPublicPath(request) && (!ua || ua.trim().length === 0)) {
       reply.code(400).send({ error: 'User-Agent required' });
       return;
     }
 
-    const paramCount = Object.keys(request.params ?? {}).length + Object.keys(request.query ?? {}).length;
+    const paramCount =
+      Object.keys(request.params ?? {}).length + Object.keys(request.query ?? {}).length;
     if (paramCount > 25) {
       reply.code(400).send({ error: 'Too many parameters' });
       return;

@@ -81,6 +81,8 @@ type ProfileRow = {
   terms_accepted_at: string | null;
   privacy_accepted_at: string | null;
   eula_accepted_at: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 function buildPushPreferences(row: Pick<ProfileRow, 'push_enabled_new_vendor' | 'push_enabled_expiring_deal' | 'push_enabled_local_event'>): PushPreferences {
@@ -102,7 +104,9 @@ async function buildCustomerProfile(userId: string): Promise<UserProfile | null>
             promo_sms_opt_in,
             terms_accepted_at,
             privacy_accepted_at,
-            eula_accepted_at
+            eula_accepted_at,
+            created_at,
+            updated_at
      FROM users WHERE id = $1 LIMIT 1`,
     [userId],
   );
@@ -123,6 +127,8 @@ async function buildCustomerProfile(userId: string): Promise<UserProfile | null>
     termsAcceptedAt: user.terms_accepted_at,
     privacyAcceptedAt: user.privacy_accepted_at,
     eulaAcceptedAt: user.eula_accepted_at,
+    createdAt: user.created_at,
+    updatedAt: user.updated_at,
   };
 }
 

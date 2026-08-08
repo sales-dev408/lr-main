@@ -11,6 +11,7 @@ import { ThemePage } from './pages/ThemePage';
 import { EventsPage } from './pages/EventsPage';
 import { AdsPage } from './pages/AdsPage';
 import { VendorsPage } from './pages/VendorsPage';
+import { UsersPage } from './pages/UsersPage';
 
 export function App() {
   return (
@@ -25,6 +26,7 @@ export function App() {
       >
         <Route path="/" element={<OverviewPage />} />
         <Route path="/vendors" element={<VendorsPage />} />
+        <Route path="/users" element={<UsersPage />} />
         <Route path="/marketing" element={<MarketingPage />} />
         <Route path="/cards" element={<CardsPage />} />
         <Route path="/content" element={<ContentPage />} />

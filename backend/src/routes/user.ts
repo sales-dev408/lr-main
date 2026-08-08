@@ -4,7 +4,7 @@ import { dbQuery } from '../db/pool.js';
 import { savePushToken } from '../services/push.js';
 import type { PushPreferences, UserProfile } from '../types.js';
 
-type ProfileRow = {
+export type ProfileRow = {
   id: string;
   email: string | null;
   phone: string | null;
@@ -21,9 +21,11 @@ type ProfileRow = {
   terms_accepted_at: string | null;
   privacy_accepted_at: string | null;
   eula_accepted_at: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
-const profileColumns = `
+export const profileColumns = `
   id,
   email::text AS email,
   phone,
@@ -39,7 +41,9 @@ const profileColumns = `
   promo_sms_opt_in,
   terms_accepted_at,
   privacy_accepted_at,
-  eula_accepted_at
+  eula_accepted_at,
+  created_at,
+  updated_at
 `;
 
 function buildPushPreferences(row: Pick<ProfileRow, 'push_enabled_new_vendor' | 'push_enabled_expiring_deal' | 'push_enabled_local_event'>): PushPreferences {
@@ -50,7 +54,7 @@ function buildPushPreferences(row: Pick<ProfileRow, 'push_enabled_new_vendor' | 
   };
 }
 
-function mapProfileRow(row: ProfileRow): UserProfile {
+export function mapProfileRow(row: ProfileRow): UserProfile {
   return {
     id: row.id,
     email: row.email,
@@ -66,6 +70,8 @@ function mapProfileRow(row: ProfileRow): UserProfile {
     termsAcceptedAt: row.terms_accepted_at,
     privacyAcceptedAt: row.privacy_accepted_at,
     eulaAcceptedAt: row.eula_accepted_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 

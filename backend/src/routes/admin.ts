@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { dbQuery, withDbClient, type PoolClient } from '../db/pool.js';
+import { profileColumns, mapProfileRow, type ProfileRow } from './user.js';
 import { getAdminAnalytics, getVendorAnalytics } from '../services/analytics.js';
 import { buildLookupDiscountView, generateDiscountCode, humanDiscountLabel } from '../services/discounts.js';
 import { generateTempPassword } from '../utils/ids.js';
@@ -63,6 +64,23 @@ const discountSchema = z.object({
   maxUsesPerCustomer: z.number().int().positive().optional(),
   cityOverrides: z.record(z.object({ type: z.enum(['fixed', 'percent', 'bogo']).optional(), value: z.number().optional() })).default({}),
   active: z.boolean().default(true),
+});
+
+const userUpdateSchema = z.object({
+  fullName: z.string().trim().min(1).optional(),
+  email: z.string().email().optional().nullable(),
+  phone: z.string().optional().nullable(),
+  city: z.string().optional().nullable(),
+  status: z.enum(['active', 'suspended', 'deleted']).optional(),
+  pushPreferences: z
+    .object({
+      newVendor: z.boolean().optional(),
+      expiringDeal: z.boolean().optional(),
+      localEvent: z.boolean().optional(),
+    })
+    .optional(),
+  promoEmailOptIn: z.boolean().optional(),
+  promoSmsOptIn: z.boolean().optional(),
 });
 
 export async function registerAdminRoutes(fastify: FastifyInstance): Promise<void> {
@@ -605,6 +623,80 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
       fastify.log.warn({ error, discountId: id }, 'POS auto-sync failed');
     });
     return dbQuery('DELETE FROM discounts WHERE id = $1 RETURNING id', [id]);
+  });
+
+  fastify.get('/api/admin/users', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 200, timeWindow: '1 minute' } } }, async (request) => {
+    const query = request.query as { status?: string; search?: string };
+    const status = query.status ?? null;
+    const search = query.search?.trim() ? `%${query.search.trim()}%` : null;
+    const rows = await dbQuery<ProfileRow>(
+      `SELECT ${profileColumns}
+       FROM users
+       WHERE ($1::text IS NULL OR status = $1)
+         AND ($2::text IS NULL OR email::text ILIKE $2 OR phone ILIKE $2 OR full_name ILIKE $2)
+       ORDER BY created_at DESC`,
+      [status, search],
+    );
+    return rows.map((row) => mapProfileRow(row));
+  });
+
+  fastify.get('/api/admin/users/:id', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 200, timeWindow: '1 minute' } } }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const rows = await dbQuery<ProfileRow>(
+      `SELECT ${profileColumns} FROM users WHERE id = $1 LIMIT 1`,
+      [id],
+    );
+    if (rows.length === 0) {
+      return reply.code(404).send({ error: 'User not found' });
+    }
+    return mapProfileRow(rows[0]!);
+  });
+
+  fastify.patch('/api/admin/users/:id', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 200, timeWindow: '1 minute' } } }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const body = userUpdateSchema.parse(request.body);
+    const rows = await dbQuery<ProfileRow>(
+      `UPDATE users
+       SET full_name = COALESCE($2, full_name),
+           email = COALESCE($3, email),
+           phone = COALESCE($4, phone),
+           city = COALESCE($5, city),
+           status = COALESCE($6, status),
+           push_enabled_new_vendor = COALESCE($7, push_enabled_new_vendor),
+           push_enabled_expiring_deal = COALESCE($8, push_enabled_expiring_deal),
+           push_enabled_local_event = COALESCE($9, push_enabled_local_event),
+           promo_email_opt_in = COALESCE($10, promo_email_opt_in),
+           promo_sms_opt_in = COALESCE($11, promo_sms_opt_in),
+           updated_at = now()
+       WHERE id = $1
+       RETURNING ${profileColumns}`,
+      [
+        id,
+        body.fullName ?? null,
+        body.email ?? null,
+        body.phone ?? null,
+        body.city ?? null,
+        body.status ?? null,
+        body.pushPreferences?.newVendor ?? null,
+        body.pushPreferences?.expiringDeal ?? null,
+        body.pushPreferences?.localEvent ?? null,
+        body.promoEmailOptIn ?? null,
+        body.promoSmsOptIn ?? null,
+      ],
+    );
+    if (rows.length === 0) {
+      return reply.code(404).send({ error: 'User not found' });
+    }
+    return mapProfileRow(rows[0]!);
+  });
+
+  fastify.delete('/api/admin/users/:id', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 200, timeWindow: '1 minute' } } }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const rows = await dbQuery<{ id: string }>('DELETE FROM users WHERE id = $1 RETURNING id', [id]);
+    if (rows.length === 0) {
+      return reply.code(404).send({ error: 'User not found' });
+    }
+    return reply.code(204).send();
   });
 }
 
