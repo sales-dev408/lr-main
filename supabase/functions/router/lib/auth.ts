@@ -1,5 +1,6 @@
 import type { JwtClaims, Role } from './types.ts';
 import { verifyJwt } from './jwt.ts';
+import { corsHeaders } from './http.ts';
 
 export function authenticate(request: Request): JwtClaims | null {
   const authHeader = request.headers.get('authorization');
@@ -17,11 +18,12 @@ export function authenticate(request: Request): JwtClaims | null {
 
 export function requireRole(request: Request, roles: Role[]): JwtClaims | Response {
   const claims = authenticate(request);
+  const cors = corsHeaders(request.headers.get('origin'));
   if (!claims) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json; charset=utf-8' } });
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...cors, 'Content-Type': 'application/json; charset=utf-8' } });
   }
   if (!roles.includes(claims.role)) {
-    return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { 'Content-Type': 'application/json; charset=utf-8' } });
+    return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...cors, 'Content-Type': 'application/json; charset=utf-8' } });
   }
   return claims;
 }

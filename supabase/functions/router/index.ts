@@ -102,7 +102,7 @@ const pushTokenSchema = z.object({
 const adSchema = z.object({
   slot: z.number().int().min(1).max(5),
   image_url: z.string().min(1),
-  link_url: z.string().optional(),
+  link_url: z.string().min(1).nullable().optional(),
   active: z.boolean().default(true),
 });
 
@@ -482,6 +482,17 @@ function json(request: Request, body: unknown, init: ResponseInit = {}): Respons
       'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, pragma',
       'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
       ...(init.headers ?? {}),
+    },
+  });
+}
+
+function noContent(request: Request): Response {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': corsOrigin(request),
+      'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, pragma',
+      'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
     },
   });
 }
@@ -1470,7 +1481,7 @@ Deno.serve(async (request) => {
       const id = path.split('/').pop()!;
       const rows = await dbQuery<{ id: string }>('DELETE FROM users WHERE id = $1 RETURNING id', [id]);
       if (rows.length === 0) return json(request, { error: 'User not found' }, { status: 404 });
-      return new Response(null, { status: 204 });
+      return noContent(request);
     }
 
     if (path === '/api/admin/discounts' && request.method === 'POST') {
