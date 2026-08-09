@@ -480,7 +480,11 @@ export default function LiveTrainsScreen() {
           }}
           allowFontScaling={false}
         >
-          The information provided is merely a schedule. Data may not be completely accurate and can change due to service changes, weather, and other conditions. The Light Rail Deals app and Sun Ray LLC are not liable for any issues with this train schedule or the arrival of trains.
+          {`Train schedule information provided by this app is for informational purposes only and may be inaccurate, incomplete, or outdated. Schedules and services can change without notice due to delays, cancellations, weather, traffic, maintenance, emergencies, or other circumstances beyond our control.
+
+The developer does not guarantee the accuracy or reliability of the information and is not responsible for any loss, damage, missed train, missed connection, expense, or inconvenience resulting from reliance on the information provided.
+
+Users should verify schedules and service status with the official railway operator before traveling. By using this feature, you acknowledge that you use the information at your own risk and agree to release the developer from liability to the fullest extent permitted by law.`}
         </Text>
       </ScrollView>
     </Screen>
