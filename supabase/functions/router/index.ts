@@ -8,7 +8,7 @@ import { buildLookupDiscountView } from './lib/discounts.ts';
 import { resolvePassLookup, resolveCardLookup } from './lib/lookup.ts';
 import { redeemDiscount } from './lib/redeem.ts';
 import { buildMemberPassUrl } from './lib/wallet.ts';
-import { createVendorWithDiscount } from './lib/vendors.ts';
+import { createVendorWithDiscount, getVendorDirectory } from './lib/vendors.ts';
 import { ensureMembershipPass, membershipWalletUrl } from './lib/membership.ts';
 import { generateDiscountCode, humanDiscountLabel } from './lib/codes.ts';
 import { qrCodeUrl } from './lib/quickchart.ts';
@@ -27,6 +27,7 @@ import {
   saveTheme,
   updateContentBlock,
 } from './lib/content.ts';
+import { getAppStatus, getAppVersion, getLatestAppSnapshot, publishApp } from './lib/appPublish.ts';
 import {
   fetchPublicEvents,
   getEventsRssUrls,
@@ -892,69 +893,8 @@ Deno.serve(async (request) => {
     // pass, so no per-vendor wallet URL or raw discount code is exposed here.
     if ((path === '/api/vendors' || /^\/api\/vendors\/[^/]+$/.test(path)) && request.method === 'GET') {
       const single = path !== '/api/vendors';
-      const vendorId = single ? path.split('/').pop()! : null;
-      const rows = await dbQuery<{
-        id: string;
-        name: string;
-        address: string | null;
-        city: string | null;
-        location: string | null;
-        category: string | null;
-        latitude: number | null;
-        longitude: number | null;
-        pos_system: string | null;
-        icon_url: string | null;
-        logo_url: string | null;
-        card_id: string;
-        discount_type: 'fixed' | 'percent' | 'bogo';
-        discount_value: string;
-        discount_code: string | null;
-        discount_description: string | null;
-        discount_terms: string | null;
-        starts_at: string | null;
-        ends_at: string | null;
-        boosted: boolean;
-        card_icon: string | null;
-        card_logo: string | null;
-      }>(
-        `SELECT v.id, v.name, v.address, v.city, v.location, v.category, v.latitude, v.longitude, v.pos_system, v.icon_url, v.logo_url, v.discount_terms,
-                c.id AS card_id, d.type AS discount_type, d.value AS discount_value, d.discount_code, d.description AS discount_description,
-                d.starts_at, d.ends_at, d.boosted, c.icon_url AS card_icon, c.logo_url AS card_logo
-         FROM vendors v
-         JOIN cards c ON c.is_membership = true AND c.status = 'active'
-         JOIN discounts d ON d.vendor_id = v.id AND d.card_id = c.id AND d.active = true
-         WHERE v.status = 'approved'
-           AND ($1::uuid IS NULL OR v.id = $1::uuid)
-           AND (d.starts_at IS NULL OR d.starts_at <= now())
-           AND (d.ends_at IS NULL OR d.ends_at >= now())
-         ORDER BY CASE WHEN d.boosted THEN 0 ELSE 1 END, v.name`,
-        [vendorId],
-      );
-      const items = rows.map((row) => ({
-        id: row.id,
-        name: row.name,
-        address: row.address ?? row.location,
-        city: row.city,
-        category: row.category,
-        latitude: row.latitude,
-        longitude: row.longitude,
-        posSystem: row.pos_system,
-        iconUrl: row.icon_url ?? row.card_icon,
-        logoUrl: row.logo_url ?? row.card_logo,
-        discount: {
-          type: row.discount_type,
-          value: Number(row.discount_value),
-          label: humanDiscountLabel(row.discount_type, Number(row.discount_value)),
-        },
-        discountDescription: row.discount_description,
-        discountTerms: row.discount_terms ?? 'Cannot be applied with any other offer\nNot redeemable for cash\nCan be used 1 time per week',
-        discountCode: row.discount_code,
-        boosted: row.boosted,
-        startsAt: row.starts_at,
-        endsAt: row.ends_at,
-        cardId: row.card_id,
-        walletUrl: null,
-      }));
+      const vendorId = single ? path.split('/').pop()! : undefined;
+      const items = await getVendorDirectory(vendorId);
       if (single) {
         if (items.length === 0) return json(request, { error: 'Vendor not found' }, { status: 404 });
         return json(request, items[0]);
@@ -1593,6 +1533,30 @@ Deno.serve(async (request) => {
       return json(request, await saveTheme(body));
     }
 
+    // ---- Full app publishing ------------------------------------------------
+    // Public: atomic snapshot of the currently published app state (vendors,
+    // apartments, events, content, theme). The mobile app downloads this once
+    // and caches it locally.
+    if (path === '/api/app' && request.method === 'GET') {
+      const snapshot = await getLatestAppSnapshot();
+      if (!snapshot) return json(request, { error: 'No published app state' }, { status: 404 });
+      return json(request, snapshot);
+    }
+    if (path === '/api/app/version' && request.method === 'GET') {
+      return json(request, await getAppVersion());
+    }
+    if (path === '/api/admin/app/status' && request.method === 'GET') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      return json(request, await getAppStatus());
+    }
+    if (path === '/api/admin/app/publish' && request.method === 'POST') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const result = await publishApp();
+      return json(request, result, { status: 201 });
+    }
+
     // ---- Events RSS feed ----------------------------------------------------
     // Public: parsed RSS feed items shown on the Events tab.
     if (path === '/api/events' && request.method === 'GET') {
@@ -1639,7 +1603,7 @@ Deno.serve(async (request) => {
     // ---- Apartments / hotels ------------------------------------------------
     // Public: listings shown on the Apartments/Hotels tab with Mapbox.
     if (path === '/api/apartments' && request.method === 'GET') {
-      return json(request, await listApartments());
+      return json(request, await listApartments({ nearRail: true }));
     }
     // Admin: manage apartments/hotels listings.
     if (path === '/api/admin/apartments' && request.method === 'GET') {

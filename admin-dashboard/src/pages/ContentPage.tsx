@@ -1,7 +1,7 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
-import { createContent, deleteContent, fileToDataUrl, getContentStatus, listContent, publishContent, updateContent } from '../lib/api';
+import { createContent, deleteContent, fileToDataUrl, getAppStatus, listContent, publishApp, updateContent } from '../lib/api';
 import { Badge, Button, EmptyState, ErrorBanner, Input, PageCard, Select, SuccessBanner, Textarea } from '../components/Ui';
-import type { ContentBlock, ContentKind } from '../lib/types';
+import type { ContentBlock, ContentKind, ContentStatus } from '../lib/types';
 
 const KIND_OPTIONS: Array<{ value: ContentKind; label: string }> = [
   { value: 'text', label: 'Text block' },
@@ -23,13 +23,13 @@ export function ContentPage() {
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [dataUrl, setDataUrl] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
-  const [contentStatus, setContentStatus] = useState<{ currentVersion: number; publishedAt: string | null; publishedCount: number; draftCount: number } | null>(null);
+  const [contentStatus, setContentStatus] = useState<ContentStatus | null>(null);
 
   async function load() {
     setLoading(true);
     setError(null);
     try {
-      const [items, status] = await Promise.all([listContent(), getContentStatus()]);
+      const [items, status] = await Promise.all([listContent(), getAppStatus()]);
       setItems(items);
       setContentStatus(status);
     } catch (err) {
@@ -118,11 +118,11 @@ export function ContentPage() {
     setError(null);
     setToast(null);
     try {
-      const result = await publishContent();
-      setToast(`Published version ${result.version}.`);
+      const result = await publishApp();
+      setToast(`Published app version ${result.version}.`);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to publish content');
+      setError(err instanceof Error ? err.message : 'Unable to publish app');
     } finally {
       setPublishing(false);
     }
@@ -199,7 +199,7 @@ export function ContentPage() {
         </form>
       </PageCard>
 
-      <PageCard title="Publish to app">
+      <PageCard title="Publish app">
         {contentStatus ? (
           <div className="grid-2" style={{ marginBottom: 12 }}>
             <div>
@@ -211,12 +211,20 @@ export function ContentPage() {
               <strong>{contentStatus.publishedAt ? new Date(contentStatus.publishedAt).toLocaleString() : 'Never'}</strong>
             </div>
             <div>
-              <p className="muted">Included items</p>
-              <strong>{contentStatus.publishedCount}</strong>
+              <p className="muted">Vendors</p>
+              <strong>{contentStatus.publishedCounts?.vendors ?? contentStatus.publishedCount}</strong>
             </div>
             <div>
-              <p className="muted">Draft items</p>
-              <strong>{contentStatus.draftCount}</strong>
+              <p className="muted">Apartments</p>
+              <strong>{contentStatus.publishedCounts?.apartments ?? 0}</strong>
+            </div>
+            <div>
+              <p className="muted">Events</p>
+              <strong>{contentStatus.publishedCounts?.events ?? 0}</strong>
+            </div>
+            <div>
+              <p className="muted">Content blocks</p>
+              <strong>{contentStatus.publishedCounts?.content ?? 0}</strong>
             </div>
           </div>
         ) : null}

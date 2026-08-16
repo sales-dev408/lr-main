@@ -14,6 +14,8 @@ export interface ApartmentRecord {
   website: string | null;
   latitude: number | null;
   longitude: number | null;
+  near_rail: boolean;
+  distance_miles: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -32,10 +34,17 @@ export const apartmentSchema = z.object({
   longitude: z.number().optional().nullable(),
 });
 
-const COLUMNS = 'id, name, section, station, address, city, state, zip, phone, website, latitude, longitude, created_at, updated_at';
+const COLUMNS = 'id, name, section, station, address, city, state, zip, phone, website, latitude, longitude, near_rail, distance_miles, created_at, updated_at';
 
-export async function listApartments(): Promise<ApartmentRecord[]> {
-  return dbQuery<ApartmentRecord>(`SELECT ${COLUMNS} FROM apartments_hotels ORDER BY section NULLS LAST, name`);
+export async function listApartments(opts: { nearRail?: boolean } = {}): Promise<ApartmentRecord[]> {
+  const conditions: string[] = [];
+  const values: (boolean | null)[] = [];
+  if (opts.nearRail) {
+    values.push(true);
+    conditions.push(`near_rail = $${values.length}`);
+  }
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  return dbQuery<ApartmentRecord>(`SELECT ${COLUMNS} FROM apartments_hotels ${where} ORDER BY section NULLS LAST, name`, values);
 }
 
 export async function getApartment(id: string): Promise<ApartmentRecord | null> {

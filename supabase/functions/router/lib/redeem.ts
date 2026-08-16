@@ -208,7 +208,7 @@ export async function redeemDiscountWithClient(client: PoolClient, input: Redeem
       input.actorId ?? null,
       'redeem.approved',
       redemption.rows[0]!.id,
-      JSON.stringify({ discountId: discount.id, cardId, vendorId, amountApplied: computed.amountApplied, city: input.city ?? null }),
+      { discountId: discount.id, cardId, vendorId, amountApplied: computed.amountApplied, city: input.city ?? null },
       input.ip ?? null,
     ],
   );
@@ -252,7 +252,7 @@ async function denyAndReturn(
       input.actorId ?? null,
       'redeem.denied',
       denied.rows[0]!.id,
-      JSON.stringify({ reason: result.reason, discountId: input.discountId ?? null, cardId, vendorId: input.vendorId }),
+      { reason: result.reason, discountId: input.discountId ?? null, cardId, vendorId: input.vendorId },
       input.ip ?? null,
     ],
   );

@@ -1,4 +1,4 @@
-import { withDbClient, type PoolClient } from './db.ts';
+import { dbQuery, withDbClient, type PoolClient } from './db.ts';
 import { generateDiscountCode, humanDiscountLabel, type DiscountType } from './codes.ts';
 import { uploadImageDataUrl } from './storage.ts';
 import { config } from './config.ts';
@@ -106,7 +106,7 @@ export async function createVendorWithDiscount(input: CreateVendorInput): Promis
       await client.query(
         `INSERT INTO transactions (actor_type, action, entity_type, entity_id, metadata)
          VALUES ('admin', 'admin.vendor.create', 'vendor', $1, $2::jsonb)`,
-        [vendorId, JSON.stringify({ name: input.name, discountCode, membershipCardId: membership.id })],
+        [vendorId, { name: input.name, discountCode, membershipCardId: membership.id }],
       );
 
       await client.query('COMMIT');
@@ -147,5 +147,122 @@ export async function createVendorWithDiscount(input: CreateVendorInput): Promis
       await client.query('ROLLBACK');
       throw error;
     }
+  });
+}
+
+export interface VendorDirectoryItem {
+  id: string;
+  name: string;
+  address: string | null;
+  city: string | null;
+  location: string | null;
+  category: string | null;
+  vendorType: string | null;
+  cuisine: string | null;
+  station: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  posSystem: string | null;
+  iconUrl: string | null;
+  logoUrl: string | null;
+  discountTerms: string | null;
+  discount: {
+    type: 'fixed' | 'percent' | 'bogo';
+    value: number;
+    label: string;
+    discountCode: string | null;
+    description: string | null;
+    startsAt: string | null;
+    endsAt: string | null;
+    boosted: boolean;
+  };
+  discountCode: string | null;
+  discountDescription: string | null;
+  boosted: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
+  cardId: string;
+  walletUrl: null;
+}
+
+export async function getVendorDirectory(vendorId?: string): Promise<VendorDirectoryItem[]> {
+  const rows = await dbQuery<{
+    id: string;
+    name: string;
+    address: string | null;
+    city: string | null;
+    location: string | null;
+    category: string | null;
+    vendor_type: string | null;
+    cuisine: string | null;
+    station: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    pos_system: string | null;
+    icon_url: string | null;
+    logo_url: string | null;
+    discount_terms: string | null;
+    discount_type: string | null;
+    discount_value: number | null;
+    discount_code: string | null;
+    discount_description: string | null;
+    starts_at: string | null;
+    ends_at: string | null;
+    boosted: boolean;
+    card_icon: string | null;
+    card_logo: string | null;
+  }>(
+    `SELECT v.id, v.name, v.address, v.city, v.location, v.category, v.vendor_type, v.cuisine, v.station, v.latitude, v.longitude, v.pos_system, v.icon_url, v.logo_url, v.discount_terms,
+            d.type AS discount_type, d.value AS discount_value, d.discount_code, d.description AS discount_description,
+            d.starts_at, d.ends_at, d.boosted, c.id AS card_id, c.icon_url AS card_icon, c.logo_url AS card_logo
+     FROM vendors v
+     JOIN cards c ON c.is_membership = true AND c.status = 'active'
+     JOIN discounts d ON d.vendor_id = v.id AND d.card_id = c.id AND d.active = true
+     WHERE v.status = 'approved'
+       AND ($1::uuid IS NULL OR v.id = $1::uuid)
+       AND (d.starts_at IS NULL OR d.starts_at <= now())
+       AND (d.ends_at IS NULL OR d.ends_at >= now())
+     ORDER BY CASE WHEN d.boosted THEN 0 ELSE 1 END, v.station NULLS LAST, v.name`,
+    [vendorId ?? null],
+  );
+
+  return rows.map((row) => {
+    const type = (row.discount_type ?? 'fixed') as 'fixed' | 'percent' | 'bogo';
+    const value = Number(row.discount_value ?? 0);
+    const label = humanDiscountLabel(type, value);
+    return {
+      id: row.id,
+      name: row.name,
+      address: row.address ?? row.location,
+      city: row.city,
+      location: row.location,
+      category: row.category,
+      vendorType: row.vendor_type,
+      cuisine: row.cuisine,
+      station: row.station,
+      latitude: row.latitude,
+      longitude: row.longitude,
+      posSystem: row.pos_system,
+      iconUrl: row.icon_url ?? row.card_icon,
+      logoUrl: row.logo_url ?? row.card_logo,
+      discountTerms: row.discount_terms ?? 'Cannot be applied with any other offer\nNot redeemable for cash\nCan be used 1 time per week',
+      discount: {
+        type,
+        value,
+        label,
+        discountCode: row.discount_code,
+        description: row.discount_description,
+        startsAt: row.starts_at,
+        endsAt: row.ends_at,
+        boosted: row.boosted,
+      },
+      discountCode: row.discount_code,
+      discountDescription: row.discount_description,
+      boosted: row.boosted,
+      startsAt: row.starts_at,
+      endsAt: row.ends_at,
+      cardId: row.card_id ?? '',
+      walletUrl: null,
+    };
   });
 }
