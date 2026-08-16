@@ -5,6 +5,7 @@ import type {
   Ad,
   AdminAuthProfile,
   ApartmentRecord,
+  AppState,
   AuthResponse,
   CityOverrideMap,
   CardDiscount,
@@ -258,28 +259,102 @@ function normalizeVendor(input: Record<string, unknown>): VendorListItem {
     endsAt: (input.endsAt as string | null | undefined) ?? null,
     cardId: String(input.cardId ?? ''),
     walletUrl: input.walletUrl == null ? null : String(input.walletUrl),
+    vendorType: (input.vendorType as string | null | undefined) ?? (input.vendor_type as string | null | undefined) ?? (input.category as string | null | undefined) ?? null,
+    cuisine: (input.cuisine as string | null | undefined) ?? null,
+    station: (input.station as string | null | undefined) ?? null,
   };
 }
 
-export async function listVendors(params: { category?: string } = {}) {
-  const query = new URLSearchParams();
-  if (params.category) {
-    query.set('category', params.category);
+function normalizeApartment(input: Record<string, unknown>): ApartmentRecord {
+  return {
+    id: String(input.id),
+    name: String(input.name),
+    section: (input.section as string | null | undefined) ?? null,
+    station: (input.station as string | null | undefined) ?? null,
+    address: (input.address as string | null | undefined) ?? null,
+    city: (input.city as string | null | undefined) ?? null,
+    state: (input.state as string | null | undefined) ?? null,
+    zip: (input.zip as string | null | undefined) ?? null,
+    phone: (input.phone as string | null | undefined) ?? null,
+    website: (input.website as string | null | undefined) ?? null,
+    latitude: input.latitude == null ? null : Number(input.latitude),
+    longitude: input.longitude == null ? null : Number(input.longitude),
+    nearRail: Boolean(input.nearRail ?? input.near_rail),
+    distanceMiles: toNullableNumber(input.distanceMiles ?? input.distance_miles),
+  };
+}
+
+const APP_STATE_VERSION_KEY = 'lr.mobile.app.version';
+const APP_STATE_DATA_KEY = 'lr.mobile.app.data';
+
+export async function getAppState(): Promise<AppState | null> {
+  let currentVersion = '0';
+  try {
+    const versionRes = await apiRequest<{ version: number; publishedAt: string | null }>('/app/version');
+    currentVersion = String(versionRes.version);
+  } catch {
+    // Backend is unavailable; fall through and try the cached version below.
   }
-  const queryString = query.toString();
-  const cacheKey = `vendors:${params.category ?? 'all'}`;
-  return fetchCached(
-    cacheKey,
-    async () => {
-      const vendors = await apiRequest<Record<string, unknown>[]>(`/vendors${queryString ? `?${queryString}` : ''}`);
-      return vendors.map(normalizeVendor);
-    },
-    2 * 60 * 1000,
-  );
+
+  const cachedVersion = await getItem(APP_STATE_VERSION_KEY);
+  const cachedData = await getItem(APP_STATE_DATA_KEY);
+  if (cachedVersion === currentVersion && cachedData) {
+    try {
+      return JSON.parse(cachedData) as AppState;
+    } catch {
+      // ignore parse error and fetch fresh below
+    }
+  }
+
+  try {
+    const raw = await apiRequest<Record<string, unknown>>('/app');
+    const state: AppState = {
+      version: toNumber(raw.version),
+      publishedAt: String(raw.publishedAt ?? ''),
+      content: Array.isArray(raw.content) ? (raw.content as ContentBlock[]) : [],
+      vendors: Array.isArray(raw.vendors) ? (raw.vendors as Record<string, unknown>[]).map(normalizeVendor) : [],
+      apartments: Array.isArray(raw.apartments) ? (raw.apartments as Record<string, unknown>[]).map(normalizeApartment) : [],
+      events: Array.isArray(raw.events) ? (raw.events as RssEvent[]) : [],
+      theme: (raw.theme as ThemeSettings) ?? ({} as ThemeSettings),
+    };
+    await setItem(APP_STATE_VERSION_KEY, currentVersion);
+    await setItem(APP_STATE_DATA_KEY, JSON.stringify(state));
+    return state;
+  } catch {
+    if (cachedData) {
+      try {
+        return JSON.parse(cachedData) as AppState;
+      } catch {
+        // ignore
+      }
+    }
+    return null;
+  }
+}
+
+export async function listVendors(params: { category?: string; station?: string } = {}): Promise<VendorListItem[]> {
+  const state = await getAppState();
+  let vendors = state?.vendors ?? [];
+  if (vendors.length === 0) {
+    const legacy = await apiRequest<Record<string, unknown>[]>('/vendors');
+    vendors = legacy.map(normalizeVendor);
+  }
+  if (params.category) {
+    vendors = vendors.filter((v) => v.vendorType === params.category || v.category === params.category);
+  }
+  if (params.station) {
+    vendors = vendors.filter((v) => v.station === params.station);
+  }
+  return vendors;
 }
 
 export async function listApartments(): Promise<ApartmentRecord[]> {
-  return apiRequest<ApartmentRecord[]>('/apartments');
+  const state = await getAppState();
+  if (state?.apartments?.length) {
+    return state.apartments;
+  }
+  const legacy = await apiRequest<Record<string, unknown>[]>('/apartments');
+  return legacy.map(normalizeApartment);
 }
 
 export async function socialLogin(body: { provider: string; token: string; email?: string; fullName?: string }) {
@@ -403,29 +478,37 @@ export async function listAds(): Promise<Ad[]> {
   return fetchCached('ads', () => apiRequest<Ad[]>('/ads'), 60 * 1000);
 }
 
-export async function getAppTheme() {
+export async function getAppTheme(): Promise<ThemeSettings> {
+  const state = await getAppState();
+  if (state?.theme) {
+    return state.theme;
+  }
   return fetchCached('theme', () => apiRequest<ThemeSettings>('/settings/theme'), 5 * 60 * 1000);
 }
 
-const CONTENT_VERSION_KEY = 'lr.mobile.publishedContent.version';
-const CONTENT_DATA_KEY = 'lr.mobile.publishedContent.data';
-
 export async function listPublishedContent(): Promise<ContentBlock[]> {
+  const state = await getAppState();
+  if (state?.content) {
+    return state.content;
+  }
+  // Legacy fallback: content has its own version/cache keys.
   let currentVersion = '0';
   try {
     const versionRes = await apiRequest<{ version: number; publishedAt: string | null }>('/content/version');
     currentVersion = String(versionRes.version);
   } catch {
-    // If the backend is unavailable, fall through and try to use the last cached version.
+    // Backend unavailable; fall through to cached version below.
   }
 
+  const CONTENT_VERSION_KEY = 'lr.mobile.publishedContent.version';
+  const CONTENT_DATA_KEY = 'lr.mobile.publishedContent.data';
   const cachedVersion = await getItem(CONTENT_VERSION_KEY);
   const cachedData = await getItem(CONTENT_DATA_KEY);
   if (cachedVersion === currentVersion && cachedData) {
     try {
       return JSON.parse(cachedData) as ContentBlock[];
     } catch {
-      // ignore parse error and fetch fresh below
+      // ignore
     }
   }
 
@@ -436,6 +519,10 @@ export async function listPublishedContent(): Promise<ContentBlock[]> {
 }
 
 export async function getEvents(): Promise<RssEvent[]> {
+  const state = await getAppState();
+  if (state?.events?.length) {
+    return state.events;
+  }
   return fetchCached('events', () => apiRequest<RssEvent[]>('/events'), 15 * 60 * 1000);
 }
 

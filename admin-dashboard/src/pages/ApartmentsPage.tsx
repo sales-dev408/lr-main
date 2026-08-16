@@ -30,6 +30,8 @@ const blankApartment: Omit<ApartmentRecord, 'id' | 'created_at' | 'updated_at'> 
   website: '',
   latitude: null,
   longitude: null,
+  near_rail: false,
+  distance_miles: null,
 };
 
 export function ApartmentsPage() {
