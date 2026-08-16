@@ -205,8 +205,8 @@ export default function BrowseScreen() {
         setRegion({
           latitude: vendor.latitude,
           longitude: vendor.longitude,
-          latitudeDelta: 0.03,
-          longitudeDelta: 0.03,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
         });
       }
     },

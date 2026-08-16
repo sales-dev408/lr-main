@@ -93,7 +93,7 @@ export default function ApartmentsScreen() {
     const apt = apartments.find((a) => a.id === id);
     setSelectedId(id);
     if (apt?.latitude != null && apt?.longitude != null) {
-      setRegion({ latitude: apt.latitude, longitude: apt.longitude, latitudeDelta: 0.03, longitudeDelta: 0.03 });
+      setRegion({ latitude: apt.latitude, longitude: apt.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 });
     }
   }
 
