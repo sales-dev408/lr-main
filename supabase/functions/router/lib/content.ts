@@ -29,7 +29,7 @@ export async function listContentBlocks(opts: { publishedOnly: boolean }): Promi
 
 export async function getLatestPublishedSnapshot(): Promise<{ version: number; published_at: string; content: ContentBlock[] } | null> {
   const rows = await dbQuery<{ version: number; published_at: string; content: ContentBlock[] }>(
-    'SELECT version, published_at, content FROM content_published ORDER BY version DESC LIMIT 1',
+    'SELECT version, published_at, content FROM content_published ORDER BY version DESC, published_at DESC LIMIT 1',
   );
   return rows[0] ?? null;
 }
@@ -61,10 +61,12 @@ export async function getContentStatus(): Promise<{ currentVersion: number; publ
 
 export async function publishContent(): Promise<{ version: number; publishedAt: string }> {
   return withDbClient(async (client) => {
-    const allPublished = await client.query<ContentBlock>(
+    const allPublishedResult = await client.query<ContentBlock>(
       `SELECT ${CONTENT_COLUMNS} FROM content_blocks WHERE published = true ORDER BY position ASC, created_at DESC`,
     );
-    const currentRow = (await client.query<{ max: number | null }>('SELECT COALESCE(MAX(version), 0) AS max FROM content_published'))[0];
+    const allPublished = allPublishedResult.rows;
+    const currentResult = await client.query<{ max: number | null }>('SELECT COALESCE(MAX(version), 0) AS max FROM content_published');
+    const currentRow = currentResult.rows[0];
     const nextVersion = (currentRow?.max ?? 0) + 1;
     const publishedAt = new Date().toISOString();
     await client.query(
