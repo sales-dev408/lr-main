@@ -18,11 +18,12 @@ const TAB_GLYPHS: Record<string, string> = {
   browse: '◆',
   events: '★',
   discover: '✦',
+  deals: '✶',
   mypass: '❖',
   profile: '●',
 };
 
-const TAB_ORDER = ['index', 'live', 'browse', 'events', 'discover', 'mypass', 'profile'] as const;
+const TAB_ORDER = ['index', 'live', 'browse', 'events', 'discover', 'deals', 'mypass', 'profile'] as const;
 
 function activeRouteName(pathname: string): string {
   const stripped = pathname.replace(/^\/(\(tabs\))?\/?/, '');
