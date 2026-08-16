@@ -198,6 +198,7 @@ export interface AdminEvent {
   title: string;
   description: string | null;
   eventDate: string | null;
+  imageUrl: string | null;
   createdAt: string;
 }
 
@@ -234,6 +235,30 @@ export interface UserRecord {
   eulaAcceptedAt: string | null;
   createdAt: string | null;
   updatedAt: string | null;
+}
+
+export interface ApartmentRecord {
+  id: string;
+  name: string;
+  section: string | null;
+  station: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  phone: string | null;
+  website: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ContentStatus {
+  currentVersion: number;
+  publishedAt: string | null;
+  publishedCount: number;
+  draftCount: number;
 }
 
 export interface PublicCardsResponseItem {

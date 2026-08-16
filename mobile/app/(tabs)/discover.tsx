@@ -3,7 +3,7 @@ import { Image, Linking, ScrollView, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { AdBanner } from '@/components/AdBanner';
-import { adminDeleteContent, adminListContent, listPublishedContent } from '@/lib/api';
+import { adminDeleteContent, listPublishedContent } from '@/lib/api';
 import { useAdmin } from '@/lib/admin';
 import { useThemeColors } from '@/lib/useThemeColors';
 import { useDynamicType } from '@/lib/dynamicType';
@@ -31,12 +31,11 @@ export default function DiscoverScreen() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      // Admins see drafts too so they can review before publishing.
-      setItems(admin.token ? await adminListContent(admin.token) : await listPublishedContent());
+      setItems(await listPublishedContent());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load content');
     }
-  }, [admin.token]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -45,13 +44,8 @@ export default function DiscoverScreen() {
       void load().finally(() => {
         if (active) setLoading(false);
       });
-      // Keep Discover feed in sync while the admin console is being edited.
-      const interval = setInterval(() => {
-        if (active) void load();
-      }, 30000);
       return () => {
         active = false;
-        clearInterval(interval);
       };
     }, [load]),
   );

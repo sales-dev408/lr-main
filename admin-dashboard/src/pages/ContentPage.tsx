@@ -1,5 +1,5 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
-import { createContent, deleteContent, fileToDataUrl, listContent, updateContent } from '../lib/api';
+import { createContent, deleteContent, fileToDataUrl, getContentStatus, listContent, publishContent, updateContent } from '../lib/api';
 import { Badge, Button, EmptyState, ErrorBanner, Input, PageCard, Select, SuccessBanner, Textarea } from '../components/Ui';
 import type { ContentBlock, ContentKind } from '../lib/types';
 
@@ -11,7 +11,7 @@ const KIND_OPTIONS: Array<{ value: ContentKind; label: string }> = [
   { value: 'embed', label: 'Embed (URL)' },
 ];
 
-const EMPTY_FORM = { kind: 'text' as ContentKind, title: '', body: '', url: '', position: 0, published: true };
+const EMPTY_FORM = { kind: 'text' as ContentKind, title: '', body: '', url: '', position: 0, published: false };
 
 export function ContentPage() {
   const [items, setItems] = useState<ContentBlock[]>([]);
@@ -22,12 +22,16 @@ export function ContentPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [dataUrl, setDataUrl] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [contentStatus, setContentStatus] = useState<{ currentVersion: number; publishedAt: string | null; publishedCount: number; draftCount: number } | null>(null);
 
   async function load() {
     setLoading(true);
     setError(null);
     try {
-      setItems(await listContent());
+      const [items, status] = await Promise.all([listContent(), getContentStatus()]);
+      setItems(items);
+      setContentStatus(status);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load content');
     } finally {
@@ -109,6 +113,21 @@ export function ContentPage() {
     }
   }
 
+  async function handlePublish() {
+    setPublishing(true);
+    setError(null);
+    setToast(null);
+    try {
+      const result = await publishContent();
+      setToast(`Published version ${result.version}.`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to publish content');
+    } finally {
+      setPublishing(false);
+    }
+  }
+
   const needsMedia = form.kind === 'image' || form.kind === 'file';
   const needsUrl = form.kind === 'embed';
 
@@ -165,11 +184,11 @@ export function ContentPage() {
           </label>
           <label className="checkbox-row">
             <input type="checkbox" checked={form.published} onChange={(e) => setForm({ ...form, published: e.target.checked })} />
-            Published
+            Include in published app content
           </label>
           <div className="row-actions">
             <Button type="submit" disabled={saving}>
-              {saving ? 'Saving…' : editingId ? 'Update' : 'Publish'}
+              {saving ? 'Saving…' : editingId ? 'Update' : 'Save draft'}
             </Button>
             {editingId ? (
               <Button variant="ghost" onClick={resetForm}>
@@ -178,6 +197,33 @@ export function ContentPage() {
             ) : null}
           </div>
         </form>
+      </PageCard>
+
+      <PageCard title="Publish to app">
+        {contentStatus ? (
+          <div className="grid-2" style={{ marginBottom: 12 }}>
+            <div>
+              <p className="muted">Current version</p>
+              <strong>{contentStatus.currentVersion}</strong>
+            </div>
+            <div>
+              <p className="muted">Last published</p>
+              <strong>{contentStatus.publishedAt ? new Date(contentStatus.publishedAt).toLocaleString() : 'Never'}</strong>
+            </div>
+            <div>
+              <p className="muted">Included items</p>
+              <strong>{contentStatus.publishedCount}</strong>
+            </div>
+            <div>
+              <p className="muted">Draft items</p>
+              <strong>{contentStatus.draftCount}</strong>
+            </div>
+          </div>
+        ) : null}
+        <Button onClick={handlePublish} disabled={publishing}>
+          {publishing ? 'Publishing…' : 'Publish / Push updates to app'}
+        </Button>
+        <p className="muted">Draft changes are saved immediately but only appear in the app after you publish.</p>
       </PageCard>
 
       <PageCard title="Published & drafts">

@@ -24,9 +24,9 @@ export default function TabLayout() {
           <Tabs.Screen name="live" options={{ title: 'Train Schedule' }} />
           <Tabs.Screen name="browse" options={{ title: 'Browse' }} />
           <Tabs.Screen name="events" options={{ title: 'Events' }} />
+          <Tabs.Screen name="apartments" options={{ title: 'Apartments' }} />
           <Tabs.Screen name="discover" options={{ title: 'Discover' }} />
           <Tabs.Screen name="deals" options={{ title: 'Deals' }} />
-          <Tabs.Screen name="mypass" options={{ title: 'My Pass' }} />
           <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
         </Tabs>
       </View>

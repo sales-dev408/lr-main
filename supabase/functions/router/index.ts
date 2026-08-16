@@ -18,8 +18,12 @@ import { sendDealOfTheDayBlast } from './lib/resend.ts';
 import {
   createContentBlock,
   deleteContentBlock,
+  getContentStatus,
+  getContentVersion,
+  getPublishedContent,
   getTheme,
   listContentBlocks,
+  publishContent,
   saveTheme,
   updateContentBlock,
 } from './lib/content.ts';
@@ -34,6 +38,14 @@ import {
   adminEventSchema,
 } from './lib/events.ts';
 import { savePushToken } from './lib/push.ts';
+import {
+  apartmentSchema,
+  createApartment,
+  deleteApartment,
+  getApartment,
+  listApartments,
+  updateApartment,
+} from './lib/apartments.ts';
 
 // Shape the customer-facing membership pass payload (wallet + barcode links),
 // creating the pass idempotently. Returns null if pass generation fails.
@@ -1515,7 +1527,11 @@ Deno.serve(async (request) => {
     // ---- CMS content + theme ------------------------------------------------
     // Public: published content blocks rendered in the app's Discover feed.
     if (path === '/api/content' && request.method === 'GET') {
-      return json(request, await listContentBlocks({ publishedOnly: true }));
+      return json(request, await getPublishedContent());
+    }
+    // Public: current published content version so the app can decide whether to refresh.
+    if (path === '/api/content/version' && request.method === 'GET') {
+      return json(request, await getContentVersion());
     }
     // Public: active ads shown in the mobile app.
     if (path === '/api/ads' && request.method === 'GET') {
@@ -1553,6 +1569,17 @@ Deno.serve(async (request) => {
       if (auth instanceof Response) return auth;
       const id = path.split('/').pop()!;
       return json(request, { deleted: await deleteContentBlock(id) });
+    }
+    if (path === '/api/admin/content/status' && request.method === 'GET') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      return json(request, await getContentStatus());
+    }
+    if (path === '/api/admin/content/publish' && request.method === 'POST') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const result = await publishContent();
+      return json(request, result, { status: 201 });
     }
     if (path === '/api/admin/settings/theme' && request.method === 'GET') {
       const auth = requireRole(request, ['admin']);
@@ -1606,6 +1633,48 @@ Deno.serve(async (request) => {
       if (auth instanceof Response) return auth;
       const id = path.split('/').pop()!;
       const deleted = await deleteAdminEvent(id);
+      return json(request, {}, { status: deleted ? 204 : 404 });
+    }
+
+    // ---- Apartments / hotels ------------------------------------------------
+    // Public: listings shown on the Apartments/Hotels tab with Mapbox.
+    if (path === '/api/apartments' && request.method === 'GET') {
+      return json(request, await listApartments());
+    }
+    // Admin: manage apartments/hotels listings.
+    if (path === '/api/admin/apartments' && request.method === 'GET') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      return json(request, await listApartments());
+    }
+    if (path === '/api/admin/apartments' && request.method === 'POST') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const body = apartmentSchema.parse(await readJsonBody(request, {}));
+      return json(request, await createApartment(body), { status: 201 });
+    }
+    if (/^\/api\/admin\/apartments\/[^/]+$/.test(path) && request.method === 'GET') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const id = path.split('/').pop()!;
+      const row = await getApartment(id);
+      if (!row) return json(request, { error: 'Apartment not found' }, { status: 404 });
+      return json(request, row);
+    }
+    if (/^\/api\/admin\/apartments\/[^/]+$/.test(path) && request.method === 'PATCH') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const id = path.split('/').pop()!;
+      const body = apartmentSchema.partial().parse(await readJsonBody(request, {}));
+      const updated = await updateApartment(id, body);
+      if (!updated) return json(request, { error: 'Apartment not found' }, { status: 404 });
+      return json(request, updated);
+    }
+    if (/^\/api\/admin\/apartments\/[^/]+$/.test(path) && request.method === 'DELETE') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const id = path.split('/').pop()!;
+      const deleted = await deleteApartment(id);
       return json(request, {}, { status: deleted ? 204 : 404 });
     }
 

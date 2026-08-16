@@ -175,10 +175,12 @@ export default function ProfileScreen() {
         </Card>
 
         <Card>
-          <SectionTitle title="Membership" subtitle="Passes and membership" />
-          <AppButton variant="secondary" onPress={() => router.push('/(tabs)/mypass')}>
-            My membership pass
-          </AppButton>
+          <SectionTitle title="Membership" subtitle="Status and activity" />
+          {auth.profile?.status === 'active' ? (
+            <Banner tone="success">Your membership is active.</Banner>
+          ) : (
+            <Banner tone="info">No active membership plan.</Banner>
+          )}
         </Card>
 
         <Card>

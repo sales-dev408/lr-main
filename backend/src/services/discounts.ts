@@ -9,6 +9,7 @@ export interface DiscountLike {
 }
 
 export function humanDiscountLabel(type: 'fixed' | 'percent' | 'bogo', value: number): string {
+  if (value === 0) return 'No discount';
   if (type === 'percent') return `${value}% Off`;
   if (type === 'fixed') return `$${value} Off`;
   return 'Buy One Get One';
@@ -93,16 +94,19 @@ export function toAppliedDiscount(input: {
   purchaseAmount?: number | null;
 }): AppliedDiscount {
   const result = computeDiscountAmount(input);
-  const applied: AppliedDiscount = {
-    type: input.type,
-    value: input.value,
-    description:
-      input.description?.trim() ||
-      (input.type === 'bogo'
+  const description =
+    input.description?.trim() ||
+    (input.value === 0
+      ? 'No discount'
+      : input.type === 'bogo'
         ? 'Buy one, get one offer'
         : input.type === 'percent'
           ? `${input.value}% off`
-          : `$${input.value.toFixed(2)} off`),
+          : `$${input.value.toFixed(2)} off`);
+  const applied: AppliedDiscount = {
+    type: input.type,
+    value: input.value,
+    description,
   };
   if (result.instruction) {
     applied.instruction = result.instruction;

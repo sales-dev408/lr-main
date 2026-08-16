@@ -104,9 +104,9 @@ export const DEFAULT_THEME_SETTINGS: ThemeSettings = {
     { key: 'live', label: 'Train Schedule', color: '#f59e0b', gradient: ['#fbbf24', '#d97706'] },
     { key: 'browse', label: 'Browse', color: '#f43f5e', gradient: ['#fb7185', '#e11d48'] },
     { key: 'events', label: 'Events', color: '#8b5cf6', gradient: ['#a78bfa', '#7c3aed'] },
+    { key: 'apartments', label: 'Apartments', color: '#f59e0b', gradient: ['#fbbf24', '#d97706'] },
     { key: 'discover', label: 'Discover', color: '#10b981', gradient: ['#34d399', '#059669'] },
     { key: 'deals', label: 'Deals', color: '#f97316', gradient: ['#fb923c', '#ea580c'] },
-    { key: 'mypass', label: 'My Pass', color: '#6366f1', gradient: ['#818cf8', '#4f46e5'] },
     { key: 'profile', label: 'Profile', color: '#0ea5e9', gradient: ['#38bdf8', '#0284c7'] },
   ],
 };

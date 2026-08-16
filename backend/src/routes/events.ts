@@ -9,6 +9,7 @@ export interface RssEvent {
   link: string | null;
   pubDate: string | null;
   sourceName: string | null;
+  imageUrl?: string | null;
 }
 
 export interface AdminEvent {
@@ -16,6 +17,7 @@ export interface AdminEvent {
   title: string;
   description: string | null;
   eventDate: string | null;
+  imageUrl: string | null;
   createdAt: string;
 }
 
@@ -23,6 +25,7 @@ const adminEventSchema = z.object({
   title: z.string().min(1),
   description: z.string().optional(),
   eventDate: z.string().optional(),
+  imageUrl: z.string().optional(),
 });
 
 async function getEventsRssUrls(): Promise<string[]> {
@@ -41,22 +44,23 @@ async function saveEventsRssUrls(urls: string[]): Promise<string[]> {
 }
 
 async function listAdminEvents(): Promise<AdminEvent[]> {
-  const rows = await dbQuery<{ id: string; title: string; description: string | null; event_date: string | null; created_at: string }>(
-    'SELECT id, title, description, event_date, created_at FROM admin_events ORDER BY event_date DESC NULLS LAST, created_at DESC',
+  const rows = await dbQuery<{ id: string; title: string; description: string | null; event_date: string | null; image_url: string | null; created_at: string }>(
+    'SELECT id, title, description, event_date, image_url, created_at FROM admin_events ORDER BY event_date DESC NULLS LAST, created_at DESC',
   );
   return rows.map((row) => ({
     id: row.id,
     title: row.title,
     description: row.description,
     eventDate: row.event_date ? new Date(row.event_date).toISOString().slice(0, 10) : null,
+    imageUrl: row.image_url,
     createdAt: row.created_at,
   }));
 }
 
-async function createAdminEvent(input: { title: string; description?: string | undefined; eventDate?: string | undefined }): Promise<AdminEvent> {
-  const rows = await dbQuery<{ id: string; title: string; description: string | null; event_date: string | null; created_at: string }>(
-    'INSERT INTO admin_events (title, description, event_date) VALUES ($1, $2, $3) RETURNING id, title, description, event_date, created_at',
-    [input.title, input.description ?? null, input.eventDate ?? null],
+async function createAdminEvent(input: { title: string; description?: string | undefined; eventDate?: string | undefined; imageUrl?: string | undefined }): Promise<AdminEvent> {
+  const rows = await dbQuery<{ id: string; title: string; description: string | null; event_date: string | null; image_url: string | null; created_at: string }>(
+    'INSERT INTO admin_events (title, description, event_date, image_url) VALUES ($1, $2, $3, $4) RETURNING id, title, description, event_date, image_url, created_at',
+    [input.title, input.description ?? null, input.eventDate ?? null, input.imageUrl ?? null],
   );
   const row = rows[0]!;
   return {
@@ -64,23 +68,25 @@ async function createAdminEvent(input: { title: string; description?: string | u
     title: row.title,
     description: row.description,
     eventDate: row.event_date ? new Date(row.event_date).toISOString().slice(0, 10) : null,
+    imageUrl: row.image_url,
     createdAt: row.created_at,
   };
 }
 
 async function updateAdminEvent(
   id: string,
-  input: Partial<{ title: string | undefined; description: string | null | undefined; eventDate: string | null | undefined }>,
+  input: Partial<{ title: string | undefined; description: string | null | undefined; eventDate: string | null | undefined; imageUrl: string | null | undefined }>,
 ): Promise<AdminEvent | null> {
-  const rows = await dbQuery<{ id: string; title: string; description: string | null; event_date: string | null; created_at: string }>(
+  const rows = await dbQuery<{ id: string; title: string; description: string | null; event_date: string | null; image_url: string | null; created_at: string }>(
     `UPDATE admin_events
      SET title = COALESCE($2, title),
          description = COALESCE($3, description),
          event_date = COALESCE($4, event_date),
+         image_url = COALESCE($5, image_url),
          updated_at = now()
      WHERE id = $1
-     RETURNING id, title, description, event_date, created_at`,
-    [id, input.title ?? null, input.description ?? null, input.eventDate ?? null],
+     RETURNING id, title, description, event_date, image_url, created_at`,
+    [id, input.title ?? null, input.description ?? null, input.eventDate ?? null, input.imageUrl ?? null],
   );
   const row = rows[0];
   if (!row) return null;
@@ -89,6 +95,7 @@ async function updateAdminEvent(
     title: row.title,
     description: row.description,
     eventDate: row.event_date ? new Date(row.event_date).toISOString().slice(0, 10) : null,
+    imageUrl: row.image_url,
     createdAt: row.created_at,
   };
 }
@@ -206,6 +213,7 @@ export async function fetchPublicEvents(): Promise<RssEvent[]> {
     link: null,
     pubDate: event.eventDate,
     sourceName: 'Manual',
+    imageUrl: event.imageUrl,
   }));
   const all = [...rssEvents, ...customEvents];
   return all.sort((a, b) => {

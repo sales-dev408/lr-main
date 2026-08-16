@@ -122,7 +122,7 @@ export default function MapView({
   return (
     <RNMapboxMapView
       style={style}
-      styleURL={getMapboxStyleUrl() ?? 'mapbox://styles/mapbox/standard'}
+      styleURL={getMapboxStyleUrl() ?? 'mapbox://styles/mapbox/streets-v12'}
       onRegionDidChange={
         onRegionChangeComplete
           ? (feature) => {
