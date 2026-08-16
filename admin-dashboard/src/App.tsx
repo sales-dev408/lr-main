@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router';
 import { AppLayout } from './components/Layout';
 import { RequireAuth } from './components/RequireAuth';
-import { CardsPage } from './pages/CardsPage';
+import { ApartmentsPage } from './pages/ApartmentsPage';
 import { ContentPage } from './pages/ContentPage';
 import { LoginPage } from './pages/LoginPage';
 import { MarketingPage } from './pages/MarketingPage';
@@ -26,9 +26,9 @@ export function App() {
       >
         <Route path="/" element={<OverviewPage />} />
         <Route path="/vendors" element={<VendorsPage />} />
+        <Route path="/apartments" element={<ApartmentsPage />} />
         <Route path="/users" element={<UsersPage />} />
         <Route path="/marketing" element={<MarketingPage />} />
-        <Route path="/cards" element={<CardsPage />} />
         <Route path="/content" element={<ContentPage />} />
         <Route path="/ads" element={<AdsPage />} />
         <Route path="/theme" element={<ThemePage />} />

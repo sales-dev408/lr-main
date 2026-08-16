@@ -3,7 +3,7 @@ import { Children, isValidElement, useEffect, useMemo, useRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { getMapboxAccessToken } from '@/lib/config';
+import { getMapboxAccessToken, getMapboxStyleUrl } from '@/lib/config';
 
 export interface Region {
   latitude: number;
@@ -92,10 +92,9 @@ export default function MapView({
     mapboxgl.accessToken = accessToken;
     const map = new mapboxgl.Map({
       container: containerRef.current,
-      // Use the default public Mapbox Standard style so web builds don't 404 on
-      // custom-font requests when a Studio style references fonts that haven't
-      // been uploaded to the Mapbox account.
-      style: 'mapbox://styles/mapbox/standard',
+      // Use the client Mapbox style URL when available, otherwise fall back to
+      // the public streets style.
+      style: getMapboxStyleUrl() ?? 'mapbox://styles/mapbox/streets-v12',
       center,
       zoom,
     });

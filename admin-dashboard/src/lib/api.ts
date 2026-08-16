@@ -4,11 +4,13 @@ import type {
   AdminEvent,
   AdminProfile,
   AdminSettings,
+  ApartmentRecord,
   AuthResponse,
   CardDetailResponse,
   CardSummary,
   ContentBlock,
   ContentKind,
+  ContentStatus,
   CreateVendorResult,
   DiscountSummary,
   PushPreferences,
@@ -463,16 +465,48 @@ export async function saveEventsRssUrls(urls: string[]): Promise<{ urls: string[
   return apiRequest<{ urls: string[] }>('/admin/events', { method: 'PATCH', body: jsonBody({ urls }) });
 }
 
-export async function createAdminEvent(body: { title: string; description?: string; eventDate?: string }): Promise<AdminEvent> {
+export async function createAdminEvent(body: { title: string; description?: string; eventDate?: string; imageUrl?: string | null }): Promise<AdminEvent> {
   return apiRequest<AdminEvent>('/admin/events/custom', { method: 'POST', body: jsonBody(body) });
 }
 
-export async function updateAdminEvent(id: string, body: Partial<{ title: string; description: string | null; eventDate: string | null }>): Promise<AdminEvent> {
+export async function updateAdminEvent(id: string, body: Partial<{ title: string; description: string | null; eventDate: string | null; imageUrl: string | null }>): Promise<AdminEvent> {
   return apiRequest<AdminEvent>(`/admin/events/custom/${id}`, { method: 'PATCH', body: jsonBody(body) });
 }
 
 export async function deleteAdminEvent(id: string): Promise<void> {
   return apiRequest<void>(`/admin/events/custom/${id}`, { method: 'DELETE' });
+}
+
+// ---- Apartments / Hotels -------------------------------------------------
+
+export async function listAdminApartments(): Promise<ApartmentRecord[]> {
+  return apiRequest<ApartmentRecord[]>('/admin/apartments');
+}
+
+export async function getAdminApartment(id: string): Promise<ApartmentRecord> {
+  return apiRequest<ApartmentRecord>(`/admin/apartments/${id}`);
+}
+
+export async function createAdminApartment(body: Omit<ApartmentRecord, 'id' | 'created_at' | 'updated_at'>): Promise<ApartmentRecord> {
+  return apiRequest<ApartmentRecord>('/admin/apartments', { method: 'POST', body: jsonBody(body) });
+}
+
+export async function updateAdminApartment(id: string, body: Partial<Omit<ApartmentRecord, 'id' | 'created_at' | 'updated_at'>>): Promise<ApartmentRecord> {
+  return apiRequest<ApartmentRecord>(`/admin/apartments/${id}`, { method: 'PATCH', body: jsonBody(body) });
+}
+
+export async function deleteAdminApartment(id: string): Promise<void> {
+  return apiRequest<void>(`/admin/apartments/${id}`, { method: 'DELETE' });
+}
+
+// ---- Content publishing ----------------------------------------------------
+
+export async function getContentStatus(): Promise<ContentStatus> {
+  return apiRequest<ContentStatus>('/admin/content/status');
+}
+
+export async function publishContent(): Promise<{ version: number; publishedAt: string }> {
+  return apiRequest<{ version: number; publishedAt: string }>('/admin/content/publish', { method: 'POST' });
 }
 
 // ---- Ads ------------------------------------------------------------------

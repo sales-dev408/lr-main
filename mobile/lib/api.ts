@@ -4,6 +4,7 @@ import { fetchCached, clearCache, getSecureCache, setSecureCache, clearSecureCac
 import type {
   Ad,
   AdminAuthProfile,
+  ApartmentRecord,
   AuthResponse,
   CityOverrideMap,
   CardDiscount,
@@ -27,7 +28,7 @@ import type {
   VendorListItem,
   WalletPlatform,
 } from './types';
-import { getItem } from './storage';
+import { getItem, setItem } from './storage';
 
 const AUTH_STORAGE_KEY = 'lr.mobile.auth';
 
@@ -277,6 +278,10 @@ export async function listVendors(params: { category?: string } = {}) {
   );
 }
 
+export async function listApartments(): Promise<ApartmentRecord[]> {
+  return apiRequest<ApartmentRecord[]>('/apartments');
+}
+
 export async function socialLogin(body: { provider: string; token: string; email?: string; fullName?: string }) {
   return apiRequest<AuthResponse<UserProfile>>('/auth/social', { method: 'POST', body: JSON.stringify(body) });
 }
@@ -402,8 +407,32 @@ export async function getAppTheme() {
   return fetchCached('theme', () => apiRequest<ThemeSettings>('/settings/theme'), 5 * 60 * 1000);
 }
 
-export async function listPublishedContent() {
-  return fetchCached('content', () => apiRequest<ContentBlock[]>('/content'), 2 * 60 * 1000);
+const CONTENT_VERSION_KEY = 'lr.mobile.publishedContent.version';
+const CONTENT_DATA_KEY = 'lr.mobile.publishedContent.data';
+
+export async function listPublishedContent(): Promise<ContentBlock[]> {
+  let currentVersion = '0';
+  try {
+    const versionRes = await apiRequest<{ version: number; publishedAt: string | null }>('/content/version');
+    currentVersion = String(versionRes.version);
+  } catch {
+    // If the backend is unavailable, fall through and try to use the last cached version.
+  }
+
+  const cachedVersion = await getItem(CONTENT_VERSION_KEY);
+  const cachedData = await getItem(CONTENT_DATA_KEY);
+  if (cachedVersion === currentVersion && cachedData) {
+    try {
+      return JSON.parse(cachedData) as ContentBlock[];
+    } catch {
+      // ignore parse error and fetch fresh below
+    }
+  }
+
+  const content = await apiRequest<ContentBlock[]>('/content');
+  await setItem(CONTENT_DATA_KEY, JSON.stringify(content));
+  await setItem(CONTENT_VERSION_KEY, currentVersion);
+  return content;
 }
 
 export async function getEvents(): Promise<RssEvent[]> {

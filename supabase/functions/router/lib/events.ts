@@ -5,6 +5,7 @@ const adminEventSchema = z.object({
   title: z.string().min(1),
   description: z.string().optional(),
   eventDate: z.string().optional(),
+  imageUrl: z.string().optional(),
 });
 
 export { adminEventSchema };
@@ -16,6 +17,7 @@ export interface RssEvent {
   link: string | null;
   pubDate: string | null;
   sourceName: string | null;
+  imageUrl: string | null;
 }
 
 export interface AdminEvent {
@@ -23,6 +25,7 @@ export interface AdminEvent {
   title: string;
   description: string | null;
   eventDate: string | null;
+  imageUrl: string | null;
   createdAt: string;
 }
 
@@ -42,23 +45,26 @@ async function saveEventsRssUrls(urls: string[]): Promise<string[]> {
   return clean;
 }
 
+const ADMIN_EVENT_COLUMNS = 'id, title, description, event_date, image_url, created_at';
+
 export async function listAdminEvents(): Promise<AdminEvent[]> {
-  const rows = await dbQuery<{ id: string; title: string; description: string | null; event_date: string | null; created_at: string }>(
-    'SELECT id, title, description, event_date, created_at FROM admin_events ORDER BY event_date DESC NULLS LAST, created_at DESC',
+  const rows = await dbQuery<{ id: string; title: string; description: string | null; event_date: string | null; image_url: string | null; created_at: string }>(
+    `SELECT ${ADMIN_EVENT_COLUMNS} FROM admin_events ORDER BY event_date DESC NULLS LAST, created_at DESC`,
   );
   return rows.map((row) => ({
     id: row.id,
     title: row.title,
     description: row.description,
     eventDate: row.event_date ? new Date(row.event_date).toISOString().slice(0, 10) : null,
+    imageUrl: row.image_url,
     createdAt: row.created_at,
   }));
 }
 
-export async function createAdminEvent(input: { title: string; description?: string; eventDate?: string }): Promise<AdminEvent> {
-  const rows = await dbQuery<{ id: string; title: string; description: string | null; event_date: string | null; created_at: string }>(
-    'INSERT INTO admin_events (title, description, event_date) VALUES ($1, $2, $3) RETURNING id, title, description, event_date, created_at',
-    [input.title, input.description ?? null, input.eventDate ?? null],
+export async function createAdminEvent(input: { title: string; description?: string; eventDate?: string; imageUrl?: string }): Promise<AdminEvent> {
+  const rows = await dbQuery<{ id: string; title: string; description: string | null; event_date: string | null; image_url: string | null; created_at: string }>(
+    `INSERT INTO admin_events (title, description, event_date, image_url) VALUES ($1, $2, $3, $4) RETURNING ${ADMIN_EVENT_COLUMNS}`,
+    [input.title, input.description ?? null, input.eventDate ?? null, input.imageUrl ?? null],
   );
   const row = rows[0]!;
   return {
@@ -66,23 +72,25 @@ export async function createAdminEvent(input: { title: string; description?: str
     title: row.title,
     description: row.description,
     eventDate: row.event_date ? new Date(row.event_date).toISOString().slice(0, 10) : null,
+    imageUrl: row.image_url,
     createdAt: row.created_at,
   };
 }
 
 export async function updateAdminEvent(
   id: string,
-  input: Partial<{ title: string; description: string | null; eventDate: string | null }>,
+  input: Partial<{ title: string; description: string | null; eventDate: string | null; imageUrl: string | null }>,
 ): Promise<AdminEvent | null> {
-  const rows = await dbQuery<{ id: string; title: string; description: string | null; event_date: string | null; created_at: string }>(
+  const rows = await dbQuery<{ id: string; title: string; description: string | null; event_date: string | null; image_url: string | null; created_at: string }>(
     `UPDATE admin_events
      SET title = COALESCE($2, title),
          description = COALESCE($3, description),
          event_date = COALESCE($4, event_date),
+         image_url = COALESCE($5, image_url),
          updated_at = now()
      WHERE id = $1
-     RETURNING id, title, description, event_date, created_at`,
-    [id, input.title ?? null, input.description ?? null, input.eventDate ?? null],
+     RETURNING ${ADMIN_EVENT_COLUMNS}`,
+    [id, input.title ?? null, input.description ?? null, input.eventDate ?? null, input.imageUrl ?? null],
   );
   const row = rows[0];
   if (!row) return null;
@@ -91,6 +99,7 @@ export async function updateAdminEvent(
     title: row.title,
     description: row.description,
     eventDate: row.event_date ? new Date(row.event_date).toISOString().slice(0, 10) : null,
+    imageUrl: row.image_url,
     createdAt: row.created_at,
   };
 }
@@ -142,7 +151,6 @@ function extractAtomLink(entry: string): string | null {
 }
 
 async function fetchRssItems(url: string): Promise<RssEvent[]> {
-  // lgtm[js/server-side-request-forgery]
   const response = await fetch(url, {
     headers: { Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml' },
   });
@@ -173,6 +181,7 @@ async function fetchRssItems(url: string): Promise<RssEvent[]> {
       link,
       pubDate,
       sourceName,
+      imageUrl: null,
     };
   });
 }
@@ -189,7 +198,6 @@ async function fetchEventsFromRss(): Promise<RssEvent[]> {
     }
   }
 
-  // Sort newest first, falling back to title order when dates are missing.
   return items.sort((a, b) => {
     const aTime = a.pubDate ? new Date(a.pubDate).getTime() : 0;
     const bTime = b.pubDate ? new Date(b.pubDate).getTime() : 0;
@@ -209,6 +217,7 @@ export async function fetchPublicEvents(): Promise<RssEvent[]> {
     link: null,
     pubDate: event.eventDate,
     sourceName: 'Manual',
+    imageUrl: event.imageUrl,
   }));
   const all = [...rssEvents, ...customEvents];
   return all.sort((a, b) => {

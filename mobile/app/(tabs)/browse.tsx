@@ -93,12 +93,8 @@ export default function BrowseScreen() {
       void load().finally(() => {
         if (active) setLoading(false);
       });
-      const interval = setInterval(() => {
-        if (active) void load();
-      }, 30000);
       return () => {
         active = false;
-        clearInterval(interval);
       };
     }, [load]),
   );

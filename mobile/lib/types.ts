@@ -285,6 +285,7 @@ export interface RssEvent {
   link: string | null;
   pubDate: string | null;
   sourceName: string | null;
+  imageUrl: string | null;
 }
 
 export interface Ad {
@@ -297,4 +298,19 @@ export interface Ad {
 
 export interface ErrorShape {
   error?: string | { code?: string; message?: string };
+}
+
+export interface ApartmentRecord {
+  id: string;
+  name: string;
+  section: string | null;
+  station: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  phone: string | null;
+  website: string | null;
+  latitude: number | null;
+  longitude: number | null;
 }

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
-import { dbQuery } from '../db/pool.js';
+import { dbQuery, withDbClient } from '../db/pool.js';
 
 const themeTabSchema = z.object({
   key: z.string().min(1),
@@ -44,6 +44,40 @@ async function setThemeValue(value: unknown): Promise<void> {
   );
 }
 
+interface PublishedSnapshot {
+  id: string;
+  version: number;
+  published_at: string;
+  published_by: string | null;
+  content: unknown[];
+}
+
+async function getLatestPublishedSnapshot(): Promise<PublishedSnapshot | null> {
+  const rows = await dbQuery<PublishedSnapshot>(
+    'SELECT id, version, published_at, published_by, content FROM content_published ORDER BY version DESC LIMIT 1',
+  );
+  return rows[0] ?? null;
+}
+
+async function getPublishedContentBlocks(): Promise<unknown[]> {
+  return dbQuery(
+    'SELECT id, kind, title, body, url, position, published, created_at, updated_at FROM content_blocks WHERE published = true ORDER BY position, created_at',
+  );
+}
+
+async function publishContent(adminId?: string | null): Promise<PublishedSnapshot> {
+  const content = await getPublishedContentBlocks();
+  return withDbClient(async (client) => {
+    const result = await client.query<{ version: number }>('SELECT COALESCE(MAX(version), 0) + 1 AS version FROM content_published');
+    const version = result.rows[0]!.version;
+    const insert = await client.query<PublishedSnapshot>(
+      'INSERT INTO content_published (version, published_by, content) VALUES ($1, $2, $3::jsonb) RETURNING *',
+      [version, adminId ?? null, JSON.stringify(content)],
+    );
+    return insert.rows[0]!;
+  });
+}
+
 export async function registerSettingsRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get('/api/settings/theme', { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async () => {
     const value = await getThemeValue();
@@ -61,16 +95,53 @@ export async function registerSettingsRoutes(fastify: FastifyInstance): Promise<
     return reply.send(body);
   });
 
-  fastify.get('/api/content', { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async () => {
-    return dbQuery(
-      'SELECT id, kind, title, body, url, position, published, created_at, updated_at FROM content_blocks WHERE published = true ORDER BY position, created_at',
-    );
+  fastify.get('/api/content', { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (request, reply) => {
+    const snapshot = await getLatestPublishedSnapshot();
+    if (snapshot) {
+      reply.header('X-Content-Version', snapshot.version);
+      return snapshot.content;
+    }
+    const fallback = await getPublishedContentBlocks();
+    reply.header('X-Content-Version', 0);
+    return fallback;
+  });
+
+  fastify.get('/api/content/version', { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async () => {
+    const snapshot = await getLatestPublishedSnapshot();
+    return {
+      version: snapshot?.version ?? 0,
+      publishedAt: snapshot?.published_at ?? null,
+    };
   });
 
   fastify.get('/api/admin/content', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async () => {
     return dbQuery(
       'SELECT id, kind, title, body, url, position, published, created_at, updated_at FROM content_blocks ORDER BY position, created_at',
     );
+  });
+
+  fastify.get('/api/admin/content/status', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async () => {
+    const snapshot = await getLatestPublishedSnapshot();
+    const draftRow = (await dbQuery<{ count: number }>("SELECT COUNT(*)::int AS count FROM content_blocks WHERE published = false"))[0];
+    const publishedRow = (await dbQuery<{ count: number }>("SELECT COUNT(*)::int AS count FROM content_blocks WHERE published = true"))[0];
+    const draftCount = draftRow?.count ?? 0;
+    const publishedCount = publishedRow?.count ?? 0;
+    return {
+      currentVersion: snapshot?.version ?? 0,
+      publishedAt: snapshot?.published_at ?? null,
+      publishedCount,
+      draftCount,
+    };
+  });
+
+  fastify.post('/api/admin/content/publish', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
+    const admin = request.user!;
+    const snapshot = await publishContent(admin.sub);
+    return reply.send({
+      version: snapshot.version,
+      publishedAt: snapshot.published_at,
+      count: Array.isArray(snapshot.content) ? snapshot.content.length : 0,
+    });
   });
 
   fastify.post('/api/admin/content', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (request, reply) => {

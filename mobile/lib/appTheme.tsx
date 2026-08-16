@@ -45,8 +45,7 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
     };
   }, [refresh]);
 
-  // Refresh the theme when the app returns to the foreground and periodically
-  // while it is active, so admin console changes show up without a restart.
+  // Refresh the theme when the app returns to the foreground.
   useEffect(() => {
     const handleAppState = (next: AppStateStatus) => {
       if (next === 'active') {
@@ -54,10 +53,8 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
       }
     };
     const subscription = AppState.addEventListener('change', handleAppState);
-    const interval = setInterval(() => void refresh(), 30000);
     return () => {
       subscription.remove();
-      clearInterval(interval);
     };
   }, [refresh]);
 

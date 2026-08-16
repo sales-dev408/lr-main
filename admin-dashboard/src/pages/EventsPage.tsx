@@ -1,5 +1,5 @@
-import { useEffect, useState, type FormEvent } from 'react';
-import { createAdminEvent, deleteAdminEvent, fetchPublicEvents, getEventsRssUrls, saveEventsRssUrls, updateAdminEvent } from '../lib/api';
+import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
+import { createAdminEvent, deleteAdminEvent, fetchPublicEvents, fileToDataUrl, getEventsRssUrls, saveEventsRssUrls, updateAdminEvent } from '../lib/api';
 import type { AdminEvent } from '../lib/types';
 import { Badge, Button, ErrorBanner, Input, PageCard, SuccessBanner, Textarea } from '../components/Ui';
 
@@ -20,7 +20,7 @@ export function EventsPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ count: number; items: { title: string; sourceName: string }[] } | null>(null);
 
-  const [newEvent, setNewEvent] = useState({ title: '', description: '', eventDate: '' });
+  const [newEvent, setNewEvent] = useState({ title: '', description: '', eventDate: '', imageUrl: '' });
   const [editingEvent, setEditingEvent] = useState<AdminEvent | null>(null);
 
   useEffect(() => {
@@ -92,9 +92,10 @@ export function EventsPage() {
         title: newEvent.title.trim(),
         description: newEvent.description.trim() || undefined,
         eventDate: newEvent.eventDate || undefined,
+        imageUrl: newEvent.imageUrl.trim() || null,
       });
       setCustomEvents((prev) => [created, ...prev]);
-      setNewEvent({ title: '', description: '', eventDate: '' });
+      setNewEvent({ title: '', description: '', eventDate: '', imageUrl: '' });
       setToast('Event saved.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to save event');
@@ -110,6 +111,7 @@ export function EventsPage() {
         title: editingEvent.title.trim(),
         description: editingEvent.description || null,
         eventDate: editingEvent.eventDate || null,
+        imageUrl: editingEvent.imageUrl || null,
       });
       setCustomEvents((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
       setEditingEvent(null);
@@ -177,6 +179,16 @@ export function EventsPage() {
               Date
               <Input type="date" value={newEvent.eventDate} onChange={(e) => setNewEvent((prev) => ({ ...prev, eventDate: e.target.value }))} />
             </label>
+            <label>
+              Event image
+              <Input type="file" accept="image/*" onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  void fileToDataUrl(file).then((url) => setNewEvent((prev) => ({ ...prev, imageUrl: url })));
+                }
+              }} />
+            </label>
+            {newEvent.imageUrl ? <img src={newEvent.imageUrl} alt="" style={{ maxWidth: 200, borderRadius: 8 }} /> : null}
             <Button type="submit">Save event</Button>
           </form>
         </PageCard>
@@ -228,6 +240,16 @@ export function EventsPage() {
               Date
               <Input type="date" value={editingEvent.eventDate ?? ''} onChange={(e) => setEditingEvent({ ...editingEvent, eventDate: e.target.value })} />
             </label>
+            <label>
+              Event image
+              <Input type="file" accept="image/*" onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  void fileToDataUrl(file).then((url) => setEditingEvent((prev) => (prev ? { ...prev, imageUrl: url } : prev)));
+                }
+              }} />
+            </label>
+            {editingEvent.imageUrl ? <img src={editingEvent.imageUrl} alt="" style={{ maxWidth: 200, borderRadius: 8 }} /> : null}
             <div className="inline-row">
               <Button type="submit">Update event</Button>
               <Button variant="ghost" onClick={() => setEditingEvent(null)}>Cancel</Button>

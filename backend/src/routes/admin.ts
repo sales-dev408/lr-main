@@ -207,13 +207,13 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
       await client.query('INSERT INTO card_vendors (card_id, vendor_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [cardId, vendorId]);
 
       const discountType = body.discountType ?? 'percent';
-      const discountValue = body.discountValue ?? 10;
+      const discountValue = body.discountValue ?? 0;
       const label = humanDiscountLabel(discountType, discountValue);
       const discountCode = generateDiscountCode({ merchantId: body.name, type: discountType, value: discountValue });
 
       const discountDescription = body.discountType === 'bogo' && body.discountDescription
         ? body.discountDescription.trim()
-        : (body.discountDescription?.trim() || `${label} member discount`);
+        : (body.discountDescription?.trim() || (discountValue === 0 ? 'No discount' : `${label} member discount`));
 
       const discountRows = await client.query<{ id: string }>(
         `
