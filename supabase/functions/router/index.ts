@@ -8,7 +8,7 @@ import { buildLookupDiscountView } from './lib/discounts.ts';
 import { resolvePassLookup, resolveCardLookup } from './lib/lookup.ts';
 import { redeemDiscount } from './lib/redeem.ts';
 import { buildMemberPassUrl } from './lib/wallet.ts';
-import { createVendorWithDiscount, getVendorDirectory } from './lib/vendors.ts';
+import { createVendorWithDiscount, getAdminVendorById, getVendorDirectory } from './lib/vendors.ts';
 import { ensureMembershipPass, membershipWalletUrl } from './lib/membership.ts';
 import { generateDiscountCode, humanDiscountLabel } from './lib/codes.ts';
 import { qrCodeUrl } from './lib/quickchart.ts';
@@ -18,6 +18,7 @@ import { sendDealOfTheDayBlast } from './lib/resend.ts';
 import {
   createContentBlock,
   deleteContentBlock,
+  getContentBlock,
   getContentStatus,
   getContentVersion,
   getPublishedContent,
@@ -169,7 +170,7 @@ const adminVendorCreateSchema = z
     email: z.string().email().optional(),
     phone: z.string().optional(),
     discountType: z.enum(['fixed', 'percent', 'bogo']).default('percent'),
-    discountValue: z.number().positive(),
+    discountValue: z.number().min(0),
     discountDescription: z.string().optional().nullable(),
     discountTerms: z.string().optional().nullable(),
     discountStartsAt: z.string().datetime().optional().nullable(),
@@ -194,7 +195,7 @@ const adminVendorUpdateSchema = z
     email: z.string().email().optional(),
     phone: z.string().optional(),
     discountType: z.enum(['fixed', 'percent', 'bogo']).optional(),
-    discountValue: z.number().positive().optional(),
+    discountValue: z.number().min(0).optional(),
     discountDescription: z.string().optional().nullable(),
     discountTerms: z.string().optional().nullable(),
     discountStartsAt: z.string().datetime().optional().nullable(),
@@ -1168,6 +1169,13 @@ Deno.serve(async (request) => {
       if (!rows[0]) return json(request, { error: 'Not found' }, { status: 404 });
       return json(request, rows[0]);
     }
+    if (path === '/api/admin/profile' && request.method === 'GET') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const rows = await dbQuery('SELECT id, email::text AS email, role, location FROM admins WHERE id = $1 LIMIT 1', [auth.sub]);
+      if (!rows[0]) return json(request, { error: 'Not found' }, { status: 404 });
+      return json(request, rows[0]);
+    }
     if (path === '/api/admin/settings' && request.method === 'PATCH') {
       const auth = requireRole(request, ['admin']);
       if (auth instanceof Response) return auth;
@@ -1213,6 +1221,14 @@ Deno.serve(async (request) => {
         logoDataUrl: body.logoDataUrl ?? null,
       });
       return json(request, result, { status: 201 });
+    }
+    if (/^\/api\/admin\/vendors\/[^/]+$/.test(path) && request.method === 'GET') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const id = path.split('/').pop()!;
+      const vendor = await getAdminVendorById(id);
+      if (!vendor) return json(request, { error: 'Vendor not found' }, { status: 404 });
+      return json(request, vendor);
     }
     if (/^\/api\/admin\/vendors\/[^/]+$/.test(path) && request.method === 'PATCH') {
       const auth = requireRole(request, ['admin']);
@@ -1436,6 +1452,22 @@ Deno.serve(async (request) => {
       return noContent(request);
     }
 
+    if (path === '/api/admin/discounts' && request.method === 'GET') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const rows = await dbQuery('SELECT id, card_id, vendor_id, type, value, min_purchase, max_uses_total, max_uses_per_customer, city_overrides, active, created_at, updated_at FROM discounts ORDER BY created_at DESC');
+      return json(request, rows);
+    }
+    if (/^\/api\/admin\/discounts\/[^/]+$/.test(path) && request.method === 'GET') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const id = path.split('/').pop()!;
+      const rows = await dbQuery('SELECT id, card_id, vendor_id, type, value, min_purchase, max_uses_total, max_uses_per_customer, city_overrides, active, created_at, updated_at FROM discounts WHERE id = $1 LIMIT 1', [id]);
+      if (rows.length === 0) {
+        return json(request, { error: 'Discount not found' }, { status: 404 });
+      }
+      return json(request, rows[0]);
+    }
     if (path === '/api/admin/discounts' && request.method === 'POST') {
       const auth = requireRole(request, ['admin']);
       if (auth instanceof Response) return auth;
@@ -1521,6 +1553,14 @@ Deno.serve(async (request) => {
       const result = await publishContent();
       return json(request, result, { status: 201 });
     }
+    if (/^\/api\/admin\/content\/[^/]+$/.test(path) && request.method === 'GET') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const id = path.split('/').pop()!;
+      const block = await getContentBlock(id);
+      if (!block) return json(request, { error: 'Content block not found' }, { status: 404 });
+      return json(request, block);
+    }
     if (path === '/api/admin/settings/theme' && request.method === 'GET') {
       const auth = requireRole(request, ['admin']);
       if (auth instanceof Response) return auth;
@@ -1583,6 +1623,19 @@ Deno.serve(async (request) => {
       const body = adminEventSchema.parse(await readJsonBody(request, {}));
       return json(request, await createAdminEvent(body), { status: 201 });
     }
+    if (/^\/api\/admin\/events\/custom\/[^/]+$/.test(path) && request.method === 'GET') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const id = path.split('/').pop()!;
+      const rows = await dbQuery<{ id: string; title: string; description: string | null; event_date: string | null; image_url: string | null; created_at: string }>(
+        'SELECT id, title, description, event_date, image_url, created_at FROM admin_events WHERE id = $1 LIMIT 1',
+        [id],
+      );
+      if (rows.length === 0) {
+        return json(request, { error: 'Event not found' }, { status: 404 });
+      }
+      return json(request, rows[0]);
+    }
     if (/^\/api\/admin\/events\/custom\/[^/]+$/.test(path) && request.method === 'PATCH') {
       const auth = requireRole(request, ['admin']);
       if (auth instanceof Response) return auth;
@@ -1604,6 +1657,12 @@ Deno.serve(async (request) => {
     // Public: listings shown on the Apartments/Hotels tab with Mapbox.
     if (path === '/api/apartments' && request.method === 'GET') {
       return json(request, await listApartments({ nearRail: true }));
+    }
+    if (/^\/api\/apartments\/[^/]+$/.test(path) && request.method === 'GET') {
+      const id = path.split('/').pop()!;
+      const row = await getApartment(id);
+      if (!row) return json(request, { error: 'Apartment not found' }, { status: 404 });
+      return json(request, row);
     }
     // Admin: manage apartments/hotels listings.
     if (path === '/api/admin/apartments' && request.method === 'GET') {
@@ -2022,6 +2081,20 @@ Deno.serve(async (request) => {
         [body.slot, body.image_url, body.link_url ?? null, body.active],
       );
       return json(request, { ...rows[0], ...body }, { status: 201 });
+    }
+
+    if (/^\/api\/admin\/ads\/[^/]+$/.test(path) && request.method === 'GET') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const id = path.split('/').pop()!;
+      const rows = await dbQuery<{ id: string; slot: number; image_url: string; link_url: string | null; active: boolean; created_at: string; updated_at: string }>(
+        'SELECT id, slot, image_url, link_url, active, created_at, updated_at FROM ads WHERE id = $1 LIMIT 1',
+        [id],
+      );
+      if (rows.length === 0) {
+        return json(request, { error: 'Ad not found' }, { status: 404 });
+      }
+      return json(request, rows[0]);
     }
 
     if (/^\/api\/admin\/ads\/[^/]+$/.test(path) && request.method === 'PATCH') {

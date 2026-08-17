@@ -14,7 +14,7 @@ export default function WelcomeScreen() {
           <Image source={require('@/assets/images/logo.png')} style={{ width: 160, height: 160 }} resizeMode="contain" />
           <Text style={{ fontSize: 32 * effectiveScale, fontWeight: '800', color: colors.ink, textAlign: 'center' }} allowFontScaling={false}>Light Rail Deals</Text>
           <Text style={{ fontSize: 16 * effectiveScale, color: colors.muted, textAlign: 'center', maxWidth: 280, lineHeight: 22 * effectiveScale }} allowFontScaling={false}>
-            One membership card. Exclusive deals at every participating business.
+            One membership. Exclusive deals at every participating business.
           </Text>
         </View>
 
