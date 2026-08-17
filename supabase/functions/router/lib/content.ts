@@ -18,6 +18,14 @@ export interface ContentBlock {
 
 const CONTENT_COLUMNS = 'id, kind, title, body, url, position, published, created_at, updated_at';
 
+export async function getContentBlock(id: string): Promise<ContentBlock | null> {
+  const rows = await dbQuery<ContentBlock>(
+    `SELECT ${CONTENT_COLUMNS} FROM content_blocks WHERE id = $1 LIMIT 1`,
+    [id],
+  );
+  return rows[0] ?? null;
+}
+
 export async function listContentBlocks(opts: { publishedOnly: boolean }): Promise<ContentBlock[]> {
   if (opts.publishedOnly) {
     return dbQuery<ContentBlock>(

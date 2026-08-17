@@ -266,3 +266,23 @@ export async function getVendorDirectory(vendorId?: string): Promise<VendorDirec
     };
   });
 }
+
+export async function getAdminVendorById(id: string): Promise<Record<string, unknown> | null> {
+  const rows = await dbQuery<Record<string, unknown>>(
+    `SELECT v.*, d.type AS discount_type, d.value AS discount_value, d.discount_code, d.description AS discount_description,
+            d.starts_at AS discount_starts_at, d.ends_at AS discount_ends_at, d.boosted AS discount_boosted
+     FROM vendors v
+     LEFT JOIN LATERAL (
+       SELECT d.type, d.value, d.discount_code, d.description, d.starts_at, d.ends_at, d.boosted
+       FROM discounts d
+       JOIN cards c ON c.id = d.card_id AND c.is_membership = true
+       WHERE d.vendor_id = v.id
+       ORDER BY d.created_at DESC
+       LIMIT 1
+     ) d ON true
+     WHERE v.id = $1
+     LIMIT 1`,
+    [id],
+  );
+  return rows[0] ?? null;
+}
