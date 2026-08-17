@@ -180,14 +180,35 @@ export function Card({ children, accessibilityLabel }: { children: ReactNode; ac
   );
 }
 
-export function SectionTitle({ title, subtitle }: { title: string; subtitle?: string }) {
+export function SectionTitle({
+  title,
+  subtitle,
+  onPress,
+  right,
+}: {
+  title: string;
+  subtitle?: string;
+  onPress?: () => void;
+  right?: ReactNode;
+}) {
   const styles = useUiStyles();
-  return (
+  const content = (
     <View style={styles.sectionHeader} accessibilityRole="header" accessibilityLabel={title}>
-      <Text style={styles.sectionTitle} allowFontScaling={false}>{title}</Text>
-      {subtitle ? <Text style={styles.sectionSubtitle} allowFontScaling={false}>{subtitle}</Text> : null}
+      <View style={{ flex: 1 }}>
+        <Text style={styles.sectionTitle} allowFontScaling={false}>{title}</Text>
+        {subtitle ? <Text style={styles.sectionSubtitle} allowFontScaling={false}>{subtitle}</Text> : null}
+      </View>
+      {right ? <View style={{ marginLeft: 8 }}>{right}</View> : null}
     </View>
   );
+  if (onPress) {
+    return (
+      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${title} toggle`}>
+        {content}
+      </Pressable>
+    );
+  }
+  return content;
 }
 
 export function AppButton({

@@ -71,6 +71,7 @@ export default function BrowseScreen() {
   const [locationPermission, setLocationPermission] = useState<boolean | null>(null);
   const [region, setRegion] = useState<Region | null>(null);
   const [sortByFavorites, setSortByFavorites] = useState(false);
+  const [collapsedStations, setCollapsedStations] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     setError(null);
@@ -188,6 +189,23 @@ export default function BrowseScreen() {
     return list;
   }, [filteredVendors, location, sortByFavorites, favorites]);
 
+  const toggleStation = useCallback((station: string) => {
+    setCollapsedStations((prev) => {
+      const next = new Set(prev);
+      if (next.has(station)) next.delete(station);
+      else next.add(station);
+      return next;
+    });
+  }, []);
+
+  const expandAllStations = useCallback(() => {
+    setCollapsedStations(new Set());
+  }, []);
+
+  const collapseAllStations = useCallback(() => {
+    setCollapsedStations(new Set(groupedVendors.keys()));
+  }, [groupedVendors]);
+
   const selected = useMemo(
     () => sortedVendors.find((v) => v.id === selectedId) ?? filteredVendors.find((v) => v.id === selectedId) ?? null,
     [filteredVendors, selectedId, sortedVendors],
@@ -262,6 +280,10 @@ export default function BrowseScreen() {
               accessibilityLabel="Sort favorites first"
             />
           </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
+            <AppButton variant="secondary" onPress={expandAllStations}>Expand all</AppButton>
+            <AppButton variant="secondary" onPress={collapseAllStations}>Collapse all</AppButton>
+          </View>
           {locationPermission === false ? (
             <Banner tone="info">Location permission denied. Enable it in settings to see nearby shops sorted by distance.</Banner>
           ) : null}
@@ -298,12 +320,17 @@ export default function BrowseScreen() {
         {!loading && vendors.length === 0 ? <Banner tone="info">No vendors available yet.</Banner> : null}
         {!loading && filteredVendors.length === 0 && vendors.length > 0 ? <Banner tone="info">No businesses match your filters.</Banner> : null}
 
-        {Array.from(groupedVendors.entries()).map(([station, items]) => (
+        {Array.from(groupedVendors.entries()).map(([station, items]) => {
+          const collapsed = collapsedStations.has(station);
+          return (
           <View key={station}>
             <SectionTitle
               title={station}
               subtitle={`${items.length} business${items.length === 1 ? '' : 'es'}`}
+              onPress={() => toggleStation(station)}
+              right={<Text style={{ color: colors.muted, fontSize: 18 * effectiveScale }} allowFontScaling={false}>{collapsed ? '▶' : '▼'}</Text>}
             />
+            {!collapsed ? (
             <Card>
               <View style={{ gap: 10 }}>
                 {items.map((vendor) => {
@@ -369,8 +396,10 @@ export default function BrowseScreen() {
                 })}
               </View>
             </Card>
-          </View>
-        ))}
+          ) : null}
+        </View>
+      );
+    })}
 
         {selected ? (
           <Card>
