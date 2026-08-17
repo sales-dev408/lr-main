@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Image, Linking, Platform, Pressable, RefreshControl, ScrollView, Switch, Text, View } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { Link, useFocusEffect } from 'expo-router';
 import * as Location from 'expo-location';
 import { AppButton, Banner, BrandHeader, Card, FieldInput, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
@@ -12,7 +13,7 @@ import { useFavorites } from '@/lib/favorites';
 import MapView, { Marker, type Region } from '@/components/MapView';
 import type { VendorListItem } from '@/lib/types';
 
-const CATEGORIES = ['All', 'Sports', 'Dining', 'Entertainment'] as const;
+const TYPE_OPTIONS = ['All', 'Restaurant', 'Bar', 'Cafe'] as const;
 
 function distanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371;
@@ -59,7 +60,8 @@ export default function BrowseScreen() {
   const { effectiveScale } = useDynamicType();
   const { favorites, toggle: toggleFavorite, isFavorite } = useFavorites();
   const [vendors, setVendors] = useState<VendorListItem[]>([]);
-  const [category, setCategory] = useState<(typeof CATEGORIES)[number]>('All');
+  const [typeFilter, setTypeFilter] = useState<(typeof TYPE_OPTIONS)[number]>('All');
+  const [cuisineFilter, setCuisineFilter] = useState<string>('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -73,14 +75,14 @@ export default function BrowseScreen() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const data = await listVendors({ category: category === 'All' ? undefined : category });
+      const data = await listVendors();
       setVendors(data);
       setSelectedId((prev) => (prev && data.some((v) => v.id === prev) ? prev : data[0]?.id ?? null));
       if (!region) setRegion(initialRegion(data));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load vendors');
     }
-  }, [category, region]);
+  }, [region]);
 
   async function handleToggleFavorite(id: string) {
     await toggleFavorite(id);
@@ -122,12 +124,45 @@ export default function BrowseScreen() {
     setRefreshing(false);
   }
 
+  const cuisineOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const v of vendors) {
+      if (v.cuisine) set.add(v.cuisine);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [vendors]);
+
   const filteredVendors = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return term
-      ? vendors.filter((v) => v.name.toLowerCase().includes(term) || (v.category ?? '').toLowerCase().includes(term))
-      : vendors;
-  }, [vendors, search]);
+    let list = vendors.filter((v) => {
+      if (!term) return true;
+      const hay = [v.name, v.cuisine, v.station, v.address, v.city, v.category].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(term);
+    });
+    if (typeFilter !== 'All') {
+      list = list.filter((v) => (v.vendorType ?? '').toLowerCase() === typeFilter.toLowerCase());
+    }
+    if (cuisineFilter) {
+      list = list.filter((v) => (v.cuisine ?? '').toLowerCase() === cuisineFilter.toLowerCase());
+    }
+    return list;
+  }, [vendors, search, typeFilter, cuisineFilter]);
+
+  const groupedVendors = useMemo(() => {
+    const groups = new Map<string, VendorListItem[]>();
+    for (const v of filteredVendors) {
+      const key = v.station?.trim() || 'Other';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(v);
+    }
+    for (const arr of groups.values()) {
+      arr.sort((a, b) => {
+        if (a.boosted !== b.boosted) return a.boosted ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+    }
+    return new Map([...groups.entries()].sort((a, b) => a[0].localeCompare(b[0])));
+  }, [filteredVendors]);
 
   const sortedVendors = useMemo(() => {
     const list = [...filteredVendors];
@@ -153,7 +188,10 @@ export default function BrowseScreen() {
     return list;
   }, [filteredVendors, location, sortByFavorites, favorites]);
 
-  const selected = useMemo(() => sortedVendors.find((v) => v.id === selectedId) ?? filteredVendors.find((v) => v.id === selectedId) ?? null, [filteredVendors, selectedId, sortedVendors]);
+  const selected = useMemo(
+    () => sortedVendors.find((v) => v.id === selectedId) ?? filteredVendors.find((v) => v.id === selectedId) ?? null,
+    [filteredVendors, selectedId, sortedVendors],
+  );
 
   const mappedVendors = useMemo(() => {
     return sortedVendors.filter((v) => v.latitude != null && v.longitude != null);
@@ -167,8 +205,8 @@ export default function BrowseScreen() {
         setRegion({
           latitude: vendor.latitude,
           longitude: vendor.longitude,
-          latitudeDelta: 0.03,
-          longitudeDelta: 0.03,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
         });
       }
     },
@@ -181,22 +219,41 @@ export default function BrowseScreen() {
         contentContainerStyle={{ gap: 14, paddingBottom: 24 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
-        <BrandHeader subtitle="Browse discounts & participating businesses" />
+        <BrandHeader subtitle="Browse discounts by train stop" />
 
         <AdBanner slot={2} />
 
         <Card>
-          <SectionTitle title="Browse by type" subtitle="Filter participating businesses by category" />
-          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-            {CATEGORIES.map((value) => (
-              <AppButton key={value} variant={category === value ? 'primary' : 'secondary'} onPress={() => setCategory(value)}>
+          <SectionTitle title="Filter" subtitle="Restaurants, bars, cafes, and cuisine" />
+          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+            {TYPE_OPTIONS.map((value) => (
+              <AppButton
+                key={value}
+                variant={typeFilter === value ? 'primary' : 'secondary'}
+                onPress={() => {
+                  setTypeFilter(value);
+                  setCuisineFilter('');
+                }}
+              >
                 {value}
               </AppButton>
             ))}
           </View>
-          <FieldInput placeholder="Search vendors…" value={search} onChangeText={setSearch} />
+          {cuisineOptions.length > 0 && typeFilter === 'Restaurant' ? (
+            <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, overflow: 'hidden' }}>
+              <Picker selectedValue={cuisineFilter} onValueChange={(itemValue) => setCuisineFilter(String(itemValue))}>
+                <Picker.Item label="Any cuisine" value="" />
+                {cuisineOptions.map((c) => (
+                  <Picker.Item key={c} label={c.charAt(0).toUpperCase() + c.slice(1)} value={c} />
+                ))}
+              </Picker>
+            </View>
+          ) : null}
+          <FieldInput placeholder="Search name, stop, cuisine…" value={search} onChangeText={setSearch} />
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}>
-            <Text style={{ color: colors.ink, fontSize: 14 * effectiveScale }} allowFontScaling={false}>Sort favorites first</Text>
+            <Text style={{ color: colors.ink, fontSize: 14 * effectiveScale }} allowFontScaling={false}>
+              Sort favorites first
+            </Text>
             <Switch
               value={sortByFavorites}
               onValueChange={setSortByFavorites}
@@ -211,7 +268,7 @@ export default function BrowseScreen() {
         </Card>
 
         {region ? (
-          <View style={{ height: 280, borderRadius: 16, overflow: 'hidden' }}>
+          <View style={{ height: 260, borderRadius: 16, overflow: 'hidden' }}>
             <MapView
               style={{ flex: 1, borderRadius: 16 }}
               initialRegion={region}
@@ -239,44 +296,81 @@ export default function BrowseScreen() {
         {loading ? <Spinner /> : null}
         {error ? <Banner tone="error">{error}</Banner> : null}
         {!loading && vendors.length === 0 ? <Banner tone="info">No vendors available yet.</Banner> : null}
+        {!loading && filteredVendors.length === 0 && vendors.length > 0 ? <Banner tone="info">No businesses match your filters.</Banner> : null}
 
-        {sortedVendors.length > 0 ? (
-          <Card>
-            <SectionTitle title="Participating businesses" subtitle={search ? `${sortedVendors.length} match${sortedVendors.length === 1 ? '' : 'es'}` : 'Tap to select'} />
-            <View style={{ gap: 8 }}>
-              {sortedVendors.map((vendor) => {
-                const active = vendor.id === selectedId;
-                const remaining = formatTimeRemaining(vendor.endsAt);
-                const dist = location && vendor.latitude != null && vendor.longitude != null
-                  ? distanceKm(location.coords.latitude, location.coords.longitude, vendor.latitude, vendor.longitude)
-                  : null;
-                const favorite = isFavorite(vendor.id);
-                return (
-                  <View key={vendor.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <AppButton
-                      variant={active ? 'primary' : 'secondary'}
-                      onPress={() => selectVendor(vendor.id)}
-                      style={{ flex: 1 }}
-                    >
-                      {vendor.boosted ? 'Flash: ' : ''}{vendor.name} · {vendor.discount.label}
-                      {remaining ? ` · ${remaining}` : ''}
-                      {dist != null ? ` · ${formatDistance(dist)}` : ''}
-                    </AppButton>
+        {Array.from(groupedVendors.entries()).map(([station, items]) => (
+          <View key={station}>
+            <SectionTitle
+              title={station}
+              subtitle={`${items.length} business${items.length === 1 ? '' : 'es'}`}
+            />
+            <Card>
+              <View style={{ gap: 10 }}>
+                {items.map((vendor) => {
+                  const active = vendor.id === selectedId;
+                  const remaining = formatTimeRemaining(vendor.endsAt);
+                  const dist =
+                    location && vendor.latitude != null && vendor.longitude != null
+                      ? distanceKm(location.coords.latitude, location.coords.longitude, vendor.latitude, vendor.longitude)
+                      : null;
+                  const favorite = isFavorite(vendor.id);
+                  return (
                     <Pressable
-                      onPress={() => void handleToggleFavorite(vendor.id)}
-                      accessibilityLabel={favorite ? 'Remove from favorites' : 'Add to favorites'}
-                      style={{ padding: 8 }}
+                      key={vendor.id}
+                      onPress={() => selectVendor(vendor.id)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: 12,
+                        borderRadius: 12,
+                        backgroundColor: active ? colors.brand + '12' : colors.panel,
+                        borderWidth: 1,
+                        borderColor: active ? colors.brand : colors.border,
+                      }}
                     >
-                      <Text style={{ fontSize: 24 * effectiveScale, color: colors.brand }} allowFontScaling={false}>
-                        {favorite ? '♥' : '♡'}
-                      </Text>
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={{ color: colors.ink, fontSize: 15 * effectiveScale, fontWeight: '700' }}
+                          allowFontScaling={false}
+                        >
+                          {vendor.boosted ? 'Flash: ' : ''}
+                          {vendor.name}
+                        </Text>
+                        {vendor.address ? (
+                          <Text
+                            style={{ color: colors.muted, fontSize: 12 * effectiveScale, marginTop: 2 }}
+                            allowFontScaling={false}
+                          >
+                            {vendor.address}
+                            {vendor.city ? `, ${vendor.city}` : ''}
+                          </Text>
+                        ) : null}
+                        <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                          <Pill tone="success">{vendor.discount.label}</Pill>
+                          {vendor.cuisine ? <Pill tone="neutral">{vendor.cuisine}</Pill> : null}
+                          {remaining ? <Pill tone="warning">{remaining}</Pill> : null}
+                          {dist != null ? <Pill tone="neutral">{formatDistance(dist)}</Pill> : null}
+                        </View>
+                      </View>
+                      <Pressable
+                        onPress={() => void handleToggleFavorite(vendor.id)}
+                        accessibilityLabel={favorite ? 'Remove from favorites' : 'Add to favorites'}
+                        style={{ padding: 8 }}
+                      >
+                        <Text style={{ fontSize: 24 * effectiveScale, color: colors.brand }} allowFontScaling={false}>
+                          {favorite ? '♥' : '♡'}
+                        </Text>
+                      </Pressable>
                     </Pressable>
-                  </View>
-                );
-              })}
-            </View>
-          </Card>
-        ) : null}
+                  );
+                })}
+              </View>
+            </Card>
+          </View>
+        ))}
 
         {selected ? (
           <Card>
@@ -289,7 +383,7 @@ export default function BrowseScreen() {
             ) : null}
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <View style={{ flex: 1 }}>
-                <SectionTitle title={selected.name} subtitle={selected.category ?? undefined} />
+                <SectionTitle title={selected.name} subtitle={selected.category ?? selected.vendorType ?? undefined} />
               </View>
               <Pressable
                 onPress={() => void handleToggleFavorite(selected.id)}
@@ -301,16 +395,29 @@ export default function BrowseScreen() {
                 </Text>
               </Pressable>
             </View>
+            {selected.station ? (
+              <Text style={{ color: colors.muted, fontSize: 14 * effectiveScale }} allowFontScaling={false}>
+                {selected.station}
+              </Text>
+            ) : null}
             <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
               <Pill tone="success">{selected.discount.label}</Pill>
               {selected.boosted ? <Pill tone="warning">Flash deal</Pill> : null}
               {formatTimeRemaining(selected.endsAt) ? <Pill tone="neutral">{formatTimeRemaining(selected.endsAt)}</Pill> : null}
             </View>
-            {selected.address ? <Text style={{ color: colors.muted, fontSize: 14 * effectiveScale, lineHeight: 20 * effectiveScale }} allowFontScaling={false}>{selected.address}</Text> : null}
-            {selected.discountDescription ? (
-              <Text style={{ color: colors.ink, fontSize: 14 * effectiveScale, lineHeight: 20 * effectiveScale }} allowFontScaling={false}>{selected.discountDescription}</Text>
+            {selected.address ? (
+              <Text style={{ color: colors.muted, fontSize: 14 * effectiveScale, lineHeight: 20 * effectiveScale }} allowFontScaling={false}>
+                {selected.address}
+              </Text>
             ) : null}
-            <Text style={{ color: colors.muted, fontSize: 8 * effectiveScale, lineHeight: 12 * effectiveScale }} allowFontScaling={false}>{selected.discountTerms}</Text>
+            {selected.discountDescription ? (
+              <Text style={{ color: colors.ink, fontSize: 14 * effectiveScale, lineHeight: 20 * effectiveScale }} allowFontScaling={false}>
+                {selected.discountDescription}
+              </Text>
+            ) : null}
+            <Text style={{ color: colors.muted, fontSize: 8 * effectiveScale, lineHeight: 12 * effectiveScale }} allowFontScaling={false}>
+              {selected.discountTerms}
+            </Text>
 
             {selected.address ? (
               <AppButton

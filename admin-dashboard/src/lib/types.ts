@@ -250,6 +250,8 @@ export interface ApartmentRecord {
   website: string | null;
   latitude: number | null;
   longitude: number | null;
+  near_rail: boolean;
+  distance_miles: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -259,6 +261,8 @@ export interface ContentStatus {
   publishedAt: string | null;
   publishedCount: number;
   draftCount: number;
+  publishedCounts: { vendors: number; apartments: number; events: number; content: number };
+  draftCounts: { vendors: number; apartments: number; events: number; content: number };
 }
 
 export interface PublicCardsResponseItem {

@@ -23,7 +23,6 @@ export default function RootLayout() {
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="admin/content" />
                 <Stack.Screen name="admin/theme" />
-                <Stack.Screen name="card/[id]" />
                 <Stack.Screen name="discount" />
               </Stack>
               </DynamicTypeProvider>

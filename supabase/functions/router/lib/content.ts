@@ -71,7 +71,7 @@ export async function publishContent(): Promise<{ version: number; publishedAt: 
     const publishedAt = new Date().toISOString();
     await client.query(
       'INSERT INTO content_published (version, published_at, content) VALUES ($1, $2, $3::jsonb)',
-      [nextVersion, publishedAt, JSON.stringify(allPublished)],
+      [nextVersion, publishedAt, allPublished],
     );
     return { version: nextVersion, publishedAt };
   });
@@ -173,7 +173,6 @@ export const DEFAULT_THEME: ThemeSettings = {
     { key: 'events', label: 'Events', color: '#8b5cf6', gradient: ['#a78bfa', '#7c3aed'] },
     { key: 'apartments', label: 'Apartments', color: '#f59e0b', gradient: ['#fbbf24', '#d97706'] },
     { key: 'discover', label: 'Discover', color: '#10b981', gradient: ['#34d399', '#059669'] },
-    { key: 'deals', label: 'Deals', color: '#f97316', gradient: ['#fb923c', '#ea580c'] },
     { key: 'profile', label: 'Profile', color: '#0ea5e9', gradient: ['#38bdf8', '#0284c7'] },
   ],
 };
@@ -181,7 +180,15 @@ export const DEFAULT_THEME: ThemeSettings = {
 export async function getSetting<T>(key: string, fallback: T): Promise<T> {
   try {
     const rows = await dbQuery<{ value: T }>('SELECT value FROM app_settings WHERE key = $1 LIMIT 1', [key]);
-    return rows[0]?.value ?? fallback;
+    const value = rows[0]?.value;
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value) as T;
+      } catch {
+        return fallback;
+      }
+    }
+    return value ?? fallback;
   } catch {
     return fallback;
   }
@@ -207,7 +214,7 @@ export async function saveTheme(theme: ThemeSettings): Promise<ThemeSettings> {
   await dbQuery(
     `INSERT INTO app_settings (key, value, updated_at) VALUES ('theme', $1::jsonb, now())
      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
-    [JSON.stringify(theme)],
+    [theme],
   );
   return theme;
 }

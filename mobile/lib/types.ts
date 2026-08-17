@@ -143,6 +143,9 @@ export interface VendorListItem {
   address: string | null;
   city: string | null;
   category: string | null;
+  vendorType: 'restaurant' | 'bar' | 'cafe' | 'other' | string | null;
+  cuisine: string | null;
+  station: string | null;
   latitude: number | null;
   longitude: number | null;
   posSystem: string | null;
@@ -313,4 +316,16 @@ export interface ApartmentRecord {
   website: string | null;
   latitude: number | null;
   longitude: number | null;
+  nearRail: boolean;
+  distanceMiles: number | null;
+}
+
+export interface AppState {
+  version: number;
+  publishedAt: string;
+  content: ContentBlock[];
+  vendors: VendorListItem[];
+  apartments: ApartmentRecord[];
+  events: RssEvent[];
+  theme: ThemeSettings;
 }

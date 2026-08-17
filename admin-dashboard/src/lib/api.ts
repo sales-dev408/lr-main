@@ -509,6 +509,14 @@ export async function publishContent(): Promise<{ version: number; publishedAt: 
   return apiRequest<{ version: number; publishedAt: string }>('/admin/content/publish', { method: 'POST' });
 }
 
+export async function getAppStatus(): Promise<ContentStatus> {
+  return apiRequest<ContentStatus>('/admin/app/status');
+}
+
+export async function publishApp(): Promise<{ version: number; publishedAt: string }> {
+  return apiRequest<{ version: number; publishedAt: string }>('/admin/app/publish', { method: 'POST' });
+}
+
 // ---- Ads ------------------------------------------------------------------
 
 export async function listAds(): Promise<AdRecord[]> {

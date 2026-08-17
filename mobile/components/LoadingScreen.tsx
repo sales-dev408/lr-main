@@ -31,18 +31,20 @@ export function LoadingScreen({ message = 'Loading your deals…' }: { message?:
   const [ripple2] = useState(() => new Animated.Value(0));
   const [ripple3] = useState(() => new Animated.Value(0));
 
+  const useNativeDriver = Platform.OS !== 'web';
+
   useEffect(() => {
     mounted.current = true;
 
     const intro = Animated.parallel([
-      Animated.timing(logoOpacity, { toValue: 1, duration: 600, useNativeDriver: true }),
-      Animated.spring(logoScale, { toValue: 1, friction: 6, useNativeDriver: true }),
+      Animated.timing(logoOpacity, { toValue: 1, duration: 600, useNativeDriver }),
+      Animated.spring(logoScale, { toValue: 1, friction: 6, useNativeDriver }),
     ]);
 
     const pulse = Animated.loop(
       Animated.sequence([
-        Animated.timing(logoScale, { toValue: 1.08, duration: 900, useNativeDriver: true }),
-        Animated.timing(logoScale, { toValue: 1, duration: 900, useNativeDriver: true }),
+        Animated.timing(logoScale, { toValue: 1.08, duration: 900, useNativeDriver }),
+        Animated.timing(logoScale, { toValue: 1, duration: 900, useNativeDriver }),
       ])
     );
 
@@ -50,7 +52,7 @@ export function LoadingScreen({ message = 'Loading your deals…' }: { message?:
       Animated.loop(
         Animated.sequence([
           Animated.delay(delay),
-          Animated.timing(value, { toValue: 1, duration: 2000, useNativeDriver: true }),
+          Animated.timing(value, { toValue: 1, duration: 2000, useNativeDriver }),
         ])
       );
 
@@ -69,7 +71,7 @@ export function LoadingScreen({ message = 'Loading your deals…' }: { message?:
       pulse.stop();
       ripples.forEach((r) => r.stop());
     };
-  }, [logoOpacity, logoScale, ripple1, ripple2, ripple3]);
+  }, [logoOpacity, logoScale, ripple1, ripple2, ripple3, useNativeDriver]);
 
   const renderRipple = (value: Animated.Value, index: number) => {
     const scale = value.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1.8] });

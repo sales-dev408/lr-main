@@ -32,6 +32,14 @@ export interface AdminEvent {
 async function getEventsRssUrls(): Promise<string[]> {
   const rows = await dbQuery<{ value: string[] }>(`SELECT value FROM app_settings WHERE key = $1 LIMIT 1`, ['events_rss_urls']);
   const value = rows[0]?.value;
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value) as string[];
+      return Array.isArray(parsed) ? parsed.filter((url) => typeof url === 'string' && url.length > 0) : [];
+    } catch {
+      return [];
+    }
+  }
   return Array.isArray(value) ? value.filter((url) => typeof url === 'string' && url.length > 0) : [];
 }
 
@@ -40,7 +48,7 @@ async function saveEventsRssUrls(urls: string[]): Promise<string[]> {
   await dbQuery(
     `INSERT INTO app_settings (key, value, updated_at) VALUES ($1, $2::jsonb, now())
      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
-    ['events_rss_urls', JSON.stringify(clean)],
+    ['events_rss_urls', clean],
   );
   return clean;
 }
