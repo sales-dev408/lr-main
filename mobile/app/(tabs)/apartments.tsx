@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Linking, Platform, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, FieldInput, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
@@ -6,6 +6,8 @@ import { listApartments } from '@/lib/api';
 import { useThemeColors } from '@/lib/useThemeColors';
 import { useDynamicType } from '@/lib/dynamicType';
 import MapView, { Marker, type Region } from '@/components/MapView';
+import { StopPicker } from '@/components/StopPicker';
+import { compareStops } from '@/lib/stops';
 import type { ApartmentRecord } from '@/lib/types';
 
 function initialRegion(apartments: ApartmentRecord[]): Region {
@@ -27,17 +29,19 @@ export default function ApartmentsScreen() {
   const [region, setRegion] = useState<Region | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const scrollRef = useRef<ScrollView>(null);
+  const stationOffsets = useRef<Map<string, number>>(new Map());
 
   const load = useCallback(async () => {
     setError(null);
     try {
       const data = await listApartments();
       setApartments(data);
-      if (!region) setRegion(initialRegion(data));
+      setRegion((prev) => prev ?? initialRegion(data));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load apartments');
     }
-  }, [region]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -82,10 +86,27 @@ export default function ApartmentsScreen() {
         return a.name.localeCompare(b.name);
       });
     }
-    return new Map([...groups.entries()].sort((a, b) => a[0].localeCompare(b[0])));
+    return new Map([...groups.entries()].sort((a, b) => compareStops(a[0], b[0])));
   }, [filtered]);
 
-  const mapped = useMemo(() => apartments.filter((a) => a.latitude != null && a.longitude != null), [apartments]);
+  const stopEntries = useMemo(
+    () =>
+      Array.from(grouped.entries()).map(([station, items]) => ({
+        stop: station,
+        count: items.length,
+        city: items[0]?.city ?? null,
+      })),
+    [grouped],
+  );
+
+  const jumpToStation = useCallback((station: string) => {
+    const offset = stationOffsets.current.get(station);
+    if (offset != null) {
+      scrollRef.current?.scrollTo({ y: Math.max(offset - 8, 0), animated: true });
+    }
+  }, []);
+
+  const mapped = useMemo(() => filtered.filter((a) => a.latitude != null && a.longitude != null), [filtered]);
 
   const selected = useMemo(() => apartments.find((a) => a.id === selectedId) ?? null, [apartments, selectedId]);
 
@@ -100,6 +121,7 @@ export default function ApartmentsScreen() {
   return (
     <Screen>
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={{ gap: 14, paddingBottom: 24 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
@@ -137,10 +159,14 @@ export default function ApartmentsScreen() {
         <Card>
           <SectionTitle title="Find a place" subtitle="Search by name, stop, or address" />
           <FieldInput placeholder="Search…" value={search} onChangeText={setSearch} />
+          <StopPicker entries={stopEntries} onSelect={jumpToStation} label="Jump to a stop" itemNoun="listing" />
         </Card>
 
         {Array.from(grouped.entries()).map(([station, items]) => (
-          <View key={station}>
+          <View
+            key={station}
+            onLayout={(event) => stationOffsets.current.set(station, event.nativeEvent.layout.y)}
+          >
             <SectionTitle title={station} subtitle={`${items.length} listing${items.length === 1 ? '' : 's'}`} />
             <Card>
               <View style={{ gap: 10 }}>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Linking, Platform, Pressable, RefreshControl, ScrollView, Switch, Text, View } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Link, useFocusEffect } from 'expo-router';
@@ -11,6 +11,8 @@ import { useThemeColors } from '@/lib/useThemeColors';
 import { useDynamicType } from '@/lib/dynamicType';
 import { useFavorites } from '@/lib/favorites';
 import MapView, { Marker, type Region } from '@/components/MapView';
+import { StopPicker } from '@/components/StopPicker';
+import { compareStops } from '@/lib/stops';
 import type { VendorListItem } from '@/lib/types';
 
 const TYPE_OPTIONS = ['All', 'Restaurant', 'Bar', 'Cafe'] as const;
@@ -72,6 +74,8 @@ export default function BrowseScreen() {
   const [region, setRegion] = useState<Region | null>(null);
   const [sortByFavorites, setSortByFavorites] = useState(false);
   const [collapsedStations, setCollapsedStations] = useState<Set<string>>(new Set());
+  const scrollRef = useRef<ScrollView>(null);
+  const stationOffsets = useRef<Map<string, number>>(new Map());
 
   const load = useCallback(async () => {
     setError(null);
@@ -79,11 +83,11 @@ export default function BrowseScreen() {
       const data = await listVendors();
       setVendors(data);
       setSelectedId((prev) => (prev && data.some((v) => v.id === prev) ? prev : data[0]?.id ?? null));
-      if (!region) setRegion(initialRegion(data));
+      setRegion((prev) => prev ?? initialRegion(data));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load vendors');
     }
-  }, [region]);
+  }, []);
 
   async function handleToggleFavorite(id: string) {
     await toggleFavorite(id);
@@ -162,8 +166,18 @@ export default function BrowseScreen() {
         return a.name.localeCompare(b.name);
       });
     }
-    return new Map([...groups.entries()].sort((a, b) => a[0].localeCompare(b[0])));
+    return new Map([...groups.entries()].sort((a, b) => compareStops(a[0], b[0])));
   }, [filteredVendors]);
+
+  const stopEntries = useMemo(
+    () =>
+      Array.from(groupedVendors.entries()).map(([station, items]) => ({
+        stop: station,
+        count: items.length,
+        city: items[0]?.city ?? null,
+      })),
+    [groupedVendors],
+  );
 
   const sortedVendors = useMemo(() => {
     const list = [...filteredVendors];
@@ -198,13 +212,18 @@ export default function BrowseScreen() {
     });
   }, []);
 
-  const expandAllStations = useCallback(() => {
-    setCollapsedStations(new Set());
+  const jumpToStation = useCallback((station: string) => {
+    setCollapsedStations((prev) => {
+      if (!prev.has(station)) return prev;
+      const next = new Set(prev);
+      next.delete(station);
+      return next;
+    });
+    const offset = stationOffsets.current.get(station);
+    if (offset != null) {
+      scrollRef.current?.scrollTo({ y: Math.max(offset - 8, 0), animated: true });
+    }
   }, []);
-
-  const collapseAllStations = useCallback(() => {
-    setCollapsedStations(new Set(groupedVendors.keys()));
-  }, [groupedVendors]);
 
   const selected = useMemo(
     () => sortedVendors.find((v) => v.id === selectedId) ?? filteredVendors.find((v) => v.id === selectedId) ?? null,
@@ -234,6 +253,7 @@ export default function BrowseScreen() {
   return (
     <Screen>
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={{ gap: 14, paddingBottom: 24 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
@@ -280,9 +300,8 @@ export default function BrowseScreen() {
               accessibilityLabel="Sort favorites first"
             />
           </View>
-          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
-            <AppButton variant="secondary" onPress={expandAllStations}>Expand all</AppButton>
-            <AppButton variant="secondary" onPress={collapseAllStations}>Collapse all</AppButton>
+          <View style={{ marginTop: 8 }}>
+            <StopPicker entries={stopEntries} onSelect={jumpToStation} label="Jump to a stop" itemNoun="business" />
           </View>
           {locationPermission === false ? (
             <Banner tone="info">Location permission denied. Enable it in settings to see nearby shops sorted by distance.</Banner>
@@ -323,7 +342,10 @@ export default function BrowseScreen() {
         {Array.from(groupedVendors.entries()).map(([station, items]) => {
           const collapsed = collapsedStations.has(station);
           return (
-          <View key={station}>
+          <View
+            key={station}
+            onLayout={(event) => stationOffsets.current.set(station, event.nativeEvent.layout.y)}
+          >
             <SectionTitle
               title={station}
               subtitle={`${items.length} business${items.length === 1 ? '' : 'es'}`}
