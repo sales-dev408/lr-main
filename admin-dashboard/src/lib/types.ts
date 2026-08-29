@@ -75,6 +75,7 @@ export interface VendorRecord {
   location: string | null;
   address: string | null;
   city: string | null;
+  station: string | null;
   category: string | null;
   latitude: number | null;
   longitude: number | null;
@@ -235,6 +236,18 @@ export interface UserRecord {
   eulaAcceptedAt: string | null;
   createdAt: string | null;
   updatedAt: string | null;
+}
+
+export interface StopRecord {
+  id: string;
+  name: string;
+  city: string | null;
+  line: string | null;
+  position: number | null;
+  latitude: number | null;
+  longitude: number | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ApartmentRecord {

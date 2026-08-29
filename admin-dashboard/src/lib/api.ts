@@ -14,6 +14,7 @@ import type {
   CreateVendorResult,
   DiscountSummary,
   PushPreferences,
+  StopRecord,
   ThemeSettings,
   UserRecord,
   UserStatus,
@@ -252,6 +253,7 @@ export async function createAdminVendor(body: {
   name: string;
   ownerName?: string;
   address?: string;
+  station?: string | null;
   category: 'Sports' | 'Dining' | 'Entertainment';
   email?: string;
   phone?: string;
@@ -276,6 +278,7 @@ export async function updateAdminVendor(
     name?: string;
     ownerName?: string;
     address?: string;
+    station?: string | null;
     category?: 'Sports' | 'Dining' | 'Entertainment';
     email?: string;
     phone?: string;
@@ -314,6 +317,22 @@ export interface VendorAnalyticsResponse {
 
 export async function getVendorAnalytics(id: string): Promise<VendorAnalyticsResponse> {
   return apiRequest<VendorAnalyticsResponse>(`/admin/vendors/${id}/analytics`);
+}
+
+export async function listAdminStops(): Promise<StopRecord[]> {
+  return apiRequest<StopRecord[]>('/admin/stops');
+}
+
+export async function createAdminStop(body: Omit<StopRecord, 'id' | 'created_at' | 'updated_at'>): Promise<StopRecord> {
+  return apiRequest<StopRecord>('/admin/stops', { method: 'POST', body: jsonBody(body) });
+}
+
+export async function updateAdminStop(id: string, body: Partial<Omit<StopRecord, 'id' | 'created_at' | 'updated_at'>>): Promise<StopRecord> {
+  return apiRequest<StopRecord>(`/admin/stops/${id}`, { method: 'PATCH', body: jsonBody(body) });
+}
+
+export async function deleteAdminStop(id: string): Promise<void> {
+  return apiRequest<void>(`/admin/stops/${id}`, { method: 'DELETE' });
 }
 
 export async function listAdminCards(): Promise<CardSummary[]> {

@@ -9,6 +9,7 @@ const NAV_ITEMS: Array<{ to: string; label: string; end?: boolean; icon: string 
   { to: '/', label: 'Overview', end: true, icon: '◆' },
   { to: '/vendors', label: 'Vendors', icon: '▲' },
   { to: '/apartments', label: 'Apartments', icon: '🏠' },
+  { to: '/stops', label: 'Stops', icon: '◈' },
   { to: '/users', label: 'Users', icon: '◎' },
   { to: '/marketing', label: 'Marketing', icon: '✉' },
   { to: '/events', label: 'Events', icon: '★' },

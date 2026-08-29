@@ -12,6 +12,7 @@ import { EventsPage } from './pages/EventsPage';
 import { AdsPage } from './pages/AdsPage';
 import { VendorsPage } from './pages/VendorsPage';
 import { UsersPage } from './pages/UsersPage';
+import { StopsPage } from './pages/StopsPage';
 
 export function App() {
   return (
@@ -27,6 +28,7 @@ export function App() {
         <Route path="/" element={<OverviewPage />} />
         <Route path="/vendors" element={<VendorsPage />} />
         <Route path="/apartments" element={<ApartmentsPage />} />
+        <Route path="/stops" element={<StopsPage />} />
         <Route path="/users" element={<UsersPage />} />
         <Route path="/marketing" element={<MarketingPage />} />
         <Route path="/content" element={<ContentPage />} />

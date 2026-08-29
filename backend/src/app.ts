@@ -17,6 +17,7 @@ import { registerSettingsRoutes } from './routes/settings.js';
 import { registerApartmentsRoutes } from './routes/apartments.js';
 import { registerMePassRoutes } from './routes/mePass.js';
 import { registerAdsRoutes } from './routes/ads.js';
+import { registerStopsRoutes } from './routes/stops.js';
 
 export async function buildApp() {
   const app = fastify({
@@ -46,6 +47,7 @@ export async function buildApp() {
   await registerApartmentsRoutes(app);
   await registerMePassRoutes(app);
   await registerAdsRoutes(app);
+  await registerStopsRoutes(app);
 
   return app;
 }

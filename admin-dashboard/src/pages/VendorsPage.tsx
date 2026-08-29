@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from '
 import {
   createAdminVendor,
   getVendorAnalytics,
+  listAdminStops,
   listAdminVendors,
   regenerateVendorQr,
   updateAdminVendor,
 } from '../lib/api';
-import type { VendorCategory, VendorRecord } from '../lib/types';
+import type { StopRecord, VendorCategory, VendorRecord } from '../lib/types';
 import type { VendorAnalyticsResponse } from '../lib/api';
 import { AddressAutofill } from '@mapbox/search-js-react';
 import type { AddressAutofillRetrieveResponse } from '@mapbox/search-js-core';
@@ -40,6 +41,7 @@ const blankVendor = {
   name: '',
   ownerName: '',
   address: '',
+  station: '',
   latitude: '',
   longitude: '',
   email: '',
@@ -174,6 +176,7 @@ export function VendorsPage() {
   const { profile } = useAuth();
   const readOnly = profile?.role === 'analyst';
   const [vendors, setVendors] = useState<VendorRecord[]>([]);
+  const [stops, setStops] = useState<StopRecord[]>([]);
   const [filters, setFilters] = useState({ status: '', category: '' });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -218,11 +221,15 @@ export function VendorsPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await listAdminVendors({
-        ...(filters.status ? { status: filters.status } : {}),
-        ...(filters.category ? { category: filters.category } : {}),
-      });
+      const [data, stopData] = await Promise.all([
+        listAdminVendors({
+          ...(filters.status ? { status: filters.status } : {}),
+          ...(filters.category ? { category: filters.category } : {}),
+        }),
+        listAdminStops(),
+      ]);
       setVendors(data);
+      setStops(stopData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load vendors');
     } finally {
@@ -308,6 +315,7 @@ export function VendorsPage() {
         name: form.name,
         ownerName: form.ownerName || undefined,
         address: form.address || undefined,
+        station: form.station || null,
         latitude,
         longitude,
         category: form.category,
@@ -348,6 +356,7 @@ export function VendorsPage() {
         name: editing.name,
         ownerName: editing.owner_name ?? undefined,
         address: editing.address ?? editing.location ?? undefined,
+        station: editing.station ?? null,
         latitude: editing.latitude ?? undefined,
         longitude: editing.longitude ?? undefined,
         category: (editing.category as VendorCategory | null) ?? undefined,
@@ -466,6 +475,15 @@ export function VendorsPage() {
                 />
               )}
             </label>
+            <label>
+              Station
+              <Select value={form.station} onChange={(e) => setForm((prev) => ({ ...prev, station: e.target.value }))}>
+                <option value="">— Select a stop —</option>
+                {stops.map((stop) => (
+                  <option key={stop.id} value={stop.name}>{stop.name}</option>
+                ))}
+              </Select>
+            </label>
             <div className="grid-2">
               <label>
                 Latitude
@@ -575,6 +593,7 @@ export function VendorsPage() {
                     {vendor.owner_name ? <p className="muted">Owner: {vendor.owner_name}</p> : null}
                     <p className="muted">
                       {(vendor.address ?? vendor.location) ?? '—'} · {vendor.category ?? '—'}
+                      {vendor.station ? ` · ${vendor.station}` : ''}
                       {vendor.email ? ` · ${vendor.email}` : ''}
                       {vendor.phone ? ` · ${vendor.phone}` : ''}
                     </p>
@@ -625,6 +644,15 @@ export function VendorsPage() {
                   onChange={(e) => setEditing({ ...editing, address: e.target.value })}
                 />
               )}
+            </label>
+            <label>
+              Station
+              <Select value={editing.station ?? ''} onChange={(e) => setEditing({ ...editing, station: e.target.value })}>
+                <option value="">— Select a stop —</option>
+                {stops.map((stop) => (
+                  <option key={stop.id} value={stop.name}>{stop.name}</option>
+                ))}
+              </Select>
             </label>
             <div className="grid-2">
               <label>

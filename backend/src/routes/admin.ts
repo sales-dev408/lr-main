@@ -34,6 +34,7 @@ const vendorSchema = z.object({
   location: z.string().optional(),
   city: z.string().optional(),
   address: z.string().optional(),
+  station: z.string().optional().nullable(),
   category: z.string().optional(),
   posType: z.enum(['square', 'stripe', 'clover', 'toast', 'other']).optional(),
   posSystem: z.string().optional(),
@@ -170,8 +171,8 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
       const address = body.address ?? body.location;
       const vendorRows = await client.query<{ id: string }>(
         `
-          INSERT INTO vendors (name, owner_name, location, address, city, category, pos_type, pos_system, email, phone, password_hash, status, latitude, longitude, icon_url, logo_url, discount_terms)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+          INSERT INTO vendors (name, owner_name, location, address, city, station, category, pos_type, pos_system, email, phone, password_hash, status, latitude, longitude, icon_url, logo_url, discount_terms)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
           RETURNING id
         `,
         [
@@ -180,6 +181,7 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
           address ?? null,
           address ?? null,
           body.city ?? null,
+          body.station ?? null,
           body.category ?? null,
           null,
           null,
@@ -285,20 +287,21 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
             location = COALESCE($4, location),
             address = COALESCE($4, address),
             city = COALESCE($5, city),
-            category = COALESCE($6, category),
-            email = COALESCE($7, email),
-            phone = COALESCE($8, phone),
-            status = COALESCE($9, status),
-            latitude = COALESCE($10, latitude),
-            longitude = COALESCE($11, longitude),
-            icon_url = COALESCE($12, icon_url),
-            logo_url = COALESCE($13, logo_url),
-            discount_terms = COALESCE($14, discount_terms),
+            station = COALESCE($6, station),
+            category = COALESCE($7, category),
+            email = COALESCE($8, email),
+            phone = COALESCE($9, phone),
+            status = COALESCE($10, status),
+            latitude = COALESCE($11, latitude),
+            longitude = COALESCE($12, longitude),
+            icon_url = COALESCE($13, icon_url),
+            logo_url = COALESCE($14, logo_url),
+            discount_terms = COALESCE($15, discount_terms),
             updated_at = now()
         WHERE id = $1
         RETURNING *
       `,
-      [id, body.name ?? null, body.ownerName ?? null, address ?? null, body.city ?? null, body.category ?? null, body.email ?? null, body.phone ?? null, body.status ?? null, body.latitude ?? null, body.longitude ?? null, body.iconDataUrl ?? null, body.logoDataUrl ?? null, body.discountTerms ?? null],
+      [id, body.name ?? null, body.ownerName ?? null, address ?? null, body.city ?? null, body.station ?? null, body.category ?? null, body.email ?? null, body.phone ?? null, body.status ?? null, body.latitude ?? null, body.longitude ?? null, body.iconDataUrl ?? null, body.logoDataUrl ?? null, body.discountTerms ?? null],
     );
 
     if (body.discountType !== undefined || body.discountValue !== undefined || body.discountStartsAt !== undefined || body.discountEndsAt !== undefined || body.boosted !== undefined || body.discountDescription !== undefined) {

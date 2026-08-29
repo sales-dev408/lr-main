@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { createAdminApartment, deleteAdminApartment, listAdminApartments, updateAdminApartment } from '../lib/api';
-import type { ApartmentRecord } from '../lib/types';
-import { Button, ErrorBanner, Input, PageCard, SuccessBanner } from '../components/Ui';
+import { createAdminApartment, deleteAdminApartment, listAdminApartments, listAdminStops, updateAdminApartment } from '../lib/api';
+import type { ApartmentRecord, StopRecord } from '../lib/types';
+import { Button, ErrorBanner, Input, PageCard, Select, SuccessBanner } from '../components/Ui';
 
 const mapboxToken = (import.meta.env as Record<string, string | undefined>).VITE_MAPBOX_ACCESS_TOKEN;
 
@@ -36,6 +36,7 @@ const blankApartment: Omit<ApartmentRecord, 'id' | 'created_at' | 'updated_at'> 
 
 export function ApartmentsPage() {
   const [apartments, setApartments] = useState<ApartmentRecord[]>([]);
+  const [stops, setStops] = useState<StopRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -51,8 +52,9 @@ export function ApartmentsPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await listAdminApartments();
+      const [data, stopData] = await Promise.all([listAdminApartments(), listAdminStops()]);
       setApartments(data);
+      setStops(stopData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load apartments');
     } finally {
@@ -172,7 +174,12 @@ export function ApartmentsPage() {
           </label>
           <label>
             Station
-            <Input value={data.station ?? ''} onChange={(e) => handleInputChange('station', e.target.value)} placeholder="e.g. Camelback/7th Ave" />
+            <Select value={data.station ?? ''} onChange={(e) => handleInputChange('station', e.target.value)}>
+              <option value="">— Select a stop —</option>
+              {stops.map((stop) => (
+                <option key={stop.id} value={stop.name}>{stop.name}</option>
+              ))}
+            </Select>
           </label>
         </div>
         <label>
