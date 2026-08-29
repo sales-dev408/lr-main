@@ -7,7 +7,7 @@ import { useThemeColors } from '@/lib/useThemeColors';
 import { useDynamicType } from '@/lib/dynamicType';
 import MapView, { Marker, type Region } from '@/components/MapView';
 import { StopPicker } from '@/components/StopPicker';
-import { compareStops } from '@/lib/stops';
+import { compareStops, getStops } from '@/lib/stops';
 import type { ApartmentRecord } from '@/lib/types';
 
 function initialRegion(apartments: ApartmentRecord[]): Region {
@@ -90,21 +90,26 @@ export default function ApartmentsScreen() {
     return new Map([...groups.entries()].sort((a, b) => compareStops(a[0], b[0])));
   }, [filtered]);
 
-  const stopEntries = useMemo(
-    () =>
-      Array.from(grouped.entries()).map(([station, items]) => ({
-        stop: station,
-        count: items.length,
-        city: items[0]?.city ?? null,
-      })),
-    [grouped],
-  );
+  const stopEntries = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const a of apartments) {
+      const station = a.station?.trim() ?? '';
+      if (station) counts.set(station, (counts.get(station) ?? 0) + 1);
+    }
+    return getStops().map((stop) => ({
+      stop: stop.name,
+      count: counts.get(stop.name) ?? 0,
+      city: stop.city,
+    }));
+  }, [apartments]);
 
   const jumpToStation = useCallback((station: string) => {
-    const offset = stationOffsets.current.get(station);
-    if (offset != null) {
-      scrollRef.current?.scrollTo({ y: Math.max(offset - 8, 0), animated: true });
-    }
+    setTimeout(() => {
+      const offset = stationOffsets.current.get(station);
+      if (offset != null) {
+        scrollRef.current?.scrollTo({ y: Math.max(offset - 8, 0), animated: true });
+      }
+    }, 100);
   }, []);
 
   const mapped = useMemo(() => filtered.filter((a) => a.latitude != null && a.longitude != null), [filtered]);

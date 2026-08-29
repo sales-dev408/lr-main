@@ -12,7 +12,7 @@ import { useDynamicType } from '@/lib/dynamicType';
 import { useFavorites } from '@/lib/favorites';
 import MapView, { Marker, type Region } from '@/components/MapView';
 import { StopPicker } from '@/components/StopPicker';
-import { compareStops } from '@/lib/stops';
+import { compareStops, getStops } from '@/lib/stops';
 import type { VendorListItem } from '@/lib/types';
 
 const TYPE_OPTIONS = ['All', 'Restaurant', 'Bar', 'Cafe'] as const;
@@ -170,15 +170,18 @@ export default function BrowseScreen() {
     return new Map([...groups.entries()].sort((a, b) => compareStops(a[0], b[0])));
   }, [filteredVendors]);
 
-  const stopEntries = useMemo(
-    () =>
-      Array.from(groupedVendors.entries()).map(([station, items]) => ({
-        stop: station,
-        count: items.length,
-        city: items[0]?.city ?? null,
-      })),
-    [groupedVendors],
-  );
+  const stopEntries = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const v of vendors) {
+      const station = v.station?.trim() ?? '';
+      if (station) counts.set(station, (counts.get(station) ?? 0) + 1);
+    }
+    return getStops().map((stop) => ({
+      stop: stop.name,
+      count: counts.get(stop.name) ?? 0,
+      city: stop.city,
+    }));
+  }, [vendors]);
 
   const sortedVendors = useMemo(() => {
     const list = [...filteredVendors];
@@ -220,10 +223,13 @@ export default function BrowseScreen() {
       next.delete(station);
       return next;
     });
-    const offset = stationOffsets.current.get(station);
-    if (offset != null) {
-      scrollRef.current?.scrollTo({ y: Math.max(offset - 8, 0), animated: true });
-    }
+    // Wait a tick for the section to expand and onLayout to report its new y position.
+    setTimeout(() => {
+      const offset = stationOffsets.current.get(station);
+      if (offset != null) {
+        scrollRef.current?.scrollTo({ y: Math.max(offset - 8, 0), animated: true });
+      }
+    }, 100);
   }, []);
 
   const selected = useMemo(
