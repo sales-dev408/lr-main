@@ -48,6 +48,14 @@ import {
   listApartments,
   updateApartment,
 } from './lib/apartments.ts';
+import {
+  stopSchema,
+  createStop,
+  deleteStop,
+  getStop,
+  listStops,
+  updateStop,
+} from './lib/stops.ts';
 
 // Shape the customer-facing membership pass payload (wallet + barcode links),
 // creating the pass idempotently. Returns null if pass generation fails.
@@ -1698,6 +1706,48 @@ Deno.serve(async (request) => {
       if (auth instanceof Response) return auth;
       const id = path.split('/').pop()!;
       const deleted = await deleteApartment(id);
+      return json(request, {}, { status: deleted ? 204 : 404 });
+    }
+
+    // ---- Stops ------------------------------------------------------------
+    // Public: list of rail stops used by the directory.
+    if (path === '/api/stops' && request.method === 'GET') {
+      return json(request, await listStops());
+    }
+    // Admin: manage rail stops.
+    if (path === '/api/admin/stops' && request.method === 'GET') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      return json(request, await listStops());
+    }
+    if (path === '/api/admin/stops' && request.method === 'POST') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const body = stopSchema.parse(await readJsonBody(request, {}));
+      return json(request, await createStop(body), { status: 201 });
+    }
+    if (/^\/api\/admin\/stops\/[^/]+$/.test(path) && request.method === 'GET') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const id = path.split('/').pop()!;
+      const row = await getStop(id);
+      if (!row) return json(request, { error: 'Stop not found' }, { status: 404 });
+      return json(request, row);
+    }
+    if (/^\/api\/admin\/stops\/[^/]+$/.test(path) && request.method === 'PATCH') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const id = path.split('/').pop()!;
+      const body = stopSchema.partial().parse(await readJsonBody(request, {}));
+      const updated = await updateStop(id, body);
+      if (!updated) return json(request, { error: 'Stop not found' }, { status: 404 });
+      return json(request, updated);
+    }
+    if (/^\/api\/admin\/stops\/[^/]+$/.test(path) && request.method === 'DELETE') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const id = path.split('/').pop()!;
+      const deleted = await deleteStop(id);
       return json(request, {}, { status: deleted ? 204 : 404 });
     }
 
