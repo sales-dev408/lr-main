@@ -12,7 +12,7 @@ import { useDynamicType } from '@/lib/dynamicType';
 import { useFavorites } from '@/lib/favorites';
 import MapView, { Marker, type Region } from '@/components/MapView';
 import { StopPicker } from '@/components/StopPicker';
-import { compareStops, getStops } from '@/lib/stops';
+import { compareStops, findStop, getStops } from '@/lib/stops';
 import type { VendorListItem } from '@/lib/types';
 
 const TYPE_OPTIONS = ['All', 'Restaurant', 'Bar', 'Cafe'] as const;
@@ -157,7 +157,7 @@ export default function BrowseScreen() {
   const groupedVendors = useMemo(() => {
     const groups = new Map<string, VendorListItem[]>();
     for (const v of filteredVendors) {
-      const key = v.station?.trim() || 'Other';
+      const key = findStop(v.station)?.name ?? 'Other';
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(v);
     }
@@ -173,8 +173,8 @@ export default function BrowseScreen() {
   const stopEntries = useMemo(() => {
     const counts = new Map<string, number>();
     for (const v of vendors) {
-      const station = v.station?.trim() ?? '';
-      if (station) counts.set(station, (counts.get(station) ?? 0) + 1);
+      const key = findStop(v.station)?.name;
+      if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
     }
     return getStops().map((stop) => ({
       stop: stop.name,
