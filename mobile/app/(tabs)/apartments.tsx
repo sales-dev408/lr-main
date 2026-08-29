@@ -110,7 +110,7 @@ export default function ApartmentsScreen() {
       const offset = stationOffsets.current.get(station);
       if (offset != null) {
         clearInterval(id);
-        scrollRef.current?.scrollTo({ y: Math.max(offset - 8, 0), animated: true });
+        scrollRef.current?.scrollTo({ y: Math.max(offset - 8, 0), animated: false });
       } else if (attempts >= 20) {
         clearInterval(id);
       }
