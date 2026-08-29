@@ -23,12 +23,14 @@ import type {
   PushPreferences,
   RedeemResult,
   RssEvent,
+  StopRecord,
   ThemeSettings,
   UserAnalytics,
   UserProfile,
   VendorListItem,
   WalletPlatform,
 } from './types';
+import { setStops } from './stops';
 import { getItem, setItem } from './storage';
 
 const AUTH_STORAGE_KEY = 'lr.mobile.auth';
@@ -284,6 +286,20 @@ function normalizeApartment(input: Record<string, unknown>): ApartmentRecord {
   };
 }
 
+function normalizeStop(input: Record<string, unknown>): StopRecord {
+  return {
+    id: String(input.id),
+    name: String(input.name),
+    city: (input.city as string | null | undefined) ?? null,
+    line: (input.line as string | null | undefined) ?? null,
+    position: toNullableNumber(input.position),
+    latitude: input.latitude == null ? null : Number(input.latitude),
+    longitude: input.longitude == null ? null : Number(input.longitude),
+    createdAt: (input.createdAt as string | null | undefined) ?? null ?? undefined,
+    updatedAt: (input.updatedAt as string | null | undefined) ?? null ?? undefined,
+  };
+}
+
 const APP_STATE_VERSION_KEY = 'lr.mobile.app.version';
 const APP_STATE_DATA_KEY = 'lr.mobile.app.data';
 
@@ -306,6 +322,10 @@ export async function getAppState(): Promise<AppState | null> {
     }
   }
 
+  function cacheStops(state: AppState | null): void {
+    setStops(state?.stops ?? []);
+  }
+
   try {
     const raw = await apiRequest<Record<string, unknown>>('/app');
     const state: AppState = {
@@ -316,14 +336,18 @@ export async function getAppState(): Promise<AppState | null> {
       apartments: Array.isArray(raw.apartments) ? (raw.apartments as Record<string, unknown>[]).map(normalizeApartment) : [],
       events: Array.isArray(raw.events) ? (raw.events as RssEvent[]) : [],
       theme: (raw.theme as ThemeSettings) ?? ({} as ThemeSettings),
+      stops: Array.isArray(raw.stops) ? (raw.stops as Record<string, unknown>[]).map(normalizeStop) : [],
     };
+    cacheStops(state);
     await setItem(APP_STATE_VERSION_KEY, currentVersion);
     await setItem(APP_STATE_DATA_KEY, JSON.stringify(state));
     return state;
   } catch {
     if (cachedData) {
       try {
-        return JSON.parse(cachedData) as AppState;
+        const state = JSON.parse(cachedData) as AppState;
+        cacheStops(state);
+        return state;
       } catch {
         // ignore
       }

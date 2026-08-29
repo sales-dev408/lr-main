@@ -1,78 +1,14 @@
-export type RailLine = 'A Line' | 'B Line';
+import type { StopRecord } from './types';
 
-export type RailStop = {
-  name: string;
-  city: string;
-  line: RailLine;
-};
+export type RailStop = StopRecord;
 
 /**
- * Valley Metro rail stops in route order. This list is the authoritative ordering
- * used everywhere stops (and the vendors/apartments attached to them) are listed.
- * Never sort these alphabetically.
+ * Stops are loaded from the published app snapshot instead of being hardcoded.
+ * `setStops()` is called once by `getAppState()` after the snapshot is fetched.
  */
-export const RAIL_STOPS: RailStop[] = [
-  // A Line — westernmost Phoenix terminus east through Tempe to Mesa.
-  { name: 'Downtown Phx Hub / Jefferson St', city: 'Phoenix', line: 'A Line' },
-  { name: 'Downtown Phx Hub / Washington St', city: 'Phoenix', line: 'A Line' },
-  { name: '3rd St / Jefferson', city: 'Phoenix', line: 'A Line' },
-  { name: '3rd St / Washington', city: 'Phoenix', line: 'A Line' },
-  { name: '12th St / Jefferson', city: 'Phoenix', line: 'A Line' },
-  { name: '12th St / Washington', city: 'Phoenix', line: 'A Line' },
-  { name: '24th St / Jefferson', city: 'Phoenix', line: 'A Line' },
-  { name: '24th St / Washington', city: 'Phoenix', line: 'A Line' },
-  { name: '38th St / Washington', city: 'Phoenix', line: 'A Line' },
-  { name: '44th St / Washington', city: 'Phoenix', line: 'A Line' },
-  { name: '50th St / Washington St', city: 'Phoenix', line: 'A Line' },
-  { name: 'Priest Dr / Washington St', city: 'Tempe', line: 'A Line' },
-  { name: 'Center Pkwy / Washington', city: 'Tempe', line: 'A Line' },
-  { name: 'Veterans Way / College Ave', city: 'Tempe', line: 'A Line' },
-  { name: 'Mill Ave / 3rd St', city: 'Tempe', line: 'A Line' },
-  { name: 'University Dr / Rural Rd', city: 'Tempe', line: 'A Line' },
-  { name: 'Dorsey Ln / Apache Blvd', city: 'Tempe', line: 'A Line' },
-  { name: 'McClintock Dr / Apache Blvd', city: 'Tempe', line: 'A Line' },
-  { name: 'Smith-Martin / Apache Blvd', city: 'Tempe', line: 'A Line' },
-  { name: 'Price-101 Fwy / Apache Blvd', city: 'Tempe', line: 'A Line' },
-  { name: 'Sycamore / Main St', city: 'Mesa', line: 'A Line' },
-  { name: 'Alma School / Main St', city: 'Mesa', line: 'A Line' },
-  { name: 'Country Club / Main St', city: 'Mesa', line: 'A Line' },
-  { name: 'Center / Main St', city: 'Mesa', line: 'A Line' },
-  { name: 'Mesa Dr / Main St', city: 'Mesa', line: 'A Line' },
-  { name: 'Stapley Dr / Main St', city: 'Mesa', line: 'A Line' },
-  { name: 'Gilbert Rd / Main St', city: 'Mesa', line: 'A Line' },
-
-  // B Line — south Phoenix north to Metro Parkway.
-  { name: 'Baseline / Central Ave', city: 'Phoenix', line: 'B Line' },
-  { name: 'Southern / Central Ave', city: 'Phoenix', line: 'B Line' },
-  { name: 'Roeser / Central Ave', city: 'Phoenix', line: 'B Line' },
-  { name: 'Broadway / Central Ave', city: 'Phoenix', line: 'B Line' },
-  { name: 'Buckeye / Central Ave', city: 'Phoenix', line: 'B Line' },
-  { name: 'Lincoln / Central Ave', city: 'Phoenix', line: 'B Line' },
-  { name: 'Lincoln / 1st Ave', city: 'Phoenix', line: 'B Line' },
-  { name: 'Jefferson / 1st Ave', city: 'Phoenix', line: 'B Line' },
-  { name: 'Washington / Central Ave', city: 'Phoenix', line: 'B Line' },
-  { name: 'Downtown Phx Hub / Central Ave', city: 'Phoenix', line: 'B Line' },
-  { name: 'Downtown Phx Hub / 1st Ave', city: 'Phoenix', line: 'B Line' },
-  { name: 'Van Buren / Central Ave', city: 'Phoenix', line: 'B Line' },
-  { name: 'Van Buren / 1st Ave', city: 'Phoenix', line: 'B Line' },
-  { name: 'Roosevelt / Central Ave', city: 'Phoenix', line: 'B Line' },
-  { name: 'McDowell / Central Ave', city: 'Phoenix', line: 'B Line' },
-  { name: 'Encanto / Central Ave', city: 'Phoenix', line: 'B Line' },
-  { name: 'Thomas / Central Ave', city: 'Phoenix', line: 'B Line' },
-  { name: 'Osborn / Central Ave', city: 'Phoenix', line: 'B Line' },
-  { name: 'Indian School / Central Ave', city: 'Phoenix', line: 'B Line' },
-  { name: 'Campbell / Central Ave', city: 'Phoenix', line: 'B Line' },
-  { name: 'Central Ave / Camelback', city: 'Phoenix', line: 'B Line' },
-  { name: '7th Ave / Camelback', city: 'Phoenix', line: 'B Line' },
-  { name: '19th Ave / Camelback', city: 'Phoenix', line: 'B Line' },
-  { name: 'Montebello / 19th Ave', city: 'Phoenix', line: 'B Line' },
-  { name: 'Glendale / 19th Ave', city: 'Phoenix', line: 'B Line' },
-  { name: 'Northern / 19th Ave', city: 'Phoenix', line: 'B Line' },
-  { name: '19th Ave / Dunlap', city: 'Phoenix', line: 'B Line' },
-  { name: 'Dunlap / 25th Ave', city: 'Phoenix', line: 'B Line' },
-  { name: 'Mountain View / 25th Ave', city: 'Phoenix', line: 'B Line' },
-  { name: 'Metro Parkway', city: 'Phoenix', line: 'B Line' },
-];
+let RAIL_STOPS: RailStop[] = [];
+const STOP_INDEX = new Map<string, number>();
+const STOP_BY_KEY = new Map<string, RailStop>();
 
 const STREET_TYPES = new Set([
   'st',
@@ -102,22 +38,29 @@ export function normalizeStopName(name: string | null | undefined): string {
   if (!name) return '';
   return name
     .toLowerCase()
-    .replace(/[./,'’]/g, ' ')
+    .replace(/[.,'’]/g, ' ')
     .replace(/[-–—]/g, ' ')
     .split(/\s+/)
     .filter((token) => token && !STREET_TYPES.has(token))
     .join(' ');
 }
 
-const STOP_INDEX = new Map<string, number>();
-const STOP_BY_KEY = new Map<string, RailStop>();
-RAIL_STOPS.forEach((stop, index) => {
-  const key = normalizeStopName(stop.name);
-  if (!STOP_INDEX.has(key)) {
-    STOP_INDEX.set(key, index);
-    STOP_BY_KEY.set(key, stop);
-  }
-});
+export function setStops(stops: StopRecord[]): void {
+  RAIL_STOPS = [...stops];
+  STOP_INDEX.clear();
+  STOP_BY_KEY.clear();
+  RAIL_STOPS.forEach((stop, index) => {
+    const key = normalizeStopName(stop.name);
+    if (!STOP_INDEX.has(key)) {
+      STOP_INDEX.set(key, index);
+      STOP_BY_KEY.set(key, stop);
+    }
+  });
+}
+
+export function getStops(): RailStop[] {
+  return RAIL_STOPS;
+}
 
 export function findStop(name: string | null | undefined): RailStop | null {
   return STOP_BY_KEY.get(normalizeStopName(name)) ?? null;

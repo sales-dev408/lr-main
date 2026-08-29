@@ -3,6 +3,7 @@ import { listContentBlocks, getTheme, type ThemeSettings } from './content.ts';
 import { getVendorDirectory, type VendorDirectoryItem } from './vendors.ts';
 import { listApartments } from './apartments.ts';
 import { fetchPublicEvents, type RssEvent } from './events.ts';
+import { listStops, type StopRecord } from './stops.ts';
 
 export interface PublicApartment {
   id: string;
@@ -23,6 +24,16 @@ export interface PublicApartment {
   updatedAt: string;
 }
 
+export interface PublicStop {
+  id: string;
+  name: string;
+  city: string | null;
+  line: string | null;
+  position: number | null;
+  latitude: number | null;
+  longitude: number | null;
+}
+
 export interface AppState {
   version: number;
   publishedAt: string;
@@ -31,6 +42,7 @@ export interface AppState {
   apartments: PublicApartment[];
   events: RssEvent[];
   theme: ThemeSettings;
+  stops: PublicStop[];
 }
 
 function parseJsonValue<T>(value: unknown): T | null {
@@ -153,8 +165,20 @@ function toPublicApartment(row: {
   };
 }
 
+function toPublicStop(row: StopRecord): PublicStop {
+  return {
+    id: row.id,
+    name: row.name,
+    city: row.city,
+    line: row.line,
+    position: row.position,
+    latitude: row.latitude,
+    longitude: row.longitude,
+  };
+}
+
 export async function publishApp(): Promise<{ version: number; publishedAt: string }> {
-  const [content, vendors, apartments, events, theme] = await Promise.all([
+  const [content, vendors, apartments, events, theme, stops] = await Promise.all([
     listContentBlocks({ publishedOnly: true }),
     getVendorDirectory(),
     listApartments({ nearRail: true }).then((rows) => rows.map(toPublicApartment)),
@@ -163,6 +187,7 @@ export async function publishApp(): Promise<{ version: number; publishedAt: stri
       return [] as RssEvent[];
     }),
     getTheme(),
+    listStops().then((rows) => rows.map(toPublicStop)),
   ]);
 
   const publishedAt = new Date().toISOString();
@@ -174,6 +199,7 @@ export async function publishApp(): Promise<{ version: number; publishedAt: stri
     apartments,
     events,
     theme,
+    stops,
   };
 
   const result = await dbQuery<{ version: number; published_at: string }>(

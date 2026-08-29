@@ -320,6 +320,18 @@ export interface ApartmentRecord {
   distanceMiles: number | null;
 }
 
+export interface StopRecord {
+  id: string;
+  name: string;
+  city: string | null;
+  line: string | null;
+  position: number | null;
+  latitude: number | null;
+  longitude: number | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface AppState {
   version: number;
   publishedAt: string;
@@ -328,4 +340,5 @@ export interface AppState {
   apartments: ApartmentRecord[];
   events: RssEvent[];
   theme: ThemeSettings;
+  stops: StopRecord[];
 }
