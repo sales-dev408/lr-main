@@ -104,12 +104,17 @@ export default function ApartmentsScreen() {
   }, [apartments]);
 
   const jumpToStation = useCallback((station: string) => {
-    setTimeout(() => {
+    let attempts = 0;
+    const id = setInterval(() => {
+      attempts++;
       const offset = stationOffsets.current.get(station);
       if (offset != null) {
+        clearInterval(id);
         scrollRef.current?.scrollTo({ y: Math.max(offset - 8, 0), animated: true });
+      } else if (attempts >= 20) {
+        clearInterval(id);
       }
-    }, 100);
+    }, 75);
   }, []);
 
   const mapped = useMemo(() => filtered.filter((a) => a.latitude != null && a.longitude != null), [filtered]);

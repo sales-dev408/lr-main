@@ -223,13 +223,18 @@ export default function BrowseScreen() {
       next.delete(station);
       return next;
     });
-    // Wait a tick for the section to expand and onLayout to report its new y position.
-    setTimeout(() => {
+    // Poll until onLayout reports the section's y position after it expands.
+    let attempts = 0;
+    const id = setInterval(() => {
+      attempts++;
       const offset = stationOffsets.current.get(station);
       if (offset != null) {
+        clearInterval(id);
         scrollRef.current?.scrollTo({ y: Math.max(offset - 8, 0), animated: true });
+      } else if (attempts >= 20) {
+        clearInterval(id);
       }
-    }, 100);
+    }, 75);
   }, []);
 
   const selected = useMemo(
