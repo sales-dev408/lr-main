@@ -295,8 +295,8 @@ function normalizeStop(input: Record<string, unknown>): StopRecord {
     position: toNullableNumber(input.position),
     latitude: input.latitude == null ? null : Number(input.latitude),
     longitude: input.longitude == null ? null : Number(input.longitude),
-    createdAt: (input.createdAt as string | null | undefined) ?? null ?? undefined,
-    updatedAt: (input.updatedAt as string | null | undefined) ?? null ?? undefined,
+    createdAt: typeof input.createdAt === 'string' ? input.createdAt : undefined,
+    updatedAt: typeof input.updatedAt === 'string' ? input.updatedAt : undefined,
   };
 }
 

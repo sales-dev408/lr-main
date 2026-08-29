@@ -161,14 +161,20 @@ export default function BrowseScreen() {
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(v);
     }
+    const favoriteSet = new Set(favorites);
     for (const arr of groups.values()) {
       arr.sort((a, b) => {
+        if (sortByFavorites) {
+          const af = favoriteSet.has(a.id) ? -1 : 1;
+          const bf = favoriteSet.has(b.id) ? -1 : 1;
+          if (af !== bf) return af - bf;
+        }
         if (a.boosted !== b.boosted) return a.boosted ? -1 : 1;
         return a.name.localeCompare(b.name);
       });
     }
     return new Map([...groups.entries()].sort((a, b) => compareStops(a[0], b[0])));
-  }, [filteredVendors]);
+  }, [filteredVendors, sortByFavorites, favorites]);
 
   const stopEntries = useMemo(() => {
     const counts = new Map<string, number>();
@@ -311,6 +317,23 @@ export default function BrowseScreen() {
               thumbColor="#fff"
               accessibilityLabel="Sort favorites first"
             />
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}>
+            <Text style={{ color: colors.ink, fontSize: 14 * effectiveScale }} allowFontScaling={false}>
+              Stations
+            </Text>
+            <AppButton
+              variant="secondary"
+              onPress={() => {
+                if (collapsedStations.size === 0) {
+                  setCollapsedStations(new Set(groupedVendors.keys()));
+                } else {
+                  setCollapsedStations(new Set());
+                }
+              }}
+            >
+              {collapsedStations.size === 0 ? 'Collapse all' : 'Expand all'}
+            </AppButton>
           </View>
           <View style={{ marginTop: 8 }}>
             <StopPicker entries={stopEntries} onSelect={jumpToStation} label="Jump to a stop" itemNoun="business" />
