@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { Linking, Platform, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, FieldInput, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
-import { listApartments } from '@/lib/api';
+import { clearVersionCache, listApartments } from '@/lib/api';
 import { useThemeColors } from '@/lib/useThemeColors';
 import { useDynamicType } from '@/lib/dynamicType';
 import MapView, { Marker, type Region } from '@/components/MapView';
@@ -58,6 +58,7 @@ export default function ApartmentsScreen() {
 
   async function onRefresh() {
     setRefreshing(true);
+    clearVersionCache();
     await load();
     setRefreshing(false);
   }

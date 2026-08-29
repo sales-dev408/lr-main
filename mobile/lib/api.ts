@@ -302,12 +302,24 @@ function normalizeStop(input: Record<string, unknown>): StopRecord {
 
 const APP_STATE_VERSION_KEY = 'lr.mobile.app.version';
 const APP_STATE_DATA_KEY = 'lr.mobile.app.data';
+const VERSION_CHECK_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+let versionCache: { version: string; at: number } | null = null;
+
+export function clearVersionCache(): void {
+  versionCache = null;
+}
 
 export async function getAppState(): Promise<AppState | null> {
   let currentVersion = '0';
   try {
-    const versionRes = await apiRequest<{ version: number; publishedAt: string | null }>('/app/version');
-    currentVersion = String(versionRes.version);
+    if (versionCache && Date.now() - versionCache.at < VERSION_CHECK_TTL_MS) {
+      currentVersion = versionCache.version;
+    } else {
+      const versionRes = await apiRequest<{ version: number; publishedAt: string | null }>('/app/version');
+      currentVersion = String(versionRes.version);
+      versionCache = { version: currentVersion, at: Date.now() };
+    }
   } catch {
     // Backend is unavailable; fall through and try the cached version below.
   }

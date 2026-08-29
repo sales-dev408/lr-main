@@ -5,7 +5,7 @@ import { Link, useFocusEffect } from 'expo-router';
 import * as Location from 'expo-location';
 import { AppButton, Banner, BrandHeader, Card, FieldInput, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { AdBanner } from '@/components/AdBanner';
-import { listVendors } from '@/lib/api';
+import { clearVersionCache, listVendors } from '@/lib/api';
 import { shareDeal } from '@/lib/share';
 import { useThemeColors } from '@/lib/useThemeColors';
 import { useDynamicType } from '@/lib/dynamicType';
@@ -125,6 +125,7 @@ export default function BrowseScreen() {
 
   async function onRefresh() {
     setRefreshing(true);
+    clearVersionCache();
     await load();
     setRefreshing(false);
   }
