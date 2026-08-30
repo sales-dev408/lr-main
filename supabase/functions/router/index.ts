@@ -133,6 +133,16 @@ const customerLoginSchema = z
   })
   .refine((data) => Boolean(data.email || data.phone), { message: 'Email or phone is required', path: ['email'] });
 
+const forgotPasswordSchema = z.object({
+  identifier: z.string().min(1),
+});
+
+const resetPasswordSchema = z.object({
+  identifier: z.string().min(1),
+  code: z.string().min(6).max(6),
+  password: z.string().min(8),
+});
+
 const socialSchema = z
   .object({
     provider: z.string().min(1),
@@ -819,6 +829,48 @@ Deno.serve(async (request) => {
       const token = await issueToken('customer', user.id, user.email);
       const membershipPass = await buildMembershipPassResponse(user.id, baseUrl);
       return json(request, { token, expiresIn: '365d', profile, membershipPass, walletUrl: membershipPass?.walletUrl ?? null });
+    }
+
+    if (path === '/api/auth/forgot-password' && request.method === 'POST') {
+      const body = forgotPasswordSchema.parse(await readJsonBody(request, {}));
+      const isEmail = body.identifier.includes('@');
+      const loginPhone = isEmail ? null : normalizePhone(body.identifier);
+      if (!isEmail && !loginPhone) return json(request, { error: 'Invalid phone number' }, { status: 400 });
+      const rows = await dbQuery<{ id: string; email: string | null; phone: string | null }>(
+        'SELECT id, email::text AS email, phone FROM users WHERE status = \'active\' AND (($1::text IS NOT NULL AND lower(email::text) = lower($1::text)) OR ($2::text IS NOT NULL AND phone = $2::text)) LIMIT 1',
+        [isEmail ? body.identifier.toLowerCase() : null, loginPhone],
+      );
+      if (rows.length === 0) {
+        return json(request, { message: 'If an account exists, a verification code has been sent.' });
+      }
+      const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
+      const codeHash = await bcrypt.hash(code, 10);
+      await dbQuery(
+        'UPDATE users SET password_reset_code_hash = $1, password_reset_expires_at = now() + interval \'15 minutes\' WHERE id = $2',
+        [codeHash, rows[0]!.id],
+      );
+      return json(request, { message: 'If an account exists, a verification code has been sent.', verificationCode: code });
+    }
+
+    if (path === '/api/auth/reset-password' && request.method === 'POST') {
+      const body = resetPasswordSchema.parse(await readJsonBody(request, {}));
+      const isEmail = body.identifier.includes('@');
+      const loginPhone = isEmail ? null : normalizePhone(body.identifier);
+      if (!isEmail && !loginPhone) return json(request, { error: 'Invalid phone number' }, { status: 400 });
+      const rows = await dbQuery<{ id: string; password_reset_code_hash: string | null }>(
+        'SELECT id, password_reset_code_hash FROM users WHERE status = \'active\' AND password_reset_expires_at > now() AND (($1::text IS NOT NULL AND lower(email::text) = lower($1::text)) OR ($2::text IS NOT NULL AND phone = $2::text)) LIMIT 1',
+        [isEmail ? body.identifier.toLowerCase() : null, loginPhone],
+      );
+      const user = rows[0];
+      if (!user || !user.password_reset_code_hash || !(await bcrypt.compare(body.code, user.password_reset_code_hash))) {
+        return json(request, { error: 'Invalid or expired verification code.' }, { status: 400 });
+      }
+      const passwordHash = await bcrypt.hash(body.password, 10);
+      await dbQuery(
+        'UPDATE users SET password_hash = $1, password_reset_code_hash = NULL, password_reset_expires_at = NULL WHERE id = $2',
+        [passwordHash, user.id],
+      );
+      return json(request, { success: true });
     }
 
     if (path === '/api/auth/social' && request.method === 'POST') {

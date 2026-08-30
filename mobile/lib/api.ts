@@ -660,10 +660,10 @@ export interface PasswordReset {
   success: boolean;
 }
 
-export async function requestPasswordReset(phone: string): Promise<PasswordResetRequest> {
-  return apiRequest<PasswordResetRequest>('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ phone }) });
+export async function requestPasswordReset(identifier: string): Promise<PasswordResetRequest> {
+  return apiRequest<PasswordResetRequest>('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ identifier: identifier.trim() }) });
 }
 
-export async function resetPassword(body: { phone: string; code: string; password: string }): Promise<PasswordReset> {
-  return apiRequest<PasswordReset>('/auth/reset-password', { method: 'POST', body: JSON.stringify(body) });
+export async function resetPassword(body: { identifier: string; code: string; password: string }): Promise<PasswordReset> {
+  return apiRequest<PasswordReset>('/auth/reset-password', { method: 'POST', body: JSON.stringify({ ...body, identifier: body.identifier.trim() }) });
 }

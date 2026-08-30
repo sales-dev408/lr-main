@@ -65,7 +65,7 @@ export default function AuthScreen() {
   const [identifier, setIdentifier] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [forgotPhone, setForgotPhone] = useState('');
+  const [forgotIdentifier, setForgotIdentifier] = useState('');
   const [forgotCode, setForgotCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
@@ -92,7 +92,7 @@ export default function AuthScreen() {
     setIdentifier('');
     setEmail('');
     setPhone('');
-    setForgotPhone('');
+    setForgotIdentifier('');
     setForgotCode('');
     setNewPassword('');
     setConfirmNewPassword('');
@@ -114,13 +114,13 @@ export default function AuthScreen() {
 
     if (mode === 'forgot') {
       if (forgotStep === 'request') {
-        if (!forgotPhone.trim()) {
-          setError('Phone number is required.');
+        if (!forgotIdentifier.trim()) {
+          setError('Email or phone number is required.');
           return;
         }
         setLoading(true);
         try {
-          const result = await requestPasswordReset(forgotPhone.trim());
+          const result = await requestPasswordReset(forgotIdentifier.trim());
           setSuccess(result.verificationCode ? `Verification code: ${result.verificationCode}` : 'If an account exists, a code was sent.');
           setForgotStep('reset');
         } catch (err) {
@@ -146,10 +146,10 @@ export default function AuthScreen() {
       }
       setLoading(true);
       try {
-        await resetPassword({ phone: forgotPhone.trim(), code: forgotCode.trim(), password: newPassword });
+        await resetPassword({ identifier: forgotIdentifier.trim(), code: forgotCode.trim(), password: newPassword });
         setMode('login');
         resetForm();
-        setIdentifier(forgotPhone.trim());
+        setIdentifier(forgotIdentifier.trim());
         setSuccess('Password updated. Sign in with your new password.');
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unable to reset password');
@@ -233,7 +233,7 @@ export default function AuthScreen() {
               mode === 'register'
                 ? 'Your membership pass is generated as soon as you sign up.'
                 : mode === 'forgot'
-                  ? 'Enter the phone number for your account.'
+                  ? 'Enter the email or phone number for your account.'
                   : 'Enter your email or phone and password.'
             }
           />
@@ -279,13 +279,13 @@ export default function AuthScreen() {
             <>
               {forgotStep === 'request' ? (
                 <FieldInput
-                  value={forgotPhone}
-                  onChangeText={setForgotPhone}
-                  placeholder="Phone number"
+                  value={forgotIdentifier}
+                  onChangeText={setForgotIdentifier}
+                  placeholder="Email or phone"
                   autoCapitalize="none"
-                  keyboardType="phone-pad"
-                  textContentType="telephoneNumber"
-                  accessibilityLabel="Phone number"
+                  keyboardType="email-address"
+                  textContentType="emailAddress"
+                  accessibilityLabel="Email or phone"
                 />
               ) : (
                 <>
