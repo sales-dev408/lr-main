@@ -33,7 +33,7 @@
             "NSPrivacyCollectedDataTypeTracking": false,
             "NSPrivacyCollectedDataTypePurposes": [
               "NSPrivacyCollectedDataTypePurposeAppFunctionality",
-              "NSPrivacyCollectedDataTypePurposeDeveloperAdvertising"
+              "NSPrivacyCollectedDataTypePurposeProductPersonalization"
             ]
           },
           {
@@ -42,7 +42,7 @@
             "NSPrivacyCollectedDataTypeTracking": false,
             "NSPrivacyCollectedDataTypePurposes": [
               "NSPrivacyCollectedDataTypePurposeAppFunctionality",
-              "NSPrivacyCollectedDataTypePurposeDeveloperAdvertising"
+              "NSPrivacyCollectedDataTypePurposeProductPersonalization"
             ]
           },
           {
@@ -156,7 +156,7 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to show nearby participating stores on the map."
+          "locationPermission": "Allow $(PRODUCT_NAME) to show nearby participating stores on the map."
         }
       ],
       [
