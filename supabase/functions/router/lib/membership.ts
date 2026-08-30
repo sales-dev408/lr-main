@@ -9,17 +9,16 @@ export interface MembershipPass {
   lookup_token: string;
   auth_token: string;
   card_id: string;
-  platform: string;
   barcode_value: string | null;
 }
 
-const PASS_COLUMNS = `id, user_id, serial_number, lookup_token, auth_token, card_id, platform,
+const PASS_COLUMNS = `id, user_id, serial_number, lookup_token, auth_token, card_id,
   barcode_value`;
 
 // Idempotently returns the user's single membership pass, creating the DB row
-// and the hosted Passcreator pass on first use. Called right after signup so a
-// pass is auto-generated for every user, and lazily whenever the pass is read.
-export async function ensureMembershipPass(userId: string, opts?: { platform?: 'apple' | 'google' }): Promise<MembershipPass> {
+// on first use. Called right after signup so a pass is auto-generated for every
+// user, and lazily whenever the pass is read.
+export async function ensureMembershipPass(userId: string, _opts?: { platform?: 'apple' | 'google' }): Promise<MembershipPass> {
   return withDbClient(async (client) => {
     const membership = await getMembershipCardId(client);
 
@@ -34,10 +33,10 @@ export async function ensureMembershipPass(userId: string, opts?: { platform?: '
       const lookup = generateOpaqueToken(18);
       const authToken = generateOpaqueToken(18);
       const inserted = await client.query<MembershipPass>(
-        `INSERT INTO passes (user_id, card_id, platform, serial_number, auth_token, lookup_token, barcode_value)
-         VALUES ($1, $2, $3, $4, $5, $6, $6)
+        `INSERT INTO passes (user_id, card_id, serial_number, auth_token, lookup_token, barcode_value)
+         VALUES ($1, $2, $3, $4, $5, $5)
          RETURNING ${PASS_COLUMNS}`,
-        [userId, membership.id, opts?.platform ?? 'apple', serial, authToken, lookup],
+        [userId, membership.id, serial, authToken, lookup],
       );
       pass = inserted.rows[0]!;
     }

@@ -1,5 +1,4 @@
 import type { FastifyInstance } from 'fastify';
-import { z } from 'zod';
 import { dbQuery, withDbClient } from '../db/pool.js';
 import { generateOpaqueToken } from '../utils/ids.js';
 
@@ -51,11 +50,11 @@ async function getOrCreateMembershipPass(userId: string) {
       card_id: string;
     }>(
       `
-        INSERT INTO passes (user_id, card_id, platform, serial_number, auth_token, lookup_token, barcode_value)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO passes (user_id, card_id, serial_number, auth_token, lookup_token, barcode_value)
+        VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING id, serial_number, lookup_token, barcode_value, card_id
       `,
-      [userId, cardId, 'google', serialNumber, authToken, lookupToken, lookupToken],
+      [userId, cardId, serialNumber, authToken, lookupToken, lookupToken],
     );
     return result.rows;
   });
@@ -77,8 +76,6 @@ async function getOrCreateMembershipPass(userId: string) {
 }
 
 export async function registerMePassRoutes(fastify: FastifyInstance): Promise<void> {
-  const bodySchema = z.object({ platform: z.enum(['apple', 'google']).optional() });
-
   fastify.get('/api/me/pass', { preHandler: fastify.requireRole(['customer']), config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (request, reply) => {
     try {
       const result = await getOrCreateMembershipPass(request.user!.sub);
@@ -91,7 +88,6 @@ export async function registerMePassRoutes(fastify: FastifyInstance): Promise<vo
 
   fastify.post('/api/me/pass', { preHandler: fastify.requireRole(['customer']), config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (request, reply) => {
     try {
-      bodySchema.parse(request.body);
       const result = await getOrCreateMembershipPass(request.user!.sub);
       return reply.send(result);
     } catch (error) {

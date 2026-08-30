@@ -1750,8 +1750,7 @@ Deno.serve(async (request) => {
     if (path === '/api/me/pass' && (request.method === 'GET' || request.method === 'POST')) {
       const auth = requireRole(request, ['customer']);
       if (auth instanceof Response) return auth;
-      const body = request.method === 'POST' ? z.object({ platform: z.enum(['apple', 'google']).optional() }).parse(await readJsonBody(request, {})) : {};
-      const pass = await ensureMembershipPass(auth.sub, body.platform ? { platform: body.platform } : {});
+      const pass = await ensureMembershipPass(auth.sub);
       return json(request, {
         pass: { passId: pass.id, serialNumber: pass.serial_number, lookupToken: pass.lookup_token, barcodeValue: pass.barcode_value ?? pass.lookup_token, cardId: pass.card_id },
       });
@@ -1878,8 +1877,7 @@ Deno.serve(async (request) => {
     if (path === '/api/passes' && request.method === 'POST') {
       const auth = requireRole(request, ['customer']);
       if (auth instanceof Response) return auth;
-      const body = z.object({ platform: z.enum(['apple', 'google']).optional(), cardId: z.string().uuid().optional() }).parse(await readJsonBody(request, {}));
-      const pass = await ensureMembershipPass(auth.sub, body.platform ? { platform: body.platform } : {});
+      const pass = await ensureMembershipPass(auth.sub);
       return json(request, {
         pass: { passId: pass.id, serialNumber: pass.serial_number, lookupToken: pass.lookup_token, barcodeValue: pass.barcode_value ?? pass.lookup_token, cardId: pass.card_id },
       }, { status: 201 });
