@@ -7,7 +7,6 @@ import { registerUserRoutes } from './routes/user.js';
 import { registerCardRoutes } from './routes/cards.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerVendorRoutes } from './routes/vendor.js';
-import { registerPassRoutes } from './routes/passes.js';
 import { registerLookupRoutes } from './routes/lookup.js';
 import { registerRedemptionRoutes } from './routes/redemptions.js';
 import { registerQrRoutes } from './routes/qr.js';
@@ -37,7 +36,6 @@ export async function buildApp() {
   await registerCardRoutes(app);
   await registerAdminRoutes(app);
   await registerVendorRoutes(app);
-  await registerPassRoutes(app);
   await registerLookupRoutes(app);
   await registerRedemptionRoutes(app);
   await registerQrRoutes(app);

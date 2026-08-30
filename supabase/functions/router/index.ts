@@ -7,9 +7,8 @@ import { getAdminAnalytics, getVendorAnalytics } from './lib/analytics.ts';
 import { buildLookupDiscountView } from './lib/discounts.ts';
 import { resolvePassLookup, resolveCardLookup } from './lib/lookup.ts';
 import { redeemDiscount } from './lib/redeem.ts';
-import { buildMemberPassUrl } from './lib/wallet.ts';
 import { createVendorWithDiscount, getAdminVendorById, getVendorDirectory } from './lib/vendors.ts';
-import { ensureMembershipPass, membershipWalletUrl } from './lib/membership.ts';
+import { ensureMembershipPass } from './lib/membership.ts';
 import { generateDiscountCode, humanDiscountLabel } from './lib/codes.ts';
 import { qrCodeUrl } from './lib/quickchart.ts';
 import { normalizePhone } from './lib/phone.ts';
@@ -57,9 +56,9 @@ import {
   updateStop,
 } from './lib/stops.ts';
 
-// Shape the customer-facing membership pass payload (wallet + barcode links),
+// Shape the customer-facing membership pass payload (barcode only),
 // creating the pass idempotently. Returns null if pass generation fails.
-async function buildMembershipPassResponse(userId: string, baseUrl?: string) {
+async function buildMembershipPassResponse(userId: string, _baseUrl?: string) {
   try {
     const pass = await ensureMembershipPass(userId);
     return {
@@ -67,10 +66,6 @@ async function buildMembershipPassResponse(userId: string, baseUrl?: string) {
       lookupToken: pass.lookup_token,
       barcodeValue: pass.barcode_value ?? pass.lookup_token,
       cardId: pass.card_id,
-      walletUrl: membershipWalletUrl(pass),
-      androidUrl: pass.passcreator_android_uri ?? null,
-      passUrl: baseUrl ? buildMemberPassUrl(baseUrl, pass.serial_number) : null,
-      passcreatorId: pass.passcreator_id ?? null,
     };
   } catch {
     return null;
@@ -1751,26 +1746,6 @@ Deno.serve(async (request) => {
       return json(request, {}, { status: deleted ? 204 : 404 });
     }
 
-    // Resolves a membership pass to its wallet download. 302-redirects to the
-    // Passcreator-hosted pass (Apple Wallet / Google Wallet) so the link stays
-    // valid even if the underlying hosted URL changes.
-    if (/^\/api\/passes\/[^/]+\/pkpass$/.test(path) && request.method === 'GET') {
-      const serial = path.split('/').slice(-2)[0]!;
-      const rows = await dbQuery<{ user_id: string; passcreator_iphone_uri: string | null; passcreator_url: string | null }>(
-        `SELECT user_id, passcreator_iphone_uri, passcreator_url FROM passes WHERE serial_number = $1 LIMIT 1`,
-        [serial],
-      );
-      const row = rows[0];
-      if (!row) return json(request, { error: 'Pass not found' }, { status: 404 });
-      let target = row.passcreator_iphone_uri || row.passcreator_url;
-      if (!target) {
-        const pass = await ensureMembershipPass(row.user_id);
-        target = membershipWalletUrl(pass);
-      }
-      if (!target) return json(request, { error: 'Apple Wallet pass generation is not configured' }, { status: 503 });
-      return new Response(null, { status: 302, headers: { Location: target, 'Access-Control-Allow-Origin': corsOrigin(request) } });
-    }
-
     // The current member's single all-in-one membership pass (auto-created).
     if (path === '/api/me/pass' && (request.method === 'GET' || request.method === 'POST')) {
       const auth = requireRole(request, ['customer']);
@@ -1779,10 +1754,6 @@ Deno.serve(async (request) => {
       const pass = await ensureMembershipPass(auth.sub, body.platform ? { platform: body.platform } : {});
       return json(request, {
         pass: { passId: pass.id, serialNumber: pass.serial_number, lookupToken: pass.lookup_token, barcodeValue: pass.barcode_value ?? pass.lookup_token, cardId: pass.card_id },
-        walletUrl: membershipWalletUrl(pass),
-        androidUrl: pass.passcreator_android_uri ?? null,
-        passUrl: buildMemberPassUrl(baseUrl, pass.serial_number),
-        downloadUrl: `/api/passes/${pass.serial_number}`,
       });
     }
     if (path === '/api/me/analytics' && request.method === 'GET') {
@@ -1911,10 +1882,6 @@ Deno.serve(async (request) => {
       const pass = await ensureMembershipPass(auth.sub, body.platform ? { platform: body.platform } : {});
       return json(request, {
         pass: { passId: pass.id, serialNumber: pass.serial_number, lookupToken: pass.lookup_token, barcodeValue: pass.barcode_value ?? pass.lookup_token, cardId: pass.card_id },
-        walletUrl: membershipWalletUrl(pass),
-        androidUrl: pass.passcreator_android_uri ?? null,
-        passUrl: buildMemberPassUrl(baseUrl, pass.serial_number),
-        downloadUrl: `/api/passes/${pass.serial_number}`,
       }, { status: 201 });
     }
     if (/^\/api\/passes\/[^/]+$/.test(path) && request.method === 'GET') {
@@ -1923,22 +1890,6 @@ Deno.serve(async (request) => {
       if (rows.length === 0) return json(request, { error: 'Pass not found' }, { status: 404 });
       return json(request, rows[0]);
     }
-    if (/^\/api\/passes\/[^/]+\/registrations\/[^/]+$/.test(path) && request.method === 'POST') {
-      const parts = path.split('/');
-      const serial = parts[3]!;
-      const deviceLibraryId = parts[5]!;
-      const body = z.object({ pushToken: z.string().optional() }).parse(await readJsonBody(request, {}));
-      await dbQuery('UPDATE passes SET device_library_id = $2, push_token = COALESCE($3, push_token), updated_at = now() WHERE serial_number = $1', [serial, deviceLibraryId, body.pushToken ?? null]);
-      return json(request, { registered: true });
-    }
-    if (/^\/api\/passes\/[^/]+\/registrations\/[^/]+$/.test(path) && request.method === 'DELETE') {
-      const parts = path.split('/');
-      const serial = parts[3]!;
-      const deviceLibraryId = parts[5]!;
-      await dbQuery('UPDATE passes SET device_library_id = NULL, push_token = NULL, updated_at = now() WHERE serial_number = $1 AND device_library_id = $2', [serial, deviceLibraryId]);
-      return json(request, { deleted: true });
-    }
-
     if (/^\/api\/lookup\/[^/]+$/.test(path) && request.method === 'GET') {
       const lookupToken = path.split('/').pop()!;
       const result = await resolvePassLookup(lookupToken, url.searchParams.get('vendorId') ?? undefined, url.searchParams.get('city') ?? undefined);

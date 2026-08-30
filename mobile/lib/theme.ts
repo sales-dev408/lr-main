@@ -87,7 +87,7 @@ export const darkTheme: ThemeColors = {
 };
 
 export const APPLE_TRADEMARK_NOTICE =
-  'Apple, the Apple logo, and Apple Wallet are trademarks of Apple Inc., registered in the U.S. and other countries.';
+  'Apple and the Apple logo are trademarks of Apple Inc., registered in the U.S. and other countries.';
 
 export const WEBSITE_URL = 'https://lightraildeals.com';
 export const TERMS_URL = 'https://www.lightraildeals.com/terms-of-use.html';
