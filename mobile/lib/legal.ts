@@ -6,60 +6,276 @@
 export const LEGAL_LAST_UPDATED = 'September 1, 2026';
 export const LEGAL_CONTACT_EMAIL = 'sales@lightrailphx.com';
 
-export const TERMS_OF_SERVICE = `Terms of Service
+export const TERMS_OF_SERVICE = `Light Rail Deals Terms of Use
 
-Last updated: ${LEGAL_LAST_UPDATED}
+Last Updated: ${LEGAL_LAST_UPDATED}
 
-1. Acceptance and Eligibility
-By downloading, accessing, or using the Light Rail Deals app ("App"), you agree to these Terms and our Privacy Policy. If you do not agree, do not use the App. You must be at least 13 years old to use the App. If you are under 18, you may only use the App with the consent and supervision of a parent or guardian.
+These Terms of Use (the "Terms") constitute a legally binding agreement between you and Light Rail Deals ("Light Rail Deals," "we," "us," or "our")
+governing your access to and use of the Light Rail Deals mobile application, website, membership program, digital membership pass, and all related products,
+features, content, and services (collectively, the "Service"). By downloading, installing, registering for, accessing, or using the Service, you acknowledge that you
+have read, understood, and agree to be bound by these Terms and our Privacy Policy. If you do not agree to these Terms, you must not access or use the
+Service.
 
-2. The Service
-Light Rail Deals is a free mobile membership program. Participating businesses register with us and set their own exclusive member discounts. Every discount is attached to the single Light Rail membership card, and each member receives one unique membership pass that works at every participating business.
+IF YOU RESIDE IN A JURISDICTION THAT REQUIRES SPECIFIC CONSUMER NOTICES, NOTHING IN THESE TERMS IS INTENDED TO LIMIT ANY
+NON-WAIVABLE RIGHTS OR REMEDIES AVAILABLE TO YOU UNDER APPLICABLE LAW.
 
-3. Accounts and Account Deletion
-You sign in with your first and last name, email, and/or mobile phone number. You are responsible for all activity under your account. You can delete your account at any time from the Profile screen in the App or by contacting us. Account deletion will remove your profile and personal data as described in our Privacy Policy.
+Acceptance, Eligibility, and Legal Capacity
 
-4. Phone and Electronic Communications
-By providing your phone number, you consent to receive SMS messages or phone calls for authentication, security, and (if you opt in) promotional communications. Standard carrier rates may apply. You can opt out of promotional communications at any time in the App settings.
+1. Agreement to Terms. Your use of the Service constitutes your electronic acceptance of these Terms. You agree that electronic assent has the same legal
+effect as a physical signature.
+2. Minimum Age. You must be at least 13 years old to create an account or use the Service. If you are under 18, you may use the Service only with the
+permission and appropriate supervision of a parent or legal guardian, and such parent or legal guardian agrees to be bound by these Terms on behalf of
+both the minor and themselves to the extent required by law.
+3. Children Under 13. We do not knowingly permit children under 13 to create accounts or use the Service. If we become aware that a child under 13 has
+provided personal information through the Service, we may delete the relevant account and information in accordance with our Privacy Policy and
+applicable law.
+4. Legal Capacity and Compliance. By using the Service, you represent and warrant that: (a) you have full power and legal capacity to enter into these
+Terms; (b) all information you submit is truthful, accurate, current, and complete; (c) your use of the Service does not violate any applicable law, regulation,
+court order, contractual restriction, or third-party right; and (d) you are not prohibited from using the Service under applicable law.
 
-5. Your Membership Pass
-When you create an account we automatically generate a membership pass for you. The pass barcode identifies you as a member; it does not contain any vendor's discount code. Membership passes are personal and non-transferable. You may not share, sell, duplicate, or tamper with your pass. When you show your pass, the business applies its own member discount at the register and our servers record the redemption.
+Description of the Service
 
-6. Discounts
-Discounts are provided by third-party businesses and may change, be limited in quantity or frequency, or be discontinued at the business's discretion. Discounts have no cash value, cannot be combined with other offers unless the business allows it, and may exclude certain items. We are not responsible for a business's failure to honor a valid member discount.
+1. Membership Platform. Light Rail Deals operates a membership platform that allows registered members to access discounts, promotions, and offers
+made available by participating third-party businesses.
+2. Independent Businesses. Participating businesses independently determine whether to participate in the Service and independently establish the terms
+applicable to their offers, including discount amount, redemption conditions, exclusions, eligibility criteria, blackout periods, expiration dates, and
+availability.
+3. Role of Light Rail Deals. Light Rail Deals provides the technology and membership infrastructure through which members may be identified and
+redemptions may be recorded. Unless expressly stated otherwise, Light Rail Deals is not the seller, reseller, distributor, or provider of the goods or services
+offered by participating businesses.
+4. No Guarantee of Availability. We do not guarantee the continued availability of any business, offer, feature, functionality, or portion of the Service. We
+may add, remove, modify, suspend, or discontinue any part of the Service at any time, with or without notice, subject to applicable law.
 
-7. Location, Camera, and Notifications
-The App may request access to your device's location to show nearby participating businesses on the map. Location is shared with Mapbox for map rendering and related telemetry in accordance with Mapbox's privacy policy. The App may request camera access to scan QR or discount codes at redemption. The App may request permission to send you push notifications for account and (if you opt in) promotional messages. These permissions are optional and can be changed in device settings.
+Membership and Account Registration
 
-8. Payments
-The App is currently free to use. If paid features or subscriptions are introduced in the future, they will be processed through the App Store or Google Play and will be subject to the payment and refund policies of Apple or Google.
+1. Account Creation. To use certain features, you may be required to create an account and provide requested information, such as your name, email
+address, mobile phone number, and other registration details.
+2. Accuracy of Information. You must provide accurate, current, and complete information and promptly update such information as necessary to keep it
+accurate.
+3. Prohibited Registration Conduct. You must not: (a) impersonate another person; (b) create an account using another person’s identity or contact
+information without authorization; (c) submit false, misleading, or fraudulent information; or (d) create an account on behalf of another person unless you
+are authorized to do so.
+4. Authentication. We may use email, SMS, phone-based verification, device-based verification, one-time codes, or other authentication methods instead of
+or in addition to passwords. You are responsible for maintaining control over the email address, phone number, device, and other authentication
+credentials associated with your account.
+5. Account Security. You are responsible for all activity occurring through your account to the extent caused by your acts, omissions, or failure to maintain
+reasonable account security. You must promptly notify us at sales@lightrailphx.com if you know or reasonably suspect that: (a) your account has been
+accessed without authorization; (b) your membership pass has been copied, compromised, or misused; (c) your phone, email account, or authentication
+method has been compromised; or (d) your credentials or verification information have been exposed.
+6. One Account Per Person. Unless expressly authorized by us in writing, each individual may maintain only one personal Light Rail Deals membership
+account. You may not create multiple accounts to obtain additional discounts, avoid redemption limits, evade restrictions, or manipulate the Service.
+7. Account Suspension and Termination. We may suspend, restrict, or terminate your account, or invalidate a membership pass, if we reasonably believe
+you have violated these Terms, engaged in fraud or abuse, created material risk to the Service or others, or if suspension is otherwise necessary to comply
+with law or protect legitimate business interests. Where reasonably practicable and legally permitted, we will provide notice of material account
+enforcement actions and an opportunity to cure or appeal, except where doing so would compromise security, facilitate fraud, or violate law.
+8. Account Deletion by You. You may request deletion of your account at any time through the Service or by contacting us at sales@lightrailphx.com. Upon
+deletion, we will delete or de-identify personal information in accordance with our Privacy Policy, except to the extent retention is permitted or required by
+law, necessary for security, fraud prevention, dispute resolution, tax, audit, or legitimate business purposes.
 
-9. Third-Party Services and Content
-The App contains business listings, logos, and links to third-party websites. These are provided for convenience and do not imply our endorsement. Vendor content, offers, and websites are subject to the third party's own terms. Mapbox mapping services are used under Mapbox's terms.
+Communications
 
-10. Acceptable Use
-You agree not to misuse the App, share or resell your membership pass, attempt to extract or reverse-engineer vendor discount codes, duplicate or tamper with passes, or use the App for any unlawful purpose.
+1. Service Communications. By providing your phone number, email address, or other contact information, you consent to receive communications relating
+to your account and the Service, including authentication codes, account verification, security alerts, transactional messages, redemption-related
+communications, service announcements, legal notices, and operational messages necessary to provide the Service.
+2. Promotional Communications. Where required by applicable law, promotional emails, SMS messages, push notifications, and similar marketing
+communications will be sent only with the consent required by law. You may withdraw consent at any time using the unsubscribe mechanism, application
+settings, or other method made available in the communication.
+3. Effect of Opt-Out. Opting out of marketing communications does not prevent us from sending non-promotional, transactional, security, or service-related
+communications.
+4. Carrier Charges. Standard message, data, wireless, and carrier charges may apply to SMS or mobile communications. You are solely responsible for
+such charges. Light Rail Deals is not responsible for carrier fees, carrier restrictions, service delays, or network availability.
 
-11. Intellectual Property
-All app content, trademarks, and code belong to Light Rail Deals or its licensors. You are granted a limited, non-exclusive license to use the App for personal, non-commercial use.
+Your Membership Pass
 
-12. Disclaimers
-The App is provided "as is" without warranties of any kind. We do not guarantee the availability, accuracy, or value of any business's discount.
+1. Issuance. When you create an eligible account, we may generate a unique digital membership pass associated with your account. The pass may include
+a barcode, QR code, alphanumeric identifier, token, or another machine-readable credential.
+2. Purpose. The membership pass is intended solely to identify you as an eligible Light Rail Deals member for redemption purposes. The pass itself does not
+establish the amount, scope, or existence of any discount; the participating business determines and applies the offer according to its own terms.
+3. Personal and Non-Transferable. Your membership pass is personal to you and may not be shared, sold, rented, licensed, assigned, transferred, copied,
+reproduced, altered, forged, reverse engineered, or used by any other person. You may not permit another person to present your pass to obtain a
+member benefit.
+4. Verification and Recording. A participating business may scan or otherwise verify your pass. We may record redemption information, including the
+participating business, date, time, offer details, and technical identifiers, as described in our Privacy Policy.
+5. Compromised Passes. If you believe your membership pass has been copied, compromised, or misused, you must notify us promptly. We may
+invalidate, replace, or reissue a pass where reasonably necessary to protect the Service, members, or participating businesses.
 
-13. Limitation of Liability
-To the maximum extent permitted by law, Light Rail Deals is not liable for any indirect, incidental, or consequential damages arising from your use of the App.
+Discounts and Participating Businesses
 
-14. Indemnification
-You agree to indemnify and hold harmless Light Rail Deals from any claims arising from your misuse of the App or violation of these Terms.
+1. Third-Party Offers. All discounts, promotions, offers, goods, services, prices, and related benefits made available through the Service are provided by
+independent third-party businesses unless expressly stated otherwise.
+2. Merchant-Controlled Terms. Each participating business independently establishes the terms of its offers, including: (a) discount amount or percentage;
+(b) eligible products or services; (c) minimum purchase requirements; (d) maximum discount values; (e) redemption frequency; (f) daily, weekly, monthly,
+or other limits; (g) blackout dates; (h) time restrictions; (i) location restrictions; (j) in-store or online eligibility; (k) whether an offer may be combined with
+other promotions; and (l) other conditions or exclusions.
+3. Your Responsibility to Review Terms. You are responsible for reviewing the applicable offer terms before attempting redemption.
+4. Changes and Discontinuation. Participating businesses may change, restrict, suspend, or discontinue offers at any time, subject to applicable law. We
+do not guarantee that an offer displayed in the Service will remain available until redemption.
+5. No Cash Value. Unless expressly stated otherwise by the participating business or required by law, discounts and offers: (a) have no cash value; (b) may
+not be redeemed for cash; (c) may not be exchanged for cash or credit; (d) may not be sold or transferred; and (e) may not be applied retroactively to prior
+purchases.
+6. No Stacking. Unless a participating business expressly permits otherwise, a Light Rail Deals discount may not be combined with another coupon,
+promotion, discount, loyalty benefit, or special offer.
+7. Business Disputes. If a participating business does not honor an offer you believe applies, your primary dispute is with that business. We may, but are
+not obligated to, assist in resolving disputes between members and participating businesses.
+8. No Endorsement or Warranty. We do not endorse, certify, guarantee, or warrant any participating business or any of its products, services, employees,
+pricing, business practices, facilities, legality, safety, quality, or availability.
 
-15. Governing Law and Disputes
-These Terms are governed by the laws of the jurisdiction in which Light Rail Deals is established, without regard to conflict-of-law principles. Any disputes will be resolved in the courts of that jurisdiction, unless prohibited by applicable law.
+Redemption, Verification, and Fraud Prevention
 
-16. Changes
-We may update these Terms from time to time. Continued use of the App after changes constitutes acceptance of the updated Terms.
+1. Redemption Process. To redeem a member discount, you may be required to display your membership pass to the participating business. The business
+may scan your barcode or QR code or otherwise verify eligibility.
+2. Redemption Records. When a discount is redeemed, we may record information reasonably necessary to administer the membership program, prevent
+abuse, maintain system integrity, and support customer service, including member identifiers, participating business information, date and time, applicable
+offer, transaction or redemption identifiers, and technical information.
+3. Fraud Prevention. We may monitor redemption activity for unusual, fraudulent, abusive, automated, or unauthorized behavior. We may investigate
+suspicious activity and suspend, restrict, invalidate, or terminate accounts or passes where reasonably necessary to protect the Service, members,
+participating businesses, or our rights.
 
-17. Contact
-Questions about these Terms? Contact us at ${LEGAL_CONTACT_EMAIL}.`;
+Location, Camera, Notifications, and Device Permissions
+
+1. Location. The Service may request access to your device’s precise or approximate location in order to display participating businesses near you and
+provide location-based functionality. You may manage location permissions through your device settings.
+2. Map Services. The Service may use third-party mapping services, including Mapbox. Your use of map features may result in information being transmitted
+to and processed by such providers in accordance with their applicable terms and privacy practices.
+3. Camera. The Service may request access to your device camera to scan QR codes, discount codes, or other machine-readable information. Camera
+access is optional for some features and may be controlled through device settings.
+4. Push Notifications. The Service may request permission to send push notifications regarding account activity, security, redemptions, service
+announcements, and, where permitted, promotions. You may disable push notifications through the application or device settings.
+5. Device and Network Requirements. Certain features require a compatible device, internet access, mobile service, and other third-party technologies.
+You are responsible for obtaining and maintaining the hardware, software, internet connectivity, and mobile services necessary to use the Service.
+
+Acceptable Use Restrictions
+
+1. You agree not to, and not to assist or permit others to: (a) use the Service in violation of law or third-party rights; (b) engage in fraud, abuse, 
+misrepresentation, or deceptive conduct; (c) copy, scrape, harvest, index, frame, mirror, or extract data or content from the Service except as expressly 
+permitted by us; (d) interfere with, disrupt, damage, overburden, or impair the Service or related systems; (e) upload malicious code, viruses, bots, or 
+harmful scripts; (f) attempt to gain unauthorized access to accounts, systems, or data; (g) use automated means to create accounts, redeem offers, or 
+interact with the Service without our written consent; (h) circumvent technical limitations, security measures, redemption restrictions, or eligibility controls;
+or (i) use the Service in any manner that could harm Light Rail Deals, participating businesses, members, or other third parties.
+
+Intellectual Property and License
+
+1. Ownership. The Service, including its software, text, graphics, logos, trademarks, service marks, trade dress, compilations, functionality, and other
+content, is owned by or licensed to Light Rail Deals and is protected by intellectual property and other applicable laws.
+2. Limited License. Subject to your compliance with these Terms, we grant you a limited, non-exclusive, non-transferable, non-sublicensable, revocable
+license to access and use the Service solely for your personal, non-commercial use.
+3. Restrictions. Except as expressly permitted by law or these Terms, you may not copy, modify, distribute, sell, lease, license, reverse engineer, decompile,
+disassemble, create derivative works from, publicly display, publicly perform, or otherwise exploit any part of the Service.
+4. Feedback. If you submit suggestions, comments, ideas, or feedback regarding the Service, you grant Light Rail Deals a worldwide, perpetual, irrevocable,
+non-exclusive, royalty-free, fully paid, transferable, and sublicensable right to use, reproduce, modify, adapt, publish, and otherwise exploit such feedback
+for any lawful purpose without compensation or attribution to you, provided that personal information will be handled in accordance with our Privacy Policy.
+
+User Content
+
+1. If the Service permits you to submit, upload, post, or transmit reviews, comments, images, messages, or other content ("User Content"), you retain
+ownership of your User Content subject to the rights granted in these Terms.
+2. You grant us a non-exclusive, worldwide, royalty-free, transferable, sublicensable license to host, store, reproduce, display, perform, distribute, modify as
+technically necessary, and otherwise use your User Content solely for operating, improving, promoting, and providing the Service.
+3. You represent and warrant that you have all rights necessary to provide the User Content and that your User Content does not violate any law, infringe any
+third-party rights, or contain defamatory, unlawful, harassing, fraudulent, or harmful material.
+4. We may remove or disable User Content that we reasonably believe violates these Terms, applicable law, or the rights of any person.
+
+Privacy
+
+1. Your use of the Service is also governed by our Privacy Policy, which is incorporated into these Terms by reference. To the extent of a direct conflict
+between these Terms and the Privacy Policy regarding privacy-specific matters, the Privacy Policy will control.
+
+Third-Party Services and Links
+
+1. The Service may integrate with, link to, or rely on third-party services, websites, software, communications providers, payment processors, app stores,
+analytics providers, identity verification providers, or mapping tools. We do not control and are not responsible for third-party services or their terms,
+policies, content, availability, or practices.
+2. Your use of third-party services may be subject to separate terms and privacy policies between you and the relevant third party.
+
+Disclaimers
+
+1. TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT
+WARRANTIES OF ANY KIND, WHETHER EXPRESS, IMPLIED, STATUTORY, OR OTHERWISE.
+2. WITHOUT LIMITING THE FOREGOING, LIGHT RAIL DEALS DISCLAIMS ALL IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE, TITLE, NON-INFRINGEMENT, QUIET ENJOYMENT, ACCURACY, AVAILABILITY, SECURITY, AND THAT THE SERVICE
+WILL BE UNINTERRUPTED OR ERROR-FREE.
+3. WE DO NOT WARRANT THAT ANY OFFER, DISCOUNT, BUSINESS LISTING, DESCRIPTION, PRICE, MAP RESULT, OR OTHER INFORMATION
+MADE AVAILABLE THROUGH THE SERVICE IS COMPLETE, CURRENT, ACCURATE, RELIABLE, OR AVAILABLE AT THE TIME OF REDEMPTION.
+4. NOTHING IN THESE TERMS EXCLUDES WARRANTIES OR REPRESENTATIONS THAT CANNOT BE EXCLUDED UNDER APPLICABLE LAW.
+
+Limitation of Liability
+
+1. TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, LIGHT RAIL DEALS AND ITS AFFILIATES, OFFICERS, DIRECTORS, EMPLOYEES,
+CONTRACTORS, AGENTS, LICENSORS, AND SERVICE PROVIDERS SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL,
+CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE DAMAGES, OR FOR ANY LOSS OF PROFITS, REVENUE, DATA, GOODWILL, BUSINESS
+OPPORTUNITY, OR OTHER INTANGIBLE LOSSES, ARISING OUT OF OR RELATING TO THE SERVICE OR THESE TERMS, EVEN IF ADVISED OF
+THE POSSIBILITY OF SUCH DAMAGES.
+2. TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE TOTAL AGGREGATE LIABILITY OF LIGHT RAIL DEALS FOR ALL CLAIMS
+ARISING OUT OF OR RELATING TO THESE TERMS OR THE SERVICE SHALL NOT EXCEED THE GREATER OF: (A) THE AMOUNT YOU PAID TO
+LIGHT RAIL DEALS, IF ANY, FOR USE OF THE SERVICE IN THE 12 MONTHS PRECEDING THE EVENT GIVING RISE TO THE CLAIM; OR (B) 0.
+3. THE LIMITATIONS IN THIS SECTION APPLY REGARDLESS OF THE FORM OF ACTION AND EVEN IF ANY LIMITED REMEDY FAILS OF ITS
+ESSENTIAL PURPOSE, BUT DO NOT APPLY TO LIABILITY THAT CANNOT BE LIMITED OR EXCLUDED UNDER APPLICABLE LAW.
+
+Indemnification
+
+1. To the maximum extent permitted by applicable law, you agree to defend, indemnify, and hold harmless Light Rail Deals and its affiliates, officers,
+directors, employees, contractors, agents, licensors, and service providers from and against any third-party claims, demands, actions, proceedings,
+liabilities, damages, judgments, settlements, penalties, fines, costs, and expenses, including reasonable attorneys’ fees, arising out of or related to: (a)
+your breach of these Terms; (b) your misuse of the Service; (c) your fraud, negligence, willful misconduct, or violation of law; (d) your User Content; or (e)
+your infringement or violation of any third-party rights.
+2. This section does not require you to indemnify any party for claims to the extent caused by that party’s own fraud, willful misconduct, or violation of law, or
+to the extent such indemnification is prohibited by applicable law.
+
+Termination
+
+1. These Terms remain in effect until terminated by either you or us.
+2. You may stop using the Service at any time. If you wish to terminate your account, you must follow the account deletion process described in these Terms.
+3. We may terminate or suspend your access immediately where reasonably necessary for security, fraud prevention, legal compliance, or material breach. In
+other cases, where reasonably practicable, we may provide notice before termination.
+4. Upon termination, the rights granted to you under these Terms will cease immediately, but provisions that by their nature should survive will survive,
+including provisions relating to ownership, feedback, disclaimers, limitations of liability, indemnification, dispute resolution, and governing law.
+
+Dispute Resolution
+
+1. Initial Resolution. Before filing a claim, you agree to contact us at sales@lightrailphx.com and attempt in good faith to resolve the dispute informally for at
+least 30 days, unless a longer period is required by applicable law.
+2. Forum. Except where prohibited by applicable law or where a valid arbitration agreement separately applies, any dispute, claim, or controversy arising out
+of or relating to these Terms or the Service shall be brought exclusively in the state or federal courts located in State of Arizona, and each party irrevocably
+submits to the personal jurisdiction of those courts.
+3. Injunctive Relief. Nothing in these Terms limits either party’s right to seek injunctive or equitable relief for actual or threatened misuse of intellectual
+property, confidential information, security breaches, or other circumstances where monetary damages may be inadequate.
+4. Class Action Waiver. To the extent permitted by applicable law, you and Light Rail Deals agree that each may bring claims against the other only in an
+individual capacity and not as a plaintiff or class member in any purported class, consolidated, coordinated, collective, or representative proceeding. If this
+waiver is unenforceable in a particular matter, then that matter shall proceed only to the extent permitted by law.
+
+Governing Law
+
+1. These Terms and any dispute arising out of or relating to these Terms or the Service shall be governed by and construed in accordance with the laws of
+United States of America and The State of Arizona, without regard to conflict of laws principles, except to the extent superseded by applicable consumer
+protection laws.
+
+Changes to the Service and Terms
+
+1. We may modify the Service and these Terms from time to time. If we make material changes, we will provide notice by updating the "Last Updated" date,
+posting notice through the Service, sending an email, or by other reasonable means where required by law.
+2. Unless otherwise required by law, changes become effective when posted or on the date stated in the updated Terms. If you continue to use the Service
+after the effective date, you accept the revised Terms. If you do not agree to the revised Terms, you must stop using the Service.
+
+General Provisions
+
+1. Entire Agreement. These Terms, together with the Privacy Policy and any additional terms expressly incorporated by reference, constitute the entire
+agreement between you and Light Rail Deals regarding the Service and supersede all prior or contemporaneous understandings on that subject.
+2. No Waiver. Our failure to enforce any provision of these Terms shall not constitute a waiver of that provision or any other provision.
+3. Severability. If any provision of these Terms is held unlawful, invalid, or unenforceable, that provision shall be enforced to the maximum extent permitted
+and the remaining provisions shall remain in full force and effect.
+4. Assignment. You may not assign, transfer, or delegate these Terms or any rights or obligations hereunder without our prior written consent. We may
+assign these Terms, in whole or in part, in connection with a merger, acquisition, corporate reorganization, sale of assets, or by operation of law.
+5. No Third-Party Beneficiaries. Except as expressly provided in these Terms, these Terms do not create any third-party beneficiary rights.
+6. Force Majeure. We shall not be liable for delay or failure to perform resulting from causes beyond our reasonable control, including acts of God, natural
+disasters, epidemics, labor disputes, utility failures, telecommunications failures, cyberattacks, governmental actions, civil unrest, or interruptions affecting
+third-party platforms or service providers.
+7. Electronic Records. You agree that electronic records, notices, policies, and communications satisfy any legal requirement that such communications be
+in writing.
+8. Contact Information. Questions, notices, and requests regarding these Terms may be directed to: Sun Ray LLC, 3370 N. Hayden Rd. Scottsdale AZ
+85251 PMB 127, Email: sales@lightrailphx.com.
+
+Effective Date: 2026-09-01
+`;
 
 export const PRIVACY_POLICY = `Light Rail Deals Privacy Policy
 
