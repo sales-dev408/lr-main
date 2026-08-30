@@ -56,6 +56,19 @@ import {
   updateStop,
 } from './lib/stops.ts';
 
+function generateSecureSixDigitCode(): string {
+  const min = 100000;
+  const range = 900000;
+  const limit = Math.floor(0x100000000 / range) * range;
+  const buffer = new Uint32Array(1);
+  while (true) {
+    crypto.getRandomValues(buffer);
+    if (buffer[0] < limit) {
+      return String(min + (buffer[0] % range));
+    }
+  }
+}
+
 // Shape the customer-facing membership pass payload (barcode only),
 // creating the pass idempotently. Returns null if pass generation fails.
 async function buildMembershipPassResponse(userId: string, _baseUrl?: string) {
@@ -843,7 +856,7 @@ Deno.serve(async (request) => {
       if (rows.length === 0) {
         return json(request, { message: 'If an account exists, a verification code has been sent.' });
       }
-      const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
+      const code = generateSecureSixDigitCode();
       const codeHash = await bcrypt.hash(code, 10);
       await dbQuery(
         'UPDATE users SET password_reset_code_hash = $1, password_reset_expires_at = now() + interval \'15 minutes\' WHERE id = $2',
