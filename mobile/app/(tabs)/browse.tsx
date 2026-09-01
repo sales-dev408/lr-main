@@ -157,7 +157,10 @@ export default function BrowseScreen() {
   const groupedVendors = useMemo(() => {
     const groups = new Map<string, VendorListItem[]>();
     for (const v of filteredVendors) {
-      const key = findStop(v.station)?.name ?? 'Other';
+      // Use the canonical stop name when available, otherwise fall back to the
+      // vendor's own station label so vendors are still grouped by stop rather
+      // than all collapsing into a single "Other" bucket.
+      const key = findStop(v.station)?.name ?? (v.station?.trim() || 'Other');
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(v);
     }
@@ -178,15 +181,31 @@ export default function BrowseScreen() {
 
   const stopEntries = useMemo(() => {
     const counts = new Map<string, number>();
+    const cities = new Map<string, string | null>();
     for (const v of vendors) {
-      const key = findStop(v.station)?.name;
-      if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
+      const canonical = findStop(v.station)?.name;
+      const key = canonical ?? v.station?.trim();
+      if (!key) continue;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+      if (canonical) {
+        const stop = findStop(v.station);
+        if (stop?.city) cities.set(key, stop.city);
+      }
     }
-    return getStops().map((stop) => ({
+    const knownStops = getStops();
+    const entries = knownStops.map((stop) => ({
       stop: stop.name,
       count: counts.get(stop.name) ?? 0,
       city: stop.city,
     }));
+    // Include stops that have vendors but aren't in the canonical stops list
+    // (e.g. when the snapshot didn't include stops but /stops was fetched).
+    for (const [name, count] of counts) {
+      if (!knownStops.some((s) => s.name === name)) {
+        entries.push({ stop: name, count, city: cities.get(name) ?? null });
+      }
+    }
+    return entries;
   }, [vendors]);
 
   const sortedVendors = useMemo(() => {

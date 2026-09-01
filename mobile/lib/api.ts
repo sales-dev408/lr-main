@@ -350,6 +350,16 @@ export async function getAppState(): Promise<AppState | null> {
       theme: (raw.theme as ThemeSettings) ?? ({} as ThemeSettings),
       stops: Array.isArray(raw.stops) ? (raw.stops as Record<string, unknown>[]).map(normalizeStop) : [],
     };
+    // Fallback: older published snapshots may not include stops. Fetch them
+    // directly so the stop picker and vendor grouping work regardless.
+    if (state.stops.length === 0) {
+      try {
+        const stopsRaw = await apiRequest<Record<string, unknown>[]>('/stops');
+        state.stops = stopsRaw.map(normalizeStop);
+      } catch {
+        // Backend doesn't expose /stops either; continue with empty stops.
+      }
+    }
     cacheStops(state);
     await setItem(APP_STATE_VERSION_KEY, currentVersion);
     await setItem(APP_STATE_DATA_KEY, JSON.stringify(state));
@@ -358,6 +368,15 @@ export async function getAppState(): Promise<AppState | null> {
     if (cachedData) {
       try {
         const state = JSON.parse(cachedData) as AppState;
+        // Same fallback for cached snapshots that predate the stops field.
+        if (!state.stops || state.stops.length === 0) {
+          try {
+            const stopsRaw = await apiRequest<Record<string, unknown>[]>('/stops');
+            state.stops = stopsRaw.map(normalizeStop);
+          } catch {
+            // ignore
+          }
+        }
         cacheStops(state);
         return state;
       } catch {

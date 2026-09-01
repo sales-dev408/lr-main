@@ -96,11 +96,19 @@ export default function ApartmentsScreen() {
       const station = a.station?.trim() ?? '';
       if (station) counts.set(station, (counts.get(station) ?? 0) + 1);
     }
-    return getStops().map((stop) => ({
+    const knownStops = getStops();
+    const entries = knownStops.map((stop) => ({
       stop: stop.name,
       count: counts.get(stop.name) ?? 0,
       city: stop.city,
     }));
+    // Include stops that have apartments but aren't in the canonical stops list.
+    for (const [name, count] of counts) {
+      if (!knownStops.some((s) => s.name === name)) {
+        entries.push({ stop: name, count, city: null });
+      }
+    }
+    return entries;
   }, [apartments]);
 
   const jumpToStation = useCallback((station: string) => {

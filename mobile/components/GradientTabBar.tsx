@@ -1,10 +1,12 @@
 import type { ComponentProps } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/lib/appTheme';
 import { useThemeColors } from '@/lib/useThemeColors';
+import { useAppColorScheme } from '@/lib/colorScheme';
 import { useDynamicType } from '@/lib/dynamicType';
 
 // Expo Router vendors its own copy of react-navigation, so derive the tab bar
@@ -36,12 +38,22 @@ function useTabStyles() {
         flexDirection: 'row',
         justifyContent: 'space-around',
         alignItems: 'flex-end',
-        backgroundColor: colors.panel,
-        borderTopWidth: 1,
+        // Use a translucent background so the Liquid Glass blur material shows
+        // through on iOS. On web/Android, fall back to the solid panel color.
+        backgroundColor: Platform.select({ ios: 'transparent', default: colors.panel }),
+        borderTopWidth: Platform.select({ ios: 0, default: 1 }),
         borderTopColor: colors.border,
         paddingTop: 10,
         paddingHorizontal: 6,
         paddingBottom: 8,
+      },
+      blurContainer: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        borderTopWidth: 0,
       },
       tab: {
         flex: 1,
@@ -85,10 +97,18 @@ function useTabStyles() {
 export function GradientTabBar({ state, descriptors, navigation }: GradientTabBarProps) {
   const insets = useSafeAreaInsets();
   const { tabFor } = useAppTheme();
+  const { scheme } = useAppColorScheme();
   const { styles, colors, multiplier } = useTabStyles();
 
   return (
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+      {Platform.OS === 'ios' ? (
+        <BlurView
+          intensity={80}
+          tint={scheme}
+          style={styles.blurContainer}
+        />
+      ) : null}
       {state.routes.map((route, index) => {
         const focused = state.index === index;
         const tab = tabFor(route.name);

@@ -108,10 +108,16 @@ export default function MapView({
 
   const [camera, setCamera] = useState({ center: initialCenter, zoom: initialZoom });
   const lastRegionRef = useRef<Region | null>(null);
+  // Tracks programmatic camera moves so we can suppress the region-change
+  // callback that fires while the camera animates to a marker. Without this,
+  // onRegionChangeComplete writes back into `region` state and creates a
+  // feedback loop that yanks the map away from the selected marker.
+  const programmaticMoveRef = useRef(false);
 
   useEffect(() => {
     if (region && !regionsEqual(region, lastRegionRef.current)) {
       lastRegionRef.current = region;
+      programmaticMoveRef.current = true;
       setCamera({
         center: [region.longitude, region.latitude],
         zoom: deltaToZoom(region.longitudeDelta),
@@ -126,6 +132,12 @@ export default function MapView({
       onRegionDidChange={
         onRegionChangeComplete
           ? (feature) => {
+              // Ignore the region change that results from our own camera
+              // animation; only forward user-initiated pans/zooms.
+              if (programmaticMoveRef.current) {
+                programmaticMoveRef.current = false;
+                return;
+              }
               const props = feature.properties;
               const [longitude, latitude] = feature.geometry.coordinates;
               const zoom = props?.zoomLevel ?? DEFAULT_ZOOM;

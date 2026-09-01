@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useThemeColors } from '@/lib/useThemeColors';
+import { useAppColorScheme } from '@/lib/colorScheme';
 import { useDynamicType } from '@/lib/dynamicType';
 import { groupStopsByCity } from '@/lib/stops';
 
@@ -23,6 +25,7 @@ export function StopPicker({
 }) {
   const colors = useThemeColors();
   const { effectiveScale } = useDynamicType();
+  const { scheme } = useAppColorScheme();
   const [open, setOpen] = useState(false);
 
   const groups = useMemo(() => groupStopsByCity(entries), [entries]);
@@ -32,6 +35,79 @@ export function StopPicker({
     setOpen(false);
     onSelect(stop);
   }
+
+  const modalContent = (
+    <>
+      <View
+        style={{
+          paddingHorizontal: 16,
+          paddingVertical: 14,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border,
+        }}
+      >
+        <Text
+          style={{ color: colors.ink, fontSize: 18 * effectiveScale, fontWeight: '700' }}
+          allowFontScaling={false}
+        >
+          {label}
+        </Text>
+        <Text style={{ color: colors.muted, fontSize: 13 * effectiveScale }} allowFontScaling={false}>
+          {total} {itemNoun}
+          {total === 1 ? '' : 's'} in stop order
+        </Text>
+      </View>
+      <ScrollView contentContainerStyle={{ paddingBottom: 12 }}>
+        {groups.map((group) => (
+          <View key={group.city}>
+            <Text
+              style={{
+                color: colors.muted,
+                fontSize: 12 * effectiveScale,
+                fontWeight: '700',
+                letterSpacing: 0.6,
+                textTransform: 'uppercase',
+                paddingHorizontal: 16,
+                paddingTop: 14,
+                paddingBottom: 6,
+                backgroundColor: colors.brandSoft,
+              }}
+              allowFontScaling={false}
+            >
+              {group.city}
+            </Text>
+            {group.stops.map((stop) => (
+              <Pressable
+                key={`${group.city}-${stop.name}`}
+                onPress={() => select(stop.name)}
+                accessibilityRole="button"
+                accessibilityLabel={`${stop.name}, ${stop.count} ${itemNoun}${stop.count === 1 ? '' : 's'}`}
+                style={({ pressed }) => ({
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                  backgroundColor: pressed ? colors.brand + '12' : 'transparent',
+                })}
+              >
+                <Text
+                  style={{ color: colors.ink, fontSize: 15 * effectiveScale, flex: 1 }}
+                  allowFontScaling={false}
+                >
+                  {stop.name}
+                </Text>
+                <Text style={{ color: colors.muted, fontSize: 13 * effectiveScale }} allowFontScaling={false}>
+                  {stop.count}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ))}
+      </ScrollView>
+    </>
+  );
 
   return (
     <View>
@@ -71,81 +147,19 @@ export function StopPicker({
             onPress={() => undefined}
             style={{
               maxHeight: '80%',
-              backgroundColor: colors.panel,
               borderRadius: colors.radius,
               borderWidth: 1,
               borderColor: colors.border,
               overflow: 'hidden',
             }}
           >
-            <View
-              style={{
-                paddingHorizontal: 16,
-                paddingVertical: 14,
-                borderBottomWidth: 1,
-                borderBottomColor: colors.border,
-              }}
-            >
-              <Text
-                style={{ color: colors.ink, fontSize: 18 * effectiveScale, fontWeight: '700' }}
-                allowFontScaling={false}
-              >
-                {label}
-              </Text>
-              <Text style={{ color: colors.muted, fontSize: 13 * effectiveScale }} allowFontScaling={false}>
-                {total} {itemNoun}
-                {total === 1 ? '' : 's'} in stop order
-              </Text>
-            </View>
-            <ScrollView contentContainerStyle={{ paddingBottom: 12 }}>
-              {groups.map((group) => (
-                <View key={group.city}>
-                  <Text
-                    style={{
-                      color: colors.muted,
-                      fontSize: 12 * effectiveScale,
-                      fontWeight: '700',
-                      letterSpacing: 0.6,
-                      textTransform: 'uppercase',
-                      paddingHorizontal: 16,
-                      paddingTop: 14,
-                      paddingBottom: 6,
-                      backgroundColor: colors.brandSoft,
-                    }}
-                    allowFontScaling={false}
-                  >
-                    {group.city}
-                  </Text>
-                  {group.stops.map((stop) => (
-                    <Pressable
-                      key={`${group.city}-${stop.name}`}
-                      onPress={() => select(stop.name)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${stop.name}, ${stop.count} ${itemNoun}${stop.count === 1 ? '' : 's'}`}
-                      style={({ pressed }) => ({
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: 12,
-                        paddingHorizontal: 16,
-                        paddingVertical: 12,
-                        backgroundColor: pressed ? colors.brand + '12' : 'transparent',
-                      })}
-                    >
-                      <Text
-                        style={{ color: colors.ink, fontSize: 15 * effectiveScale, flex: 1 }}
-                        allowFontScaling={false}
-                      >
-                        {stop.name}
-                      </Text>
-                      <Text style={{ color: colors.muted, fontSize: 13 * effectiveScale }} allowFontScaling={false}>
-                        {stop.count}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              ))}
-            </ScrollView>
+            {Platform.OS === 'ios' ? (
+              <BlurView intensity={80} tint={scheme} style={{ flex: 1 }}>
+                {modalContent}
+              </BlurView>
+            ) : (
+              <View style={{ backgroundColor: colors.panel, flex: 1 }}>{modalContent}</View>
+            )}
           </Pressable>
         </Pressable>
       </Modal>
