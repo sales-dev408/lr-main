@@ -1,17 +1,22 @@
-import { ActivityIndicator, Image, Platform, Pressable, StyleSheet, Text, TextInput, View, type PressableProps, type TextInputProps, type ViewProps } from 'react-native';
+import { ActivityIndicator, Image, Platform, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions, type PressableProps, type TextInputProps, type ViewProps } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useCallback, useMemo, useRef, type ReactNode } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { APPLE_TRADEMARK_NOTICE } from '@/lib/theme';
 import { useThemeColors } from '@/lib/useThemeColors';
 import { useDynamicType } from '@/lib/dynamicType';
+import { useAppColorScheme } from '@/lib/colorScheme';
 
 function useUiStyles() {
   const colors = useThemeColors();
   const { effectiveScale } = useDynamicType();
+  const { width } = useWindowDimensions();
 
   return useMemo(() => {
     const multiplier = effectiveScale;
     const scale = (size: number) => size * multiplier;
+    // Use slightly smaller padding on narrow screens so content fits better.
+    const screenPadding = Math.round(Math.min(16, Math.max(12, width * 0.04)) * multiplier);
     const cardShadow = (Platform.OS === 'web'
       ? { boxShadow: `0 20px 50px ${colors.ink}1a`, elevation: 10 }
       : { ...colors.shadow }) as Record<string, unknown>;
@@ -20,7 +25,7 @@ function useUiStyles() {
       screen: {
         flex: 1,
         backgroundColor: colors.bg,
-        padding: 16 * multiplier,
+        padding: screenPadding,
         gap: 12,
       },
       brandHeader: {
@@ -53,10 +58,10 @@ function useUiStyles() {
       card: {
         backgroundColor: colors.panel,
         borderRadius: colors.radius,
-        padding: 18,
+        padding: 16,
         borderWidth: 1,
         borderColor: colors.border,
-        gap: 14,
+        gap: 12,
         ...cardShadow,
       },
       sectionHeader: {
@@ -72,9 +77,9 @@ function useUiStyles() {
         color: colors.muted,
       },
       button: {
-        borderRadius: 16,
-        paddingVertical: 13,
-        paddingHorizontal: 18,
+        borderRadius: 14,
+        paddingVertical: 11,
+        paddingHorizontal: 16,
         alignItems: 'center',
         justifyContent: 'center',
       },
@@ -83,21 +88,21 @@ function useUiStyles() {
       button_ghost: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.border },
       button_danger: { backgroundColor: colors.danger },
       buttonPressed: { opacity: 0.88, transform: [{ scale: 0.98 }] },
-      buttonText: { color: '#fff', fontWeight: '700', fontSize: scale(15) },
+      buttonText: { color: '#fff', fontWeight: '700', fontSize: scale(14) },
       buttonTextDark: { color: colors.ink },
       input: {
         backgroundColor: colors.panel,
         borderWidth: 1,
         borderColor: colors.border,
-        borderRadius: 16,
-        paddingHorizontal: 15,
-        paddingVertical: 13,
+        borderRadius: 14,
+        paddingHorizontal: 14,
+        paddingVertical: 11,
         color: colors.ink,
-        fontSize: scale(15),
+        fontSize: scale(14),
       },
       banner: {
-        borderRadius: 16,
-        padding: 13,
+        borderRadius: 14,
+        padding: 12,
       },
       banner_info: { backgroundColor: colors.infoSoft },
       banner_error: { backgroundColor: colors.dangerSoft },
@@ -107,8 +112,8 @@ function useUiStyles() {
       },
       pill: {
         borderRadius: 999,
-        paddingVertical: 7,
-        paddingHorizontal: 12,
+        paddingVertical: 5,
+        paddingHorizontal: 10,
         alignSelf: 'flex-start',
       },
       pill_neutral: { backgroundColor: colors.brandSoft },
@@ -120,7 +125,7 @@ function useUiStyles() {
         color: colors.ink,
       },
     });
-  }, [colors, effectiveScale]);
+  }, [colors, effectiveScale, width]);
 }
 
 function textFromChildren(children: ReactNode): string | undefined {
@@ -180,6 +185,37 @@ export function Card({ children, accessibilityLabel }: { children: ReactNode; ac
   );
 }
 
+/**
+ * Liquid Glass card — uses a BlurView on iOS so content appears to float
+ * above the background with a frosted-glass material. On Android/web it
+ * falls back to the standard solid-panel Card.
+ */
+export function GlassCard({ children, accessibilityLabel, intensity = 40 }: { children: ReactNode; accessibilityLabel?: string; intensity?: number }) {
+  const styles = useUiStyles();
+  const { scheme } = useAppColorScheme();
+  if (Platform.OS !== 'ios') {
+    return (
+      <View style={styles.card} accessible={!!accessibilityLabel} accessibilityLabel={accessibilityLabel}>
+        {children}
+      </View>
+    );
+  }
+  return (
+    <View
+      style={[styles.card, { backgroundColor: 'transparent', overflow: 'hidden' }]}
+      accessible={!!accessibilityLabel}
+      accessibilityLabel={accessibilityLabel}
+    >
+      <BlurView
+        intensity={intensity}
+        tint={scheme}
+        style={[StyleSheet.absoluteFill, { borderRadius: styles.card.borderRadius }]}
+      />
+      <View style={{ position: 'relative' }}>{children}</View>
+    </View>
+  );
+}
+
 export function SectionTitle({
   title,
   subtitle,
@@ -192,9 +228,10 @@ export function SectionTitle({
   right?: ReactNode;
 }) {
   const styles = useUiStyles();
+  const colors = useThemeColors();
   const content = (
     <View style={styles.sectionHeader} accessibilityRole="header" accessibilityLabel={title}>
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, borderLeftWidth: 3, borderLeftColor: colors.accent, paddingLeft: 8 }}>
         <Text style={styles.sectionTitle} allowFontScaling={false}>{title}</Text>
         {subtitle ? <Text style={styles.sectionSubtitle} allowFontScaling={false}>{subtitle}</Text> : null}
       </View>

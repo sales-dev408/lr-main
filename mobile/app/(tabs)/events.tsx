@@ -30,8 +30,12 @@ export default function EventsScreen() {
 
   const columns = Math.max(1, Math.floor(width / MIN_CARD_WIDTH));
   const gap = 12;
-  const padding = 16;
-  const cardWidth = (width - padding * 2 - gap * (columns - 1)) / columns;
+  // Screen padding is responsive (12-16px based on width), use the max for safety.
+  const screenPadding = Math.min(16, Math.max(12, width * 0.04));
+  const listPadding = 16;
+  // Account for both the Screen wrapper padding and the FlatList content padding.
+  const availableWidth = width - (screenPadding + listPadding) * 2;
+  const cardWidth = (availableWidth - gap * (columns - 1)) / columns;
 
   const load = useCallback(async () => {
     setError(null);
@@ -127,7 +131,7 @@ export default function EventsScreen() {
         numColumns={columns}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding, paddingBottom: 24 }}
+        contentContainerStyle={{ padding: listPadding, paddingBottom: 24 }}
         columnWrapperStyle={columns > 1 ? { gap } : undefined}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
         ListHeaderComponent={header}

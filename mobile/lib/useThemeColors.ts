@@ -18,6 +18,7 @@ export function useThemeColors(): ThemeColors {
       border: scheme === 'dark' ? '#ffffff' : '#000000',
       muted: scheme === 'dark' ? '#ffffff' : '#000000',
       subtle: scheme === 'dark' ? '#ffffff' : '#000000',
+      accent: scheme === 'dark' ? '#ffffff' : '#000000',
     };
   }, [highContrast, scheme]);
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Image, ScrollView, Text, useWindowDimensions, View } from 'react-native';
-import { BrandHeader, Card, Pill, Screen, SectionTitle } from '@/components/Ui';
+import { BrandHeader, Card, GlassCard, Pill, Screen, SectionTitle } from '@/components/Ui';
 import { useDynamicType } from '@/lib/dynamicType';
 import { useThemeColors } from '@/lib/useThemeColors';
 import { SCHEDULES, type DayType, type Direction } from '@/lib/liveSchedules';
@@ -373,13 +373,14 @@ function LineCard({ line, status, compact }: { line: LineInfo; status: LineStatu
   const { width } = useWindowDimensions();
   const centered = width < SIDEBAR_BREAKPOINT;
   const direction = directionLabel(line);
+  const mapHeight = Math.min(200, Math.max(120, width * 0.4)) * effectiveScale;
 
   return (
     <Card accessibilityLabel={`${line.name} ${direction} live status`}>
-      <View style={{ alignItems: centered ? 'center' : 'flex-start', gap: 14 }}>
+      <View style={{ alignItems: centered ? 'center' : 'flex-start', gap: 14, width: '100%' }}>
         <Image
           source={line.map}
-          style={{ width: '100%', height: 200 * effectiveScale, borderRadius: 16, backgroundColor: colors.panel }}
+          style={{ width: '100%', height: mapHeight, borderRadius: 16, backgroundColor: colors.panel }}
           resizeMode="contain"
           accessibilityLabel={`${line.name} map`}
         />
@@ -391,8 +392,8 @@ function LineCard({ line, status, compact }: { line: LineInfo; status: LineStatu
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             {direction ? <Pill tone="warning">{direction.charAt(0).toUpperCase() + direction.slice(1)}</Pill> : null}
             <Pill tone="neutral">{dayLabel(status.day)}</Pill>
-            <View style={{ borderRadius: 999, backgroundColor: colors.warningSoft, paddingVertical: 4, paddingHorizontal: 10 }}>
-              <Text style={{ color: colors.ink, fontSize: 11 * effectiveScale, fontWeight: '800' }} allowFontScaling={false}>LIVE</Text>
+            <View style={{ borderRadius: 999, backgroundColor: colors.dangerSoft, paddingVertical: 4, paddingHorizontal: 10 }}>
+              <Text style={{ color: colors.accent, fontSize: 11 * effectiveScale, fontWeight: '800' }} allowFontScaling={false}>LIVE</Text>
             </View>
           </View>
         </View>
@@ -453,21 +454,21 @@ export default function LiveTrainsScreen() {
         contentContainerStyle={{
           gap: 14,
           paddingBottom: 32,
-          alignItems: compact ? 'center' : 'stretch',
+          alignItems: 'stretch',
         }}
       >
         <BrandHeader subtitle={`Train Schedule · ${formatTime(now)} · ${dayLabel(dayType(now))}`} />
 
-        <Card>
+        <GlassCard>
           <SectionTitle title="Current trains" subtitle="Next stop and estimated arrival" />
-          <View style={{ flexDirection: compact ? 'column' : 'row', flexWrap: compact ? undefined : 'wrap', gap: 14, justifyContent: 'space-between', alignItems: compact ? 'center' : 'stretch' }}>
+          <View style={{ flexDirection: compact ? 'column' : 'row', flexWrap: compact ? undefined : 'wrap', gap: 14, justifyContent: compact ? 'flex-start' : 'space-between', alignItems: compact ? 'stretch' : 'stretch' }}>
             {LINES.map((line, index) => (
-              <View key={lineKey(line)} style={{ flex: 1, minWidth: compact ? '100%' : 280, width: compact ? '100%' : undefined }}>
+              <View key={lineKey(line)} style={{ flex: compact ? undefined : 1, flexBasis: compact ? 'auto' : 0, minWidth: compact ? '100%' : 280, width: compact ? '100%' : undefined, maxWidth: compact ? '100%' : undefined }}>
                 <LineCard line={line} status={lineStatuses[index]} compact={compact} />
               </View>
             ))}
           </View>
-        </Card>
+        </GlassCard>
 
         <Text
           style={{
@@ -476,7 +477,6 @@ export default function LiveTrainsScreen() {
             lineHeight: 18 * effectiveScale,
             textAlign: 'center',
             paddingHorizontal: 8,
-            maxWidth: compact ? 360 * effectiveScale : undefined,
           }}
           allowFontScaling={false}
         >

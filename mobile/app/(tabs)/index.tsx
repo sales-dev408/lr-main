@@ -3,7 +3,7 @@ import { Image, ScrollView, Text, useWindowDimensions, View } from 'react-native
 import { Link, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AdBanner } from '@/components/AdBanner';
-import { AppButton, Banner, Card, Screen, SectionTitle, Spinner } from '@/components/Ui';
+import { AppButton, Banner, Card, GlassCard, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { useAuth } from '@/lib/auth';
 import { getMyAnalytics, listVendors } from '@/lib/api';
 import { useThemeColors } from '@/lib/useThemeColors';
@@ -67,7 +67,7 @@ export default function HomeScreen() {
     <Screen>
       <ScrollView contentContainerStyle={{ gap: 14, paddingBottom: 24 }}>
         <LinearGradient
-          colors={['#0d9488', '#6366f1']}
+          colors={['#0d9488', '#6366f1', '#e11d48']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ borderRadius: 24, padding: 24, gap: 8 }}
@@ -83,29 +83,29 @@ export default function HomeScreen() {
         {error ? <Banner tone="error">{error}</Banner> : null}
 
         {!loading && analytics ? (
-          <Card>
+          <GlassCard>
             <SectionTitle title="Your stats" subtitle="Membership activity at a glance" />
             <View style={{ flexDirection: width < 360 ? 'column' : 'row', gap: 12 }}>
-              <StatPill label="Total redemptions" value={analytics.totalRedemptions} color="#10b981" />
-              <StatPill label="Active deals" value={activeDeals} color="#f43f5e" />
+              <StatPill label="Total redemptions" value={analytics.totalRedemptions} color={colors.success} />
+              <StatPill label="Active deals" value={activeDeals} color={colors.accent} />
             </View>
             {topVendor ? (
               <Text style={{ color: colors.muted, textAlign: 'center', fontSize: 14 * effectiveScale }} allowFontScaling={false}>
                 Favorite spot: <Text style={{ fontWeight: '700', color: colors.ink }} allowFontScaling={false}>{topVendor.vendorName}</Text> ({topVendor.redemptions})
               </Text>
             ) : null}
-          </Card>
+          </GlassCard>
         ) : null}
 
         <Card>
           <SectionTitle title="Quick actions" subtitle="Jump to the most used features" />
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-            <View style={{ width: '48%', minWidth: 140 }}>
+            <View style={{ flex: 1, minWidth: 140 }}>
               <Link href="/(tabs)/browse" asChild>
                 <AppButton>Browse discounts</AppButton>
               </Link>
             </View>
-            <View style={{ width: '48%', minWidth: 140 }}>
+            <View style={{ flex: 1, minWidth: 140 }}>
               <Link href="/(tabs)/apartments" asChild>
                 <AppButton>Apartments & hotels</AppButton>
               </Link>

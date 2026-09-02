@@ -387,7 +387,7 @@ export default function AuthScreen() {
             <AppButton
               onPress={() => void submit()}
               disabled={loading}
-              style={{ minWidth: 280, width: '100%', maxWidth: 360, paddingVertical: 16 }}
+              style={{ width: '100%', maxWidth: 340, paddingVertical: 13 }}
             >
               {loading ? 'Working…' : submitLabel}
             </AppButton>
@@ -396,7 +396,7 @@ export default function AuthScreen() {
                 variant="secondary"
                 onPress={() => switchMode('login')}
                 disabled={loading}
-                style={{ minWidth: 280, width: '100%', maxWidth: 360, paddingVertical: 16 }}
+                style={{ width: '100%', maxWidth: 340, paddingVertical: 13 }}
               >
                 Back to sign in
               </AppButton>
@@ -405,7 +405,7 @@ export default function AuthScreen() {
                 variant="secondary"
                 onPress={() => switchMode(mode === 'login' ? 'register' : 'login')}
                 disabled={loading}
-                style={{ minWidth: 280, width: '100%', maxWidth: 360, paddingVertical: 16 }}
+                style={{ width: '100%', maxWidth: 340, paddingVertical: 13 }}
               >
                 Switch to {mode === 'login' ? 'register' : 'sign in'}
               </AppButton>

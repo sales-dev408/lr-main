@@ -43,9 +43,9 @@ function useTabStyles() {
         backgroundColor: Platform.select({ ios: 'transparent', default: colors.panel }),
         borderTopWidth: Platform.select({ ios: 0, default: 1 }),
         borderTopColor: colors.border,
-        paddingTop: 10,
-        paddingHorizontal: 6,
-        paddingBottom: 8,
+        paddingTop: 8,
+        paddingHorizontal: 4,
+        paddingBottom: 6,
       },
       blurContainer: {
         position: 'absolute',
@@ -54,6 +54,8 @@ function useTabStyles() {
         right: 0,
         bottom: 0,
         borderTopWidth: 0,
+        borderBottomLeftRadius: 0,
+        borderBottomRightRadius: 0,
       },
       tab: {
         flex: 1,
@@ -61,9 +63,9 @@ function useTabStyles() {
         gap: 4,
       },
       icon: {
-        width: 38 * multiplier,
-        height: 38 * multiplier,
-        borderRadius: 14,
+        width: 34 * multiplier,
+        height: 34 * multiplier,
+        borderRadius: 12,
         alignItems: 'center',
         justifyContent: 'center',
         elevation: 6,
@@ -104,7 +106,7 @@ export function GradientTabBar({ state, descriptors, navigation }: GradientTabBa
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
       {Platform.OS === 'ios' ? (
         <BlurView
-          intensity={80}
+          intensity={100}
           tint={scheme}
           style={styles.blurContainer}
         />

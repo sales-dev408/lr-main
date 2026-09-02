@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Image, Linking, ScrollView, Text, View } from 'react-native';
+import { Image, Linking, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { AdBanner } from '@/components/AdBanner';
@@ -21,6 +21,8 @@ const SORT_LABELS: Record<SortOption, string> = {
 export default function DiscoverScreen() {
   const colors = useThemeColors();
   const { effectiveScale } = useDynamicType();
+  const { width } = useWindowDimensions();
+  const imageHeight = Math.min(200, Math.max(140, width * 0.35));
   const router = useRouter();
   const admin = useAdmin();
   const [items, setItems] = useState<ContentBlock[]>([]);
@@ -118,7 +120,7 @@ export default function DiscoverScreen() {
             <SectionTitle title={item.title} />
             {!item.published ? <Pill tone="warning">Draft</Pill> : null}
             {item.kind === 'image' && item.url ? (
-              <Image source={{ uri: item.url }} style={{ width: '100%', height: 190, borderRadius: 16, backgroundColor: '#dfe7f3' }} resizeMode="cover" />
+              <Image source={{ uri: item.url }} style={{ width: '100%', height: imageHeight, borderRadius: 16, backgroundColor: '#dfe7f3' }} resizeMode="cover" />
             ) : null}
             {item.body ? <Text style={{ color: colors.muted, lineHeight: 20 * effectiveScale, fontSize: 14 * effectiveScale }} allowFontScaling={false}>{item.body}</Text> : null}
             {item.url && item.kind !== 'image' ? (

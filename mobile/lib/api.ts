@@ -328,7 +328,19 @@ export async function getAppState(): Promise<AppState | null> {
   const cachedData = await getItem(APP_STATE_DATA_KEY);
   if (cachedVersion === currentVersion && cachedData) {
     try {
-      return JSON.parse(cachedData) as AppState;
+      const cached = JSON.parse(cachedData) as AppState;
+      // Ensure stops are populated even on a cache hit so the stop picker
+      // and vendor grouping work on every app launch, not just the first.
+      if (!cached.stops || cached.stops.length === 0) {
+        try {
+          const stopsRaw = await apiRequest<Record<string, unknown>[]>('/stops');
+          cached.stops = stopsRaw.map(normalizeStop);
+        } catch {
+          // Backend doesn't expose /stops; continue with empty stops.
+        }
+      }
+      setStops(cached?.stops ?? []);
+      return cached;
     } catch {
       // ignore parse error and fetch fresh below
     }

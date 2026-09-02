@@ -9,7 +9,8 @@
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://okbolfpndeakmchpznmt.supabase.co/functions/v1/router"
-      }
+      },
+      "channel": "development"
     },
     "preview": {
       "distribution": "internal",
@@ -18,13 +19,29 @@
       },
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://okbolfpndeakmchpznmt.supabase.co/functions/v1/router"
-      }
+      },
+      "channel": "preview"
     },
     "production": {
       "autoIncrement": true,
+      "distribution": "store",
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://okbolfpndeakmchpznmt.supabase.co/functions/v1/router"
-      }
+        "EXPO_PUBLIC_API_BASE_URL": "https://okbolfpndeakmchpznmt.supabase.co/functions/v1/router",
+        "EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN": "pk.eyJ1Ijoic2FsZXMtZGV2MTIzIiwiYSI6ImNtc2kyYmJiOTA2d24yeG4xemxya3ZyNzYifQ.CynLROdxurBurDNpKJTfFQ",
+        "EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN_IOS": "pk.eyJ1Ijoic2FsZXMtZGV2MTIzIiwiYSI6ImNtc2kyYmJiOTA2d24yeG4xemxya3ZyNzYifQ.CynLROdxurBurDNpKJTfFQ",
+        "EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN_ANDROID": "pk.eyJ1Ijoic2FsZXMtZGV2MTIzIiwiYSI6ImNtc2kyYmJiOTA2d24yeG4xemxya3ZyNzYifQ.CynLROdxurBurDNpKJTfFQ",
+        "EXPO_PUBLIC_MAPBOX_STYLE_URL": "mapbox://styles/mapbox/streets-v12",
+        "EXPO_PUBLIC_MAPBOX_STYLE_URL_IOS": "mapbox://styles/mapbox/streets-v12",
+        "EXPO_PUBLIC_MAPBOX_STYLE_URL_ANDROID": "mapbox://styles/mapbox/streets-v12"
+      },
+      "channel": "production"
+    },
+    "development-ios-simulator": {
+      "developmentClient": true,
+      "ios": {
+        "simulator": true
+      },
+      "channel": "development-ios-simulator"
     }
   },
   "submit": {

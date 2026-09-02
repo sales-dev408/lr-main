@@ -18,6 +18,7 @@ export interface ThemeColors {
   danger: string;
   success: string;
   warning: string;
+  accent: string;
   radius: number;
   shadow: {
     shadowColor: string;
@@ -48,6 +49,7 @@ export const theme: ThemeColors = {
   danger: '#ef4444',
   success: '#10b981',
   warning: '#f59e0b',
+  accent: '#e11d48',
   radius: 20,
   shadow: {
     shadowColor: '#0f172a',
@@ -76,6 +78,7 @@ export const darkTheme: ThemeColors = {
   danger: '#f87171',
   success: '#34d399',
   warning: '#fbbf24',
+  accent: '#fb7185',
   radius: 20,
   shadow: {
     shadowColor: '#000000',
@@ -101,7 +104,7 @@ export const DEFAULT_THEME_SETTINGS: ThemeSettings = {
   primaryGradient: ['#0d9488', '#6366f1'],
   tabs: [
     { key: 'index', label: 'Home', color: '#0d9488', gradient: ['#14b8a6', '#0d9488'] },
-    { key: 'live', label: 'Train Schedule', color: '#f59e0b', gradient: ['#fbbf24', '#d97706'] },
+    { key: 'live', label: 'Train Schedule', color: '#e11d48', gradient: ['#fb7185', '#e11d48'] },
     { key: 'browse', label: 'Browse', color: '#f43f5e', gradient: ['#fb7185', '#e11d48'] },
     { key: 'events', label: 'Events', color: '#8b5cf6', gradient: ['#a78bfa', '#7c3aed'] },
     { key: 'apartments', label: 'Apartments', color: '#f59e0b', gradient: ['#fbbf24', '#d97706'] },

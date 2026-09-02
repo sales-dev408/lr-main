@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Linking, Platform, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { Linking, Platform, Pressable, RefreshControl, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, FieldInput, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { clearVersionCache, listApartments } from '@/lib/api';
@@ -22,6 +22,8 @@ function initialRegion(apartments: ApartmentRecord[]): Region {
 export default function ApartmentsScreen() {
   const colors = useThemeColors();
   const { effectiveScale } = useDynamicType();
+  const { width } = useWindowDimensions();
+  const mapHeight = Math.min(300, Math.max(180, width * 0.5));
   const [apartments, setApartments] = useState<ApartmentRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -147,7 +149,7 @@ export default function ApartmentsScreen() {
         <BrandHeader subtitle="Apartments & hotels within 1/2 mile of the light rail" />
 
         {region ? (
-          <View style={{ height: 280, borderRadius: 16, overflow: 'hidden' }}>
+          <View style={{ height: mapHeight, borderRadius: 16, overflow: 'hidden' }}>
             <MapView
               style={{ flex: 1, borderRadius: 16 }}
               initialRegion={region}

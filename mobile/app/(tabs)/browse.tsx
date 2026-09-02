@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Linking, Platform, Pressable, RefreshControl, ScrollView, Switch, Text, View } from 'react-native';
+import { Image, Linking, Platform, Pressable, RefreshControl, ScrollView, Switch, Text, View, useWindowDimensions } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Link, useFocusEffect } from 'expo-router';
 import * as Location from 'expo-location';
-import { AppButton, Banner, BrandHeader, Card, FieldInput, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
+import { AppButton, Banner, BrandHeader, Card, FieldInput, GlassCard, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { AdBanner } from '@/components/AdBanner';
 import { clearVersionCache, listVendors } from '@/lib/api';
 import { shareDeal } from '@/lib/share';
@@ -60,6 +60,8 @@ function initialRegion(vendors: VendorListItem[]): Region {
 export default function BrowseScreen() {
   const colors = useThemeColors();
   const { effectiveScale } = useDynamicType();
+  const { width } = useWindowDimensions();
+  const mapHeight = Math.min(280, Math.max(180, width * 0.45));
   const { favorites, toggle: toggleFavorite, isFavorite } = useFavorites();
   const [vendors, setVendors] = useState<VendorListItem[]>([]);
   const [typeFilter, setTypeFilter] = useState<(typeof TYPE_OPTIONS)[number]>('All');
@@ -298,7 +300,7 @@ export default function BrowseScreen() {
 
         <AdBanner slot={2} />
 
-        <Card>
+        <GlassCard>
           <SectionTitle title="Filter" subtitle="Restaurants, bars, cafes, and cuisine" />
           <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
             {TYPE_OPTIONS.map((value) => (
@@ -360,10 +362,10 @@ export default function BrowseScreen() {
           {locationPermission === false ? (
             <Banner tone="info">Location permission denied. Enable it in settings to see nearby shops sorted by distance.</Banner>
           ) : null}
-        </Card>
+        </GlassCard>
 
         {region ? (
-          <View style={{ height: 260, borderRadius: 16, overflow: 'hidden' }}>
+          <View style={{ height: mapHeight, borderRadius: 16, overflow: 'hidden' }}>
             <MapView
               style={{ flex: 1, borderRadius: 16 }}
               initialRegion={region}
@@ -439,7 +441,7 @@ export default function BrowseScreen() {
                           style={{ color: colors.ink, fontSize: 15 * effectiveScale, fontWeight: '700' }}
                           allowFontScaling={false}
                         >
-                          {vendor.boosted ? 'Flash: ' : ''}
+                          {vendor.boosted ? <Text style={{ color: colors.accent }}>Flash: </Text> : ''}
                           {vendor.name}
                         </Text>
                         {vendor.address ? (
@@ -463,7 +465,7 @@ export default function BrowseScreen() {
                         accessibilityLabel={favorite ? 'Remove from favorites' : 'Add to favorites'}
                         style={{ padding: 8 }}
                       >
-                        <Text style={{ fontSize: 24 * effectiveScale, color: colors.brand }} allowFontScaling={false}>
+                        <Text style={{ fontSize: 24 * effectiveScale, color: favorite ? colors.accent : colors.subtle }} allowFontScaling={false}>
                           {favorite ? '♥' : '♡'}
                         </Text>
                       </Pressable>
@@ -482,7 +484,7 @@ export default function BrowseScreen() {
             {selected.logoUrl || selected.iconUrl ? (
               <Image
                 source={{ uri: selected.logoUrl ?? selected.iconUrl ?? undefined }}
-                style={{ width: '100%', height: 140, borderRadius: 16, backgroundColor: '#dfe7f3' }}
+                style={{ width: '100%', height: Math.min(140, Math.max(100, width * 0.25)), borderRadius: 16, backgroundColor: '#dfe7f3' }}
                 resizeMode="contain"
               />
             ) : null}
@@ -495,7 +497,7 @@ export default function BrowseScreen() {
                 accessibilityLabel={isFavorite(selected.id) ? 'Remove from favorites' : 'Add to favorites'}
                 style={{ padding: 8 }}
               >
-                <Text style={{ fontSize: 28 * effectiveScale, color: colors.brand }} allowFontScaling={false}>
+                <Text style={{ fontSize: 28 * effectiveScale, color: isFavorite(selected.id) ? colors.accent : colors.subtle }} allowFontScaling={false}>
                   {isFavorite(selected.id) ? '♥' : '♡'}
                 </Text>
               </Pressable>

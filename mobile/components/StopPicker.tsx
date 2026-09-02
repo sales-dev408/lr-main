@@ -122,9 +122,9 @@ export function StopPicker({
           justifyContent: 'space-between',
           borderWidth: 1,
           borderColor: colors.border,
-          borderRadius: 16,
-          paddingHorizontal: 15,
-          paddingVertical: 13,
+          borderRadius: 14,
+          paddingHorizontal: 14,
+          paddingVertical: 11,
           backgroundColor: colors.panel,
           opacity: entries.length === 0 ? 0.5 : 1,
         }}
@@ -154,7 +154,7 @@ export function StopPicker({
             }}
           >
             {Platform.OS === 'ios' ? (
-              <BlurView intensity={80} tint={scheme} style={{ flex: 1 }}>
+              <BlurView intensity={100} tint={scheme} style={{ flex: 1 }}>
                 {modalContent}
               </BlurView>
             ) : (
