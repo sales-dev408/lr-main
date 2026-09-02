@@ -1,0 +1,49 @@
+# GitHub Actions workflow: runs EAS build + submit and uses EXPO_TOKEN to fetch Expo-managed credentials.
+name: EAS Build & Submit (iOS)
+
+on:
+  push:
+    branches: ['main']
+
+jobs:
+  build-and-submit-ios:
+    name: Build and Submit iOS
+    runs-on: ubuntu-latest
+    env:
+      # Must be set in repo secrets (see instructions below)
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      # Optional: set while debugging, remove or set to "0" afterwards
+      EXPO_DEBUG: "1"
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies (mobile)
+        working-directory: mobile
+        run: |
+          npm ci
+
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
+
+      - name: Show EAS and expo versions (sanity check)
+        run: |
+          eas --version
+          npx expo --version
+
+      - name: Build iOS (EAS)
+        working-directory: mobile
+        run: |
+          # non-interactive so CI doesn't hang
+          eas build --platform ios --profile production --non-interactive
+
+      - name: Submit to App Store (EAS)
+        working-directory: mobile
+        run: |
+          # Submit the most recent build created for the profile
+          eas submit --platform ios --profile production --non-interactive
