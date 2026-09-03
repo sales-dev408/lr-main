@@ -10,6 +10,113 @@ function normalizeUrl(url: string): string {
   return `https://${trimmed}`;
 }
 
+// ---- JSON import helpers ---------------------------------------------------
+
+// Canonical field -> accepted aliases (compared case- and punctuation-insensitively).
+const FIELD_ALIASES: Record<keyof ParsedEventRow, string[]> = {
+  title: ['name', 'title', 'event', 'eventname', 'eventtitle', 'subject', 'summarytitle'],
+  description: ['description', 'desc', 'details', 'summary', 'about', 'info', 'body', 'content', 'text'],
+  eventDate: ['date', 'time', 'datetime', 'eventdate', 'when', 'startdate', 'start', 'begins', 'beginsat', 'eventtime', 'dateonly', 'timeonly', 'occurs', 'occursat'],
+  location: ['location', 'venue', 'place', 'where', 'address', 'city', 'locationname', 'placename', 'town'],
+  link: ['link', 'url', 'website', 'href', 'registration', 'register', 'tickets', 'ticketurl', 'eventurl', 'moreinfo', 'source', 'sourceurl', 'more'],
+};
+
+interface ParsedEventRow {
+  title?: string;
+  description?: string;
+  eventDate?: string;
+  location?: string;
+  link?: string;
+}
+
+function normalizeKey(key: string): string {
+  return key.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+// Build a reverse lookup: normalized alias -> canonical field name.
+const ALIAS_LOOKUP: Record<string, keyof ParsedEventRow> = (() => {
+  const map: Record<string, keyof ParsedEventRow> = {};
+  (Object.keys(FIELD_ALIASES) as (keyof ParsedEventRow)[]).forEach((field) => {
+    map[normalizeKey(field)] = field;
+    FIELD_ALIASES[field].forEach((alias) => {
+      map[normalizeKey(alias)] = field;
+    });
+  });
+  return map;
+})();
+
+function coerceString(value: unknown): string | undefined {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === 'string') return value.trim() || undefined;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value).trim() || undefined;
+  return undefined;
+}
+
+function toDateOnly(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  // Already YYYY-MM-DD?
+  if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) return trimmed.slice(0, 10);
+  const parsed = new Date(trimmed);
+  if (!isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+  return undefined;
+}
+
+function parseEventRows(raw: string): ParsedEventRow[] {
+  let data: unknown;
+  try {
+    data = JSON.parse(raw);
+  } catch (err) {
+    throw new Error('Invalid JSON: ' + (err instanceof Error ? err.message : 'parse error'));
+  }
+
+  // Accept a top-level array, a single object, or an object wrapping an array under common keys.
+  let records: unknown[] = [];
+  if (Array.isArray(data)) {
+    records = data;
+  } else if (data && typeof data === 'object') {
+    const obj = data as Record<string, unknown>;
+    const wrapperKey = Object.keys(obj).find((k) => {
+      const n = normalizeKey(k);
+      return (n === 'events' || n === 'data' || n === 'items' || n === 'list' || n === 'rows') && Array.isArray(obj[k]);
+    });
+    if (wrapperKey) {
+      records = obj[wrapperKey] as unknown[];
+    } else {
+      records = [data];
+    }
+  } else {
+    throw new Error('JSON must be an object or an array of objects.');
+  }
+
+  return records.map((record, index) => {
+    if (!record || typeof record !== 'object' || Array.isArray(record)) {
+      throw new Error(`Row ${index + 1} is not an object.`);
+    }
+    const row: ParsedEventRow = {};
+    for (const [key, value] of Object.entries(record as Record<string, unknown>)) {
+      const field = ALIAS_LOOKUP[normalizeKey(key)];
+      if (!field) continue;
+      const text = coerceString(value);
+      if (text === undefined) continue;
+      // Don't overwrite an already-matched canonical field.
+      if (row[field] === undefined) row[field] = text;
+    }
+    return row;
+  });
+}
+
+function rowToEventInput(row: ParsedEventRow): { title: string; description?: string; eventDate?: string } | null {
+  const title = row.title?.trim();
+  if (!title) return null;
+  const extras: string[] = [];
+  if (row.location) extras.push(`Location: ${row.location}`);
+  if (row.link) extras.push(`Link: ${row.link}`);
+  const description = [row.description?.trim(), ...extras].filter(Boolean).join('\n\n') || undefined;
+  const eventDate = row.eventDate ? toDateOnly(row.eventDate) : undefined;
+  return { title, description, eventDate };
+}
+
 export function EventsPage() {
   const [urls, setUrls] = useState<string>('');
   const [customEvents, setCustomEvents] = useState<AdminEvent[]>([]);
@@ -22,6 +129,11 @@ export function EventsPage() {
 
   const [newEvent, setNewEvent] = useState({ title: '', description: '', eventDate: '', imageUrl: '' });
   const [editingEvent, setEditingEvent] = useState<AdminEvent | null>(null);
+
+  // JSON bulk import state
+  const [jsonText, setJsonText] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ created: number; skipped: number; failed: number; errors: string[] } | null>(null);
 
   useEffect(() => {
     void load();
@@ -133,6 +245,65 @@ export function EventsPage() {
     }
   }
 
+  async function handleImportJson() {
+    setError(null);
+    setToast(null);
+    setImportResult(null);
+    if (!jsonText.trim()) {
+      setError('Paste a JSON array of events first.');
+      return;
+    }
+    let rows: ParsedEventRow[];
+    try {
+      rows = parseEventRows(jsonText);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to parse JSON');
+      return;
+    }
+    if (rows.length === 0) {
+      setError('No event rows found in the JSON.');
+      return;
+    }
+
+    setImporting(true);
+    let created = 0;
+    let skipped = 0;
+    let failed = 0;
+    const errors: string[] = [];
+    const createdEvents: AdminEvent[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const input = rowToEventInput(rows[i]!);
+      if (!input) {
+        skipped++;
+        errors.push(`Row ${i + 1}: skipped (no name/title).`);
+        continue;
+      }
+      try {
+        const event = await createAdminEvent(input);
+        createdEvents.push(event);
+        created++;
+      } catch (err) {
+        failed++;
+        errors.push(`Row ${i + 1} ("${input.title}"): ${err instanceof Error ? err.message : 'failed'}`);
+      }
+    }
+
+    if (createdEvents.length > 0) {
+      setCustomEvents((prev) => [...createdEvents.reverse(), ...prev]);
+    }
+    setImportResult({ created, skipped, failed, errors: errors.slice(0, 20) });
+    if (failed === 0 && created > 0) {
+      setToast(`Imported ${created} event${created === 1 ? '' : 's'}.`);
+      setJsonText('');
+    } else if (created > 0) {
+      setToast(`Imported ${created}, ${failed} failed, ${skipped} skipped.`);
+    } else {
+      setError(`No events imported. ${failed} failed, ${skipped} skipped.`);
+    }
+    setImporting(false);
+  }
+
   function formatDate(date: string | null): string {
     if (!date) return 'No date';
     return new Date(date).toLocaleDateString();
@@ -193,6 +364,42 @@ export function EventsPage() {
           </form>
         </PageCard>
       </div>
+
+      <PageCard
+        title="Import from JSON"
+        subtitle="Paste a JSON array of events. Column names are case-insensitive (e.g. name, title, date/time, location, description, link). Only a name/title is required; other columns are optional. Location and link are appended to the description."
+      >
+        <Textarea
+          rows={12}
+          value={jsonText}
+          onChange={(e) => setJsonText(e.target.value)}
+          placeholder={'[\n  {\n    "name": "Summer Festival",\n    "date/time": "2026-07-04T18:00",\n    "location": "Central Park",\n    "description": "Food trucks and live music.",\n    "link": "https://example.com/tickets"\n  }\n]'}
+        />
+        <div className="inline-row" style={{ marginTop: 12 }}>
+          <Button onClick={handleImportJson} disabled={importing || !jsonText.trim()}>
+            {importing ? 'Importing…' : 'Import events'}
+          </Button>
+          {jsonText.trim() ? (
+            <Button variant="ghost" onClick={() => { setJsonText(''); setImportResult(null); }} disabled={importing}>
+              Clear
+            </Button>
+          ) : null}
+        </div>
+        {importResult ? (
+          <div className="muted" style={{ marginTop: 12 }}>
+            <p>
+              Created: <strong>{importResult.created}</strong> · Skipped: <strong>{importResult.skipped}</strong> · Failed: <strong>{importResult.failed}</strong>
+            </p>
+            {importResult.errors.length > 0 ? (
+              <ul className="event-preview-list" style={{ marginTop: 8 }}>
+                {importResult.errors.map((msg, i) => (
+                  <li key={i}>{msg}</li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
+      </PageCard>
 
       {preview ? (
         <PageCard title="Preview" subtitle={`Found ${preview.count} event${preview.count === 1 ? '' : 's'}`}>
