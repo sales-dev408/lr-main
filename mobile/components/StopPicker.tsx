@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { LiquidGlassView, isLiquidGlassSupported } from '@callstack/liquid-glass';
 import { useThemeColors } from '@/lib/useThemeColors';
 import { useAppColorScheme } from '@/lib/colorScheme';
 import { useDynamicType } from '@/lib/dynamicType';
@@ -146,14 +147,22 @@ export function StopPicker({
           <Pressable
             onPress={() => undefined}
             style={{
-              maxHeight: '80%',
+              height: '80%',
               borderRadius: colors.radius,
               borderWidth: 1,
               borderColor: colors.border,
               overflow: 'hidden',
             }}
           >
-            {Platform.OS === 'ios' ? (
+            {isLiquidGlassSupported ? (
+              <LiquidGlassView
+                effect="regular"
+                colorScheme={scheme}
+                style={{ flex: 1 }}
+              >
+                {modalContent}
+              </LiquidGlassView>
+            ) : Platform.OS === 'ios' ? (
               <BlurView intensity={100} tint={scheme} style={{ flex: 1 }}>
                 {modalContent}
               </BlurView>

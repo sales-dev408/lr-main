@@ -2,6 +2,7 @@ import type { ComponentProps } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { LiquidGlassView, isLiquidGlassSupported } from '@callstack/liquid-glass';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/lib/appTheme';
@@ -40,8 +41,10 @@ function useTabStyles() {
         alignItems: 'flex-end',
         // Use a translucent background so the Liquid Glass blur material shows
         // through on iOS. On web/Android, fall back to the solid panel color.
-        backgroundColor: Platform.select({ ios: 'transparent', default: colors.panel }),
-        borderTopWidth: Platform.select({ ios: 0, default: 1 }),
+        backgroundColor: isLiquidGlassSupported
+          ? 'transparent'
+          : Platform.select({ ios: 'transparent', default: colors.panel }),
+        borderTopWidth: isLiquidGlassSupported ? 0 : Platform.select({ ios: 0, default: 1 }),
         borderTopColor: colors.border,
         paddingTop: 8,
         paddingHorizontal: 4,
@@ -104,7 +107,13 @@ export function GradientTabBar({ state, descriptors, navigation }: GradientTabBa
 
   return (
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-      {Platform.OS === 'ios' ? (
+      {isLiquidGlassSupported ? (
+        <LiquidGlassView
+          effect="regular"
+          colorScheme={scheme}
+          style={styles.blurContainer}
+        />
+      ) : Platform.OS === 'ios' ? (
         <BlurView
           intensity={100}
           tint={scheme}

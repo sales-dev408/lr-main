@@ -28,8 +28,11 @@ jobs:
     name: Submit iOS Build
     needs: [build_ios]
     type: submit
+    env:
+      EXPO_DEBUG: "1"
     params:
       build_id: ${{ needs.build_ios.outputs.build_id }}
+      profile: production
   publish_ios_update:
     name: Publish iOS update
     needs: [get_ios_build]
