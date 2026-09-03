@@ -59,6 +59,7 @@
     "uuid": "^11.1.1",
     "image-size": "npm:image-size-safe@2.0.3",
     "decode-uri-component": "^0.5.0",
+    "@xmldom/xmldom": "0.9.12",
     "@rnmapbox/maps": {
       "mapbox-gl": "$mapbox-gl"
     }
