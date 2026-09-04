@@ -131,17 +131,15 @@ offer, transaction or redemption identifiers, and technical information.
 suspicious activity and suspend, restrict, invalidate, or terminate accounts or passes where reasonably necessary to protect the Service, members,
 participating businesses, or our rights.
 
-Location, Camera, Notifications, and Device Permissions
+Location, Notifications, and Device Permissions
 
-1. Location. The Service may request access to your device’s precise or approximate location in order to display participating businesses near you and
+1. Location. The Service may request access to your device's precise or approximate location in order to display participating businesses near you and
 provide location-based functionality. You may manage location permissions through your device settings.
 2. Map Services. The Service may use third-party mapping services, including Mapbox. Your use of map features may result in information being transmitted
 to and processed by such providers in accordance with their applicable terms and privacy practices.
-3. Camera. The Service may request access to your device camera to scan QR codes, discount codes, or other machine-readable information. Camera
-access is optional for some features and may be controlled through device settings.
-4. Push Notifications. The Service may request permission to send push notifications regarding account activity, security, redemptions, service
+3. Push Notifications. The Service may request permission to send push notifications regarding account activity, security, redemptions, service
 announcements, and, where permitted, promotions. You may disable push notifications through the application or device settings.
-5. Device and Network Requirements. Certain features require a compatible device, internet access, mobile service, and other third-party technologies.
+4. Device and Network Requirements. Certain features require a compatible device, internet access, mobile service, and other third-party technologies.
 You are responsible for obtaining and maintaining the hardware, software, internet connectivity, and mobile services necessary to use the Service.
 
 Acceptable Use Restrictions

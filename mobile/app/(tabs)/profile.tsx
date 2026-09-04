@@ -22,6 +22,8 @@ export default function ProfileScreen() {
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
   const [vendors, setVendors] = useState<VendorListItem[]>([]);
 
+  const [profileError, setProfileError] = useState<string | null>(null);
+
   const cities = useMemo(() => {
     const set = new Set<string>();
     for (const v of vendors) {
@@ -49,7 +51,12 @@ export default function ProfileScreen() {
   );
 
   async function handleCityChange(next: string) {
-    await auth.updateProfile({ city: next });
+    setProfileError(null);
+    try {
+      await auth.updateProfile({ city: next });
+    } catch (err) {
+      setProfileError(err instanceof Error ? err.message : 'Unable to update city');
+    }
   }
 
   const sectionLabel = { color: colors.ink, fontSize: 16 * effectiveScale, fontWeight: '600' } as const;
@@ -64,6 +71,7 @@ export default function ProfileScreen() {
 
         <Card>
           <SectionTitle title="Profile" subtitle="Signed-in customer details" />
+          {profileError ? <Banner tone="error">{profileError}</Banner> : null}
           {auth.profile ? (
             <View style={{ gap: 10 }}>
               <View>
@@ -217,7 +225,11 @@ export default function ProfileScreen() {
                 {
                   text: 'Delete',
                   style: 'destructive',
-                  onPress: () => void auth.deleteAccount().then(() => router.replace('/auth')),
+                  onPress: () => {
+                    void auth.deleteAccount()
+                      .then(() => router.replace('/auth'))
+                      .catch((err) => Alert.alert('Error', err instanceof Error ? err.message : 'Unable to delete account'));
+                  },
                 },
               ])
             }

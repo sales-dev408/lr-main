@@ -42,7 +42,7 @@ export function AdBanner({ slot, title = 'Sponsors' }: { slot?: number; title?: 
     return null;
   }
 
-  const itemWidth = Math.min(width - 48 * effectiveScale, 320 * effectiveScale);
+  const itemWidth = Math.max(0, Math.min(width - 48 * effectiveScale, 320 * effectiveScale));
   const itemHeight = itemWidth * 0.5;
 
   return (

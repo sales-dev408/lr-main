@@ -74,6 +74,8 @@ export default function DiscountScreen() {
       if (result.ok) {
         setApproved(true);
         setApprovedLabel(result.discountLabel);
+      } else {
+        setError(result.discountLabel || 'The vendor was unable to apply the discount.');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to apply discount');

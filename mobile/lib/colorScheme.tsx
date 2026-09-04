@@ -18,7 +18,6 @@ const ColorSchemeContext = createContext<ColorSchemeContextValue | null>(null);
 export function ColorSchemeProvider({ children }: { children: ReactNode }) {
   const [scheme, setSchemeState] = useState<AppColorScheme>(Appearance.getColorScheme() === 'dark' ? 'dark' : 'light');
   const [highContrast, setHighContrastState] = useState(false);
-  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -36,8 +35,7 @@ export function ColorSchemeProvider({ children }: { children: ReactNode }) {
         } catch {
           // ignore
         }
-      })
-      .finally(() => setLoaded(true));
+      });
     return () => {
       mounted = false;
     };
@@ -73,11 +71,8 @@ export function ColorSchemeProvider({ children }: { children: ReactNode }) {
     [scheme, setScheme, highContrast, setHighContrast],
   );
 
-  if (!loaded) {
-    // Prevent theme flash while reading stored preference.
-    return null;
-  }
-
+  // Always render children; before storage is loaded we use the OS default
+  // scheme and no high-contrast. This avoids a blank flash at boot.
   return <ColorSchemeContext.Provider value={value}>{children}</ColorSchemeContext.Provider>;
 }
 

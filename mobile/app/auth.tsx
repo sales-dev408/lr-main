@@ -12,7 +12,7 @@ type Mode = 'login' | 'register' | 'forgot';
 type ForgotStep = 'request' | 'reset';
 
 function isEmail(value: string) {
-  return value.includes('@');
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
 function CheckRow({ checked, onToggle, label }: { checked: boolean; onToggle: () => void; label: ReactNode }) {
@@ -46,7 +46,14 @@ function LinkText({ url, children }: { url: string; children: ReactNode }) {
   const colors = useThemeColors();
   const { effectiveScale } = useDynamicType();
   return (
-    <Text onPress={() => void Linking.openURL(url)} style={{ color: colors.brand, textDecorationLine: 'underline', fontSize: 14 * effectiveScale }} allowFontScaling={false}>
+    <Text
+      onPress={(e) => {
+        e?.stopPropagation();
+        void Linking.openURL(url);
+      }}
+      style={{ color: colors.brand, textDecorationLine: 'underline', fontSize: 14 * effectiveScale }}
+      allowFontScaling={false}
+    >
       {children}
     </Text>
   );
@@ -120,8 +127,8 @@ export default function AuthScreen() {
         }
         setLoading(true);
         try {
-          const result = await requestPasswordReset(forgotIdentifier.trim());
-          setSuccess(result.verificationCode ? `Verification code: ${result.verificationCode}` : 'If an account exists, a code was sent.');
+          await requestPasswordReset(forgotIdentifier.trim());
+          setSuccess('If an account exists, a verification code was sent to your email or phone.');
           setForgotStep('reset');
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Unable to request reset');

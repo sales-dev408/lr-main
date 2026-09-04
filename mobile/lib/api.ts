@@ -189,14 +189,15 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   // Use the fetch cache option instead of Cache-Control/Pragma headers so the
   // request stays a simple CORS request and avoids an extra preflight.
   const method = init.method?.toUpperCase() ?? 'GET';
-  if (method === 'GET' && !init.cache) {
-    init.cache = 'no-store';
+  const fetchInit: RequestInit = { ...init };
+  if (method === 'GET' && !fetchInit.cache) {
+    fetchInit.cache = 'no-store';
   }
 
   let response: Response;
   try {
     response = await fetch(`${getApiBaseUrl()}${path.startsWith('/') ? path : `/${path}`}`, {
-      ...init,
+      ...fetchInit,
       headers,
     });
   } catch (error) {

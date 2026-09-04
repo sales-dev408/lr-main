@@ -129,26 +129,29 @@ export default function MapView({
     <RNMapboxMapView
       style={style}
       styleURL={getMapboxStyleUrl() ?? 'mapbox://styles/mapbox/streets-v12'}
-      onRegionDidChange={
+      onMapIdle={
         onRegionChangeComplete
-          ? (feature) => {
+          ? (state) => {
               // Ignore the region change that results from our own camera
               // animation; only forward user-initiated pans/zooms.
               if (programmaticMoveRef.current) {
                 programmaticMoveRef.current = false;
                 return;
               }
-              const props = feature.properties;
-              const [longitude, latitude] = feature.geometry.coordinates;
-              const zoom = props?.zoomLevel ?? DEFAULT_ZOOM;
+              const [longitude, latitude] = state.properties.center;
+              const zoom = state.properties.zoom ?? DEFAULT_ZOOM;
               const longitudeDelta = 360 / 2 ** zoom;
               const latitudeDelta = longitudeDelta;
-              onRegionChangeComplete({
+              const next: Region = {
                 latitude,
                 longitude,
                 latitudeDelta,
                 longitudeDelta,
-              });
+              };
+              // Update lastRegionRef so the useEffect above doesn't
+              // re-trigger a programmatic move for this user-initiated change.
+              lastRegionRef.current = next;
+              onRegionChangeComplete(next);
             }
           : undefined
       }

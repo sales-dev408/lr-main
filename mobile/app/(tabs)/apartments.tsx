@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Platform, Pressable, RefreshControl, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, FieldInput, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
@@ -33,6 +33,7 @@ export default function ApartmentsScreen() {
   const [search, setSearch] = useState('');
   const scrollRef = useRef<ScrollView>(null);
   const stationOffsets = useRef<Map<string, number>>(new Map());
+  const jumpIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -114,17 +115,31 @@ export default function ApartmentsScreen() {
   }, [apartments]);
 
   const jumpToStation = useCallback((station: string) => {
+    if (jumpIntervalRef.current) {
+      clearInterval(jumpIntervalRef.current);
+    }
     let attempts = 0;
     const id = setInterval(() => {
       attempts++;
       const offset = stationOffsets.current.get(station);
       if (offset != null) {
         clearInterval(id);
+        jumpIntervalRef.current = null;
         scrollRef.current?.scrollTo({ y: Math.max(offset - 8, 0), animated: false });
       } else if (attempts >= 20) {
         clearInterval(id);
+        jumpIntervalRef.current = null;
       }
     }, 75);
+    jumpIntervalRef.current = id;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (jumpIntervalRef.current) {
+        clearInterval(jumpIntervalRef.current);
+      }
+    };
   }, []);
 
   const mapped = useMemo(() => filtered.filter((a) => a.latitude != null && a.longitude != null), [filtered]);

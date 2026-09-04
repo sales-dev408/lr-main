@@ -78,7 +78,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateProfile = useCallback(
     async (update: Partial<UserProfile> & { pushPreferences?: PushPreferences }) => {
-      const next = normalizeProfile({ ...(profile ?? ({} as UserProfile)), ...update } as UserProfile);
+      if (!profile) return;
+      const next = normalizeProfile({ ...profile, ...update } as UserProfile);
       setProfile(next);
       if (token) {
         await setItem(AUTH_KEY, JSON.stringify({ token, profile: next }));

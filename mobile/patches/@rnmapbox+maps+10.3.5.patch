@@ -1,0 +1,19 @@
+diff --git a/node_modules/@rnmapbox/maps/android/build.gradle b/node_modules/@rnmapbox/maps/android/build.gradle
+--- a/node_modules/@rnmapbox/maps/android/build.gradle
++++ b/node_modules/@rnmapbox/maps/android/build.gradle
+@@ -85,5 +85,15 @@
+                 java.srcDirs += 'src/main/mapbox-v11-compat/v11'
+                 java.srcDirs += 'src/main/rn-compat/rn75'
+ 
++                // On AGP 8.9+ (RN 0.86), java.srcDirs no longer implicitly
++                // registers Kotlin source roots for compileKotlin, so the .kt
++                // files in the compat dirs are silently skipped. Register them
++                // explicitly as Kotlin source dirs as well.
++                // See: https://github.com/rnmapbox/maps/issues/4263
++                kotlin {
++                    srcDir 'src/main/mapbox-v11-compat/v11'
++                    srcDir 'src/main/rn-compat/rn75'
++                }
++
+                 // Adapted from react-native-screens for consistency
+                 // https://github.com/software-mansion/react-native-screens/blob/main/android/build.gradle

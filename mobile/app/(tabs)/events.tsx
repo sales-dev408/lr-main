@@ -80,45 +80,48 @@ export default function EventsScreen() {
     [],
   );
 
-  function renderItem({ item }: { item: RssEvent }) {
-    return (
-      <View style={{ width: cardWidth, marginBottom: gap, marginRight: gap }}>
-        <View style={{ borderRadius: 16, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' }}>
-          {item.imageUrl ? (
-            <Image
-              source={{ uri: item.imageUrl }}
-              style={{ width: '100%', height: cardWidth * 0.56, backgroundColor: colors.subtle }}
-              resizeMode="cover"
-              accessibilityLabel={item.title}
-            />
-          ) : null}
-          <View style={{ padding: 14, gap: 8 }}>
-            <Text style={{ color: colors.ink, fontWeight: '700', fontSize: 16 * effectiveScale }} allowFontScaling={false}>
-              {item.title}
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-              {item.sourceName ? <Pill tone="neutral">{item.sourceName}</Pill> : null}
-              {item.pubDate ? <Pill tone="neutral">{formatDate(item.pubDate)}</Pill> : null}
-            </View>
-            {item.description ? (
-              <Text
-                numberOfLines={3}
-                style={{ color: colors.muted, lineHeight: 20 * effectiveScale, fontSize: 14 * effectiveScale }}
-                allowFontScaling={false}
-              >
-                {item.description}
+  const renderItem = useCallback(
+    ({ item }: { item: RssEvent }) => {
+      return (
+        <View style={{ width: cardWidth, marginBottom: gap }}>
+          <View style={{ borderRadius: 16, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' }}>
+            {item.imageUrl ? (
+              <Image
+                source={{ uri: item.imageUrl }}
+                style={{ width: '100%', height: cardWidth * 0.56, backgroundColor: colors.subtle }}
+                resizeMode="cover"
+                accessibilityLabel={item.title}
+              />
+            ) : null}
+            <View style={{ padding: 14, gap: 8 }}>
+              <Text style={{ color: colors.ink, fontWeight: '700', fontSize: 16 * effectiveScale }} allowFontScaling={false}>
+                {item.title}
               </Text>
-            ) : null}
-            {item.link ? (
-              <AppButton variant="secondary" onPress={() => openLink(item.link)}>
-                View event
-              </AppButton>
-            ) : null}
+              <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                {item.sourceName ? <Pill tone="neutral">{item.sourceName}</Pill> : null}
+                {item.pubDate ? <Pill tone="neutral">{formatDate(item.pubDate)}</Pill> : null}
+              </View>
+              {item.description ? (
+                <Text
+                  numberOfLines={3}
+                  style={{ color: colors.muted, lineHeight: 20 * effectiveScale, fontSize: 14 * effectiveScale }}
+                  allowFontScaling={false}
+                >
+                  {item.description}
+                </Text>
+              ) : null}
+              {item.link ? (
+                <AppButton variant="secondary" onPress={() => openLink(item.link)}>
+                  View event
+                </AppButton>
+              ) : null}
+            </View>
           </View>
         </View>
-      </View>
-    );
-  }
+      );
+    },
+    [cardWidth, colors.panel, colors.border, colors.ink, colors.muted, colors.subtle, effectiveScale, gap],
+  );
 
   return (
     <Screen>

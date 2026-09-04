@@ -24,7 +24,7 @@ function distanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - Math.min(1, a)));
   return R * c;
 }
 
@@ -78,6 +78,7 @@ export default function BrowseScreen() {
   const [collapsedStations, setCollapsedStations] = useState<Set<string>>(new Set());
   const scrollRef = useRef<ScrollView>(null);
   const stationOffsets = useRef<Map<string, number>>(new Map());
+  const jumpIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -110,19 +111,29 @@ export default function BrowseScreen() {
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
+    let active = true;
     void (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      setLocationPermission(status === 'granted');
-      if (status !== 'granted') return;
-      const current = await Location.getCurrentPositionAsync({});
-      setLocation(current);
-      setRegion({
-        latitude: current.coords.latitude,
-        longitude: current.coords.longitude,
-        latitudeDelta: 0.12,
-        longitudeDelta: 0.12,
-      });
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (!active) return;
+        setLocationPermission(status === 'granted');
+        if (status !== 'granted') return;
+        const current = await Location.getCurrentPositionAsync({});
+        if (!active) return;
+        setLocation(current);
+        setRegion({
+          latitude: current.coords.latitude,
+          longitude: current.coords.longitude,
+          latitudeDelta: 0.12,
+          longitudeDelta: 0.12,
+        });
+      } catch {
+        if (active) setLocationPermission(false);
+      }
     })();
+    return () => {
+      active = false;
+    };
   }, []);
 
   async function onRefresh() {
@@ -250,6 +261,10 @@ export default function BrowseScreen() {
       next.delete(station);
       return next;
     });
+    // Clear any previous polling interval before starting a new one.
+    if (jumpIntervalRef.current) {
+      clearInterval(jumpIntervalRef.current);
+    }
     // Poll until onLayout reports the section's y position after it expands.
     let attempts = 0;
     const id = setInterval(() => {
@@ -257,11 +272,23 @@ export default function BrowseScreen() {
       const offset = stationOffsets.current.get(station);
       if (offset != null) {
         clearInterval(id);
+        jumpIntervalRef.current = null;
         scrollRef.current?.scrollTo({ y: Math.max(offset - 8, 0), animated: false });
       } else if (attempts >= 20) {
         clearInterval(id);
+        jumpIntervalRef.current = null;
       }
     }, 75);
+    jumpIntervalRef.current = id;
+  }, []);
+
+  // Clear any pending jump interval on unmount.
+  useEffect(() => {
+    return () => {
+      if (jumpIntervalRef.current) {
+        clearInterval(jumpIntervalRef.current);
+      }
+    };
   }, []);
 
   const selected = useMemo(

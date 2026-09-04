@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useWindowDimensions } from 'react-native';
 import { getItem, setItem } from './storage';
 
@@ -32,22 +32,30 @@ export function DynamicTypeProvider({ children }: { children: ReactNode }) {
         if (raw) {
           const parsed = parseFloat(raw);
           if (!Number.isNaN(parsed)) {
-            const clamped = Math.min(MAX_FONT_MULTIPLIER, Math.max(1.0, parsed)) as TextScaleOption;
-            setTextScaleState(clamped);
+            // Clamp to the nearest valid TextScaleOption.
+            const valid = TEXT_SCALE_OPTIONS.reduce((best, opt) =>
+              Math.abs(opt.value - parsed) < Math.abs(best.value - parsed) ? opt : best,
+            );
+            setTextScaleState(valid.value);
           }
         }
       })
       .finally(() => setLoaded(true));
   }, []);
 
-  const setTextScale = (value: TextScaleOption) => {
+  const setTextScale = useCallback((value: TextScaleOption) => {
     setTextScaleState(value);
     void setItem(STORAGE_KEY, String(value));
-  };
+  }, []);
 
   const effectiveScale = loaded ? Math.min(fontScale * textScale, MAX_FONT_MULTIPLIER) : 1.0;
 
-  return <DynamicTypeContext.Provider value={{ textScale, setTextScale, effectiveScale }}>{children}</DynamicTypeContext.Provider>;
+  const value = useMemo(
+    () => ({ textScale, setTextScale, effectiveScale }),
+    [textScale, setTextScale, effectiveScale],
+  );
+
+  return <DynamicTypeContext.Provider value={value}>{children}</DynamicTypeContext.Provider>;
 }
 
 export function useDynamicType() {
