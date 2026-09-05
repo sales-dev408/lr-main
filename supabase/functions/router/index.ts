@@ -1717,8 +1717,8 @@ Deno.serve(async (request) => {
       const auth = requireRole(request, ['admin']);
       if (auth instanceof Response) return auth;
       const id = path.split('/').pop()!;
-      const deleted = await deleteAdminEvent(id);
-      return json(request, {}, { status: deleted ? 204 : 404 });
+      await deleteAdminEvent(id);
+      return json(request, { success: true });
     }
 
     // ---- Apartments / hotels ------------------------------------------------
