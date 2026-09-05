@@ -5,6 +5,7 @@ import { ApartmentsPage } from './pages/ApartmentsPage';
 import { ContentPage } from './pages/ContentPage';
 import { LoginPage } from './pages/LoginPage';
 import { MarketingPage } from './pages/MarketingPage';
+import { PushNotificationsPage } from './pages/PushNotificationsPage';
 import { OverviewPage } from './pages/OverviewPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ThemePage } from './pages/ThemePage';
@@ -31,6 +32,7 @@ export function App() {
         <Route path="/stops" element={<StopsPage />} />
         <Route path="/users" element={<UsersPage />} />
         <Route path="/marketing" element={<MarketingPage />} />
+        <Route path="/push" element={<PushNotificationsPage />} />
         <Route path="/content" element={<ContentPage />} />
         <Route path="/ads" element={<AdsPage />} />
         <Route path="/theme" element={<ThemePage />} />

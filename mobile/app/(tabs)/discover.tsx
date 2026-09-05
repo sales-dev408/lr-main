@@ -80,7 +80,7 @@ export default function DiscoverScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ gap: 14, paddingBottom: 24 }}>
+      <ScrollView contentContainerStyle={{ gap: 18, paddingBottom: 32, paddingTop: 4 }}>
         <BrandHeader subtitle="Discover" />
 
         <AdBanner slot={3} />

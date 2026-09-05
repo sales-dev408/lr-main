@@ -64,7 +64,7 @@ export default function ProfileScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ gap: 14, paddingBottom: 24 }}>
+      <ScrollView contentContainerStyle={{ gap: 18, paddingBottom: 32, paddingTop: 4 }}>
         <BrandHeader subtitle="Profile & Settings" />
 
         <AdBanner slot={5} />

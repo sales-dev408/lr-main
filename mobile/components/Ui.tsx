@@ -16,7 +16,8 @@ function useUiStyles() {
     const multiplier = effectiveScale;
     const scale = (size: number) => size * multiplier;
     // Use slightly smaller padding on narrow screens so content fits better.
-    const screenPadding = Math.round(Math.min(16, Math.max(12, width * 0.04)) * multiplier);
+    // Increased range for more breathing room from screen edges.
+    const screenPadding = Math.round(Math.min(24, Math.max(16, width * 0.05)) * multiplier);
     const cardShadow = (Platform.OS === 'web'
       ? { boxShadow: `0 20px 50px ${colors.ink}1a`, elevation: 10 }
       : { ...colors.shadow }) as Record<string, unknown>;
@@ -26,7 +27,7 @@ function useUiStyles() {
         flex: 1,
         backgroundColor: colors.bg,
         padding: screenPadding,
-        gap: 12,
+        gap: 16,
       },
       brandHeader: {
         flexDirection: 'row',
@@ -58,10 +59,10 @@ function useUiStyles() {
       card: {
         backgroundColor: colors.panel,
         borderRadius: colors.radius,
-        padding: 16,
+        padding: 18,
         borderWidth: 1,
         borderColor: colors.border,
-        gap: 12,
+        gap: 14,
         ...cardShadow,
       },
       sectionHeader: {

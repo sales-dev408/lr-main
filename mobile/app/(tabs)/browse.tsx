@@ -76,9 +76,12 @@ export default function BrowseScreen() {
   const [region, setRegion] = useState<Region | null>(null);
   const [sortByFavorites, setSortByFavorites] = useState(false);
   const [collapsedStations, setCollapsedStations] = useState<Set<string>>(new Set());
+  const [cuisinePickerOpen, setCuisinePickerOpen] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const stationOffsets = useRef<Map<string, number>>(new Map());
   const jumpIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const detailsOffsetRef = useRef<number | null>(null);
+  const detailsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -288,7 +291,33 @@ export default function BrowseScreen() {
       if (jumpIntervalRef.current) {
         clearInterval(jumpIntervalRef.current);
       }
+      if (detailsIntervalRef.current) {
+        clearInterval(detailsIntervalRef.current);
+      }
     };
+  }, []);
+
+  const scrollToDetails = useCallback(() => {
+    if (detailsIntervalRef.current) {
+      clearInterval(detailsIntervalRef.current);
+    }
+    let attempts = 0;
+    const id = setInterval(() => {
+      attempts++;
+      if (detailsOffsetRef.current != null) {
+        scrollRef.current?.scrollTo({ y: Math.max(detailsOffsetRef.current - 8, 0), animated: true });
+        clearInterval(id);
+        detailsIntervalRef.current = null;
+      } else if (attempts >= 20) {
+        clearInterval(id);
+        detailsIntervalRef.current = null;
+      }
+    }, 75);
+    detailsIntervalRef.current = id;
+  }, []);
+
+  const scrollToTop = useCallback(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
   }, []);
 
   const selected = useMemo(
@@ -320,7 +349,7 @@ export default function BrowseScreen() {
     <Screen>
       <ScrollView
         ref={scrollRef}
-        contentContainerStyle={{ gap: 14, paddingBottom: 24 }}
+        contentContainerStyle={{ gap: 18, paddingBottom: 32, paddingTop: 4 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
         <BrandHeader subtitle="Browse discounts by train stop" />
@@ -344,13 +373,31 @@ export default function BrowseScreen() {
             ))}
           </View>
           {cuisineOptions.length > 0 && typeFilter === 'Restaurant' ? (
-            <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, overflow: 'hidden' }}>
-              <Picker selectedValue={cuisineFilter} onValueChange={(itemValue) => setCuisineFilter(String(itemValue))}>
-                <Picker.Item label="Any cuisine" value="" />
-                {cuisineOptions.map((c) => (
-                  <Picker.Item key={c} label={c.charAt(0).toUpperCase() + c.slice(1)} value={c} />
-                ))}
-              </Picker>
+            <View style={{ marginBottom: 8 }}>
+              <AppButton
+                variant={cuisineFilter ? 'primary' : 'secondary'}
+                onPress={() => setCuisinePickerOpen((prev) => !prev)}
+              >
+                {cuisineFilter
+                  ? `Cuisine: ${cuisineFilter.charAt(0).toUpperCase() + cuisineFilter.slice(1)}`
+                  : 'Select cuisine'}
+              </AppButton>
+              {cuisinePickerOpen ? (
+                <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, overflow: 'hidden', marginTop: 8 }}>
+                  <Picker
+                    selectedValue={cuisineFilter}
+                    onValueChange={(itemValue) => {
+                      setCuisineFilter(String(itemValue));
+                      setCuisinePickerOpen(false);
+                    }}
+                  >
+                    <Picker.Item label="Any cuisine" value="" />
+                    {cuisineOptions.map((c) => (
+                      <Picker.Item key={c} label={c.charAt(0).toUpperCase() + c.slice(1)} value={c} />
+                    ))}
+                  </Picker>
+                </View>
+              ) : null}
             </View>
           ) : null}
           <FieldInput placeholder="Search name, stop, cuisine…" value={search} onChangeText={setSearch} />
@@ -507,7 +554,14 @@ export default function BrowseScreen() {
     })}
 
         {selected ? (
-          <Card>
+          <AppButton variant="ghost" onPress={scrollToDetails} style={{ marginBottom: 4 }}>
+            Jump to details ↓
+          </AppButton>
+        ) : null}
+
+        {selected ? (
+          <View onLayout={(event) => { detailsOffsetRef.current = event.nativeEvent.layout.y; }}>
+            <Card>
             {selected.logoUrl || selected.iconUrl ? (
               <Image
                 source={{ uri: selected.logoUrl ?? selected.iconUrl ?? undefined }}
@@ -575,7 +629,11 @@ export default function BrowseScreen() {
             <Link href={`/discount?vendorId=${encodeURIComponent(selected.id)}`} asChild>
               <AppButton>Show discount QR</AppButton>
             </Link>
-          </Card>
+            <AppButton variant="ghost" onPress={scrollToTop}>
+              Back to top ↑
+            </AppButton>
+            </Card>
+          </View>
         ) : null}
       </ScrollView>
     </Screen>

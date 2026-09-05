@@ -38,7 +38,7 @@ import {
   deleteAdminEvent,
   adminEventSchema,
 } from './lib/events.ts';
-import { savePushToken } from './lib/push.ts';
+import { savePushToken, getAllPushTokens, getPushTokensByCity, sendPushNotifications } from './lib/push.ts';
 import {
   apartmentSchema,
   createApartment,
@@ -2114,6 +2114,25 @@ Deno.serve(async (request) => {
         })),
       });
       return json(request, result);
+    }
+
+    // Admin: send a push notification to all users with a push token (optionally filtered by city).
+    if (path === '/api/admin/push' && request.method === 'POST') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const body = z.object({
+        title: z.string().min(1).max(100),
+        message: z.string().min(1).max(500),
+        city: z.string().optional(),
+      }).parse(await readJsonBody(request, {}));
+      const tokens = body.city && body.city.trim()
+        ? await getPushTokensByCity(body.city.trim())
+        : await getAllPushTokens();
+      if (tokens.length === 0) {
+        return json(request, { sent: 0, message: 'No push tokens registered for the selected audience.' });
+      }
+      const pushResult = await sendPushNotifications(tokens, body.title, body.message, { type: 'admin_broadcast' });
+      return json(request, { sent: pushResult.sent, errors: pushResult.errors });
     }
 
     // Ads: public list and admin CRUD.

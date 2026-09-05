@@ -12,6 +12,7 @@ const NAV_ITEMS: Array<{ to: string; label: string; end?: boolean; icon: string 
   { to: '/stops', label: 'Stops', icon: '◈' },
   { to: '/users', label: 'Users', icon: '◎' },
   { to: '/marketing', label: 'Marketing', icon: '✉' },
+  { to: '/push', label: 'Push', icon: '🔔' },
   { to: '/events', label: 'Events', icon: '★' },
   { to: '/ads', label: 'Ads', icon: '◈' },
   { to: '/content', label: 'Content', icon: '✎' },

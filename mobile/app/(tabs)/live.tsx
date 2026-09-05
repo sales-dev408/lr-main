@@ -452,8 +452,9 @@ export default function LiveTrainsScreen() {
     <Screen>
       <ScrollView
         contentContainerStyle={{
-          gap: 14,
-          paddingBottom: 32,
+          gap: 18,
+          paddingBottom: 40,
+          paddingTop: 4,
           alignItems: 'stretch',
         }}
       >

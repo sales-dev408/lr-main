@@ -212,7 +212,7 @@ export async function fetchPublicEvents(): Promise<RssEvent[]> {
     description: event.description,
     link: null,
     pubDate: event.eventDate,
-    sourceName: 'Manual',
+    sourceName: null,
     imageUrl: event.imageUrl,
   }));
   const all = [...rssEvents, ...customEvents];
@@ -275,8 +275,8 @@ export async function registerEventsRoutes(fastify: FastifyInstance): Promise<vo
     { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
     async (request, reply) => {
       const id = (request.params as { id: string }).id;
-      const deleted = await deleteAdminEvent(id);
-      return reply.code(deleted ? 204 : 404).send();
+      await deleteAdminEvent(id);
+      return reply.code(200).send({ success: true });
     },
   );
 }

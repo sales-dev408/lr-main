@@ -8,7 +8,7 @@ import { buildLookupDiscountView, generateDiscountCode, humanDiscountLabel } fro
 import { generateTempPassword } from '../utils/ids.js';
 import { writeTransactionAudit } from '../services/audit.js';
 import { sendVendorWelcomeEmail, sendDealOfTheDayBlast } from '../services/resend.js';
-import { getPushTokensForNewVendor, sendPushNotifications } from '../services/push.js';
+import { getPushTokensForNewVendor, getAllPushTokens, getPushTokensByCity, sendPushNotifications } from '../services/push.js';
 import { qrCodeUrl } from '../services/quickchart.js';
 import { deleteDiscountFromVendorConnections, syncDiscountToVendorConnections } from '../services/pos.js';
 
@@ -467,6 +467,36 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
     });
 
     return reply.send(result);
+  });
+
+  fastify.post('/api/admin/push', { preHandler: fastify.requireRole(['admin']) }, async (request, reply) => {
+    const body = z.object({
+      title: z.string().min(1).max(100),
+      message: z.string().min(1).max(500),
+      city: z.string().optional(),
+    }).parse(request.body);
+
+    const tokens = body.city && body.city.trim()
+      ? await getPushTokensByCity(body.city.trim())
+      : await getAllPushTokens();
+
+    if (tokens.length === 0) {
+      return reply.send({ sent: 0, message: 'No push tokens registered for the selected audience.' });
+    }
+
+    const pushResult = await sendPushNotifications(tokens, body.title, body.message, { type: 'admin_broadcast' });
+
+    await writeTransactionAudit({
+      actorType: 'admin',
+      actorId: request.user?.sub ?? null,
+      action: 'admin.push.broadcast',
+      entityType: 'push_notification',
+      entityId: null,
+      metadata: { title: body.title, recipients: tokens.length, city: body.city ?? null, errors: pushResult.errors },
+      ip: request.ip,
+    });
+
+    return reply.send({ sent: pushResult.sent, errors: pushResult.errors });
   });
 
   fastify.post('/api/admin/cards', { preHandler: fastify.requireRole(['admin']) }, async (request, reply) => {

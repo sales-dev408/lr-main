@@ -464,6 +464,10 @@ export async function sendMarketingBlast(body: { subject: string; text: string; 
   return apiRequest('/admin/marketing/blast', { method: 'POST', body: jsonBody(body) });
 }
 
+export async function sendPushNotification(body: { title: string; message: string; city?: string }): Promise<{ sent: number; message?: string; errors?: string[] }> {
+  return apiRequest('/admin/push', { method: 'POST', body: jsonBody(body) });
+}
+
 // ---- Theme ---------------------------------------------------------------
 
 export async function getTheme(): Promise<ThemeSettings> {
@@ -493,7 +497,7 @@ export async function updateAdminEvent(id: string, body: Partial<{ title: string
 }
 
 export async function deleteAdminEvent(id: string): Promise<void> {
-  return apiRequest<void>(`/admin/events/custom/${id}`, { method: 'DELETE' });
+  await apiRequest<{ success: boolean }>(`/admin/events/custom/${id}`, { method: 'DELETE' });
 }
 
 // ---- Apartments / Hotels -------------------------------------------------

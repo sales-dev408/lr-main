@@ -1,0 +1,19 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["UWG9ZHJ599.com.lightraildeals.app"],
+        "components": [{ "/": "*", "comment": "Matches all routes" }]
+      }
+    ]
+  },
+  "appclips": {
+    "apps": ["UWG9ZHJ599.com.lightraildeals.app.Clip"]
+  },
+  "activitycontinuation": {
+    "apps": ["UWG9ZHJ599.com.lightraildeals.app"]
+  },
+  "webcredentials": {
+    "apps": ["UWG9ZHJ599.com.lightraildeals.app"]
+  }
+}

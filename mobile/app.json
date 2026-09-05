@@ -11,6 +11,11 @@
       "supportsTablet": true,
       "icon": "./assets/AppIcon.icon",
       "bundleIdentifier": "com.lightraildeals.app",
+      "appleTeamId": "UWG9ZHJ599",
+      "associatedDomains": [
+        "applinks:lightraildeals.com",
+        "appclips:lightraildeals.com"
+      ],
       "buildNumber": "2",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -166,7 +171,8 @@
         }
       ],
       "expo-notifications",
-      "expo-secure-store"
+      "expo-secure-store",
+      "@bacons/apple-targets"
     ],
     "experiments": {
       "typedRoutes": true

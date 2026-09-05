@@ -51,14 +51,17 @@ export async function sendPushNotifications(
   title: string,
   body: string,
   data?: Record<string, unknown>,
-): Promise<void> {
-  if (tokens.length === 0) return;
+): Promise<{ sent: number; errors: string[] }> {
+  if (tokens.length === 0) return { sent: 0, errors: [] };
 
   const messages: ExpoMessage[] = tokens.map((token) => {
     const message: ExpoMessage = { to: token, title, body, sound: 'default' };
     if (data) message.data = data;
     return message;
   });
+
+  let sent = 0;
+  const errors: string[] = [];
 
   for (const batch of chunk(messages, 100)) {
     const headers: Record<string, string> = {
@@ -72,13 +75,21 @@ export async function sendPushNotifications(
 
     try {
       // lgtm[js/server-side-request-forgery]
-      await fetch('https://exp.host/--/api/v2/push/send', {
+      const response = await fetch('https://exp.host/--/api/v2/push/send', {
         method: 'POST',
         headers,
         body: JSON.stringify(batch),
       });
+      if (response.ok) {
+        sent += batch.length;
+      } else {
+        const text = await response.text().catch(() => 'unknown error');
+        errors.push(`Expo push API returned ${response.status}: ${text}`);
+      }
     } catch (err) {
-      console.warn('[push] Failed to send Expo push notifications:', err);
+      errors.push(err instanceof Error ? err.message : 'Network error sending push notification');
     }
   }
+
+  return { sent, errors };
 }

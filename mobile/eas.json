@@ -45,6 +45,20 @@
         "simulator": true
       },
       "channel": "development-ios-simulator"
+    },
+    "app-clip": {
+      "distribution": "internal",
+      "ios": {
+        "buildArtifactPath": "ios/build/*.ipa"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://okbolfpndeakmchpznmt.supabase.co/functions/v1/router",
+        "EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN": "pk.eyJ1Ijoic2FsZXMtZGV2MTIzIiwiYSI6ImNtc2kyYmJiOTA2d24yeG4xemxya3ZyNzYifQ.CynLROdxurBurDNpKJTfFQ",
+        "EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN_IOS": "pk.eyJ1Ijoic2FsZXMtZGV2MTIzIiwiYSI6ImNtc2kyYmJiOTA2d24yeG4xemxya3ZyNzYifQ.CynLROdxurBurDNpKJTfFQ",
+        "EXPO_PUBLIC_MAPBOX_STYLE_URL": "mapbox://styles/mapbox/streets-v12",
+        "EXPO_PUBLIC_MAPBOX_STYLE_URL_IOS": "mapbox://styles/mapbox/streets-v12"
+      },
+      "channel": "app-clip"
     }
   },
   "submit": {

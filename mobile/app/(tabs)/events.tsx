@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Image, Linking, RefreshControl, Text, useWindowDimensions, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { AppButton, Banner, BrandHeader, Pill, Screen, Spinner } from '@/components/Ui';
+import { AppButton, Banner, BrandHeader, Screen, Spinner } from '@/components/Ui';
 import { getEvents } from '@/lib/api';
 import { scheduleEventNotifications } from '@/lib/notifications';
 import { useAuth } from '@/lib/auth';
@@ -11,11 +11,18 @@ import type { RssEvent } from '@/lib/types';
 
 const MIN_CARD_WIDTH = 280;
 
-function formatDate(iso: string | null | undefined) {
+function formatDateTime(iso: string | null | undefined) {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString();
+  return d.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+function isPastEvent(item: RssEvent): boolean {
+  if (!item.pubDate) return false;
+  const d = new Date(item.pubDate);
+  if (Number.isNaN(d.getTime())) return false;
+  return d.getTime() < Date.now();
 }
 
 export default function EventsScreen() {
@@ -29,10 +36,10 @@ export default function EventsScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const columns = Math.max(1, Math.floor(width / MIN_CARD_WIDTH));
-  const gap = 12;
-  // Screen padding is responsive (12-16px based on width), use the max for safety.
-  const screenPadding = Math.min(16, Math.max(12, width * 0.04));
-  const listPadding = 16;
+  const gap = 16;
+  // Screen padding is responsive (16-24px based on width), use the max for safety.
+  const screenPadding = Math.min(24, Math.max(16, width * 0.05));
+  const listPadding = 20;
   // Account for both the Screen wrapper padding and the FlatList content padding.
   const availableWidth = width - (screenPadding + listPadding) * 2;
   const cardWidth = (availableWidth - gap * (columns - 1)) / columns;
@@ -41,8 +48,10 @@ export default function EventsScreen() {
     setError(null);
     try {
       const data = await getEvents();
-      setItems(data);
-      void scheduleEventNotifications(data, auth.profile?.city ?? '', auth.profile?.pushPreferences);
+      // Auto-remove events whose date/time has already passed.
+      const upcoming = data.filter((e) => !isPastEvent(e));
+      setItems(upcoming);
+      void scheduleEventNotifications(upcoming, auth.profile?.city ?? '', auth.profile?.pushPreferences);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load events');
     }
@@ -61,6 +70,14 @@ export default function EventsScreen() {
     }, [load]),
   );
 
+  // Re-filter when the screen gains focus to remove any events that have
+  // become stale while the user was away.
+  useFocusEffect(
+    useCallback(() => {
+      setItems((prev) => prev.filter((e) => !isPastEvent(e)));
+    }, []),
+  );
+
   async function onRefresh() {
     setRefreshing(true);
     await load();
@@ -73,7 +90,7 @@ export default function EventsScreen() {
 
   const header = useMemo(
     () => (
-      <View style={{ gap: 14, paddingBottom: 8 }}>
+      <View style={{ gap: 14, paddingBottom: 12 }}>
         <BrandHeader subtitle="Local events & happenings" />
       </View>
     ),
@@ -93,17 +110,18 @@ export default function EventsScreen() {
                 accessibilityLabel={item.title}
               />
             ) : null}
-            <View style={{ padding: 14, gap: 8 }}>
+            <View style={{ padding: 16, gap: 10 }}>
               <Text style={{ color: colors.ink, fontWeight: '700', fontSize: 16 * effectiveScale }} allowFontScaling={false}>
                 {item.title}
               </Text>
-              <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-                {item.sourceName ? <Pill tone="neutral">{item.sourceName}</Pill> : null}
-                {item.pubDate ? <Pill tone="neutral">{formatDate(item.pubDate)}</Pill> : null}
-              </View>
+              {item.pubDate ? (
+                <Text style={{ color: colors.brand, fontWeight: '600', fontSize: 14 * effectiveScale }} allowFontScaling={false}>
+                  {formatDateTime(item.pubDate)}
+                </Text>
+              ) : null}
               {item.description ? (
                 <Text
-                  numberOfLines={3}
+                  numberOfLines={4}
                   style={{ color: colors.muted, lineHeight: 20 * effectiveScale, fontSize: 14 * effectiveScale }}
                   allowFontScaling={false}
                 >
@@ -120,21 +138,21 @@ export default function EventsScreen() {
         </View>
       );
     },
-    [cardWidth, colors.panel, colors.border, colors.ink, colors.muted, colors.subtle, effectiveScale, gap],
+    [cardWidth, colors.panel, colors.border, colors.ink, colors.muted, colors.subtle, colors.brand, effectiveScale, gap],
   );
 
   return (
     <Screen>
       {loading ? <Spinner /> : null}
       {error ? <Banner tone="error">{error}</Banner> : null}
-      {!loading && items.length === 0 ? <Banner tone="info">No events found. Pull down to refresh.</Banner> : null}
+      {!loading && items.length === 0 ? <Banner tone="info">No upcoming events. Pull down to refresh.</Banner> : null}
       <FlatList
         data={items}
         key={columns}
         numColumns={columns}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: listPadding, paddingBottom: 24 }}
+        contentContainerStyle={{ padding: listPadding, paddingBottom: 32, paddingTop: 4 }}
         columnWrapperStyle={columns > 1 ? { gap } : undefined}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
         ListHeaderComponent={header}

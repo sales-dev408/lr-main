@@ -1,5 +1,5 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
-import { createAdminEvent, deleteAdminEvent, fetchPublicEvents, fileToDataUrl, getEventsRssUrls, saveEventsRssUrls, updateAdminEvent } from '../lib/api';
+import { createAdminEvent, deleteAdminEvent, fetchPublicEvents, fileToDataUrl, getEventsRssUrls, saveEventsRssUrls, updateAdminEvent, ApiError } from '../lib/api';
 import type { AdminEvent } from '../lib/types';
 import { Badge, Button, ErrorBanner, Input, PageCard, SuccessBanner, Textarea } from '../components/Ui';
 
@@ -238,11 +238,16 @@ export function EventsPage() {
     setError(null);
     try {
       await deleteAdminEvent(id);
-      setCustomEvents((prev) => prev.filter((e) => e.id !== id));
-      setToast('Event deleted.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to delete event');
+      // If the event was already gone (404), treat it as success and
+      // remove it from the local list so the UI stays consistent.
+      if (!(err instanceof ApiError && err.status === 404)) {
+        setError(err instanceof Error ? err.message : 'Unable to delete event');
+        return;
+      }
     }
+    setCustomEvents((prev) => prev.filter((e) => e.id !== id));
+    setToast('Event deleted.');
   }
 
   async function handleImportJson() {
@@ -314,7 +319,7 @@ export function EventsPage() {
       <div className="page-heading">
         <div>
           <h1>Events</h1>
-          <p className="muted">Paste an RSS feed to import events, or add your own events manually.</p>
+          <p className="muted">Add events or import from a feed to show in the app.</p>
         </div>
       </div>
 

@@ -65,7 +65,7 @@ export default function HomeScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ gap: 14, paddingBottom: 24 }}>
+      <ScrollView contentContainerStyle={{ gap: 18, paddingBottom: 32, paddingTop: 4 }}>
         <LinearGradient
           colors={['#0d9488', '#6366f1', '#e11d48']}
           start={{ x: 0, y: 0 }}

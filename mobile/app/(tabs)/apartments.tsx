@@ -158,7 +158,7 @@ export default function ApartmentsScreen() {
     <Screen>
       <ScrollView
         ref={scrollRef}
-        contentContainerStyle={{ gap: 14, paddingBottom: 24 }}
+        contentContainerStyle={{ gap: 18, paddingBottom: 32, paddingTop: 4 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
         <BrandHeader subtitle="Apartments & hotels within 1/2 mile of the light rail" />
