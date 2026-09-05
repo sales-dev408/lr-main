@@ -3,7 +3,6 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
-    "@bacons/apple-targets": "^5.0.0",
     "@callstack/liquid-glass": "^0.8.1",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-picker/picker": "2.11.4",

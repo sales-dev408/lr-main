@@ -13,8 +13,7 @@
       "bundleIdentifier": "com.lightraildeals.app",
       "appleTeamId": "UWG9ZHJ599",
       "associatedDomains": [
-        "applinks:lightraildeals.com",
-        "appclips:lightraildeals.com"
+        "applinks:lightraildeals.com"
       ],
       "buildNumber": "2",
       "infoPlist": {
@@ -171,8 +170,7 @@
         }
       ],
       "expo-notifications",
-      "expo-secure-store",
-      "@bacons/apple-targets"
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true
