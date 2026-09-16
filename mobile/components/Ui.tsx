@@ -306,28 +306,43 @@ export function AppButton({
  * Small circular button with a down arrow, shown once a vendor/listing is
  * selected so the user can jump straight to its details section below.
  */
+// Floats fixed near the top-right of the screen (below the safe area) so it
+// stays visible the instant a listing is selected — no scrolling required to
+// find it, regardless of where the selected item sits in a long list.
 export function JumpToDetailsButton({ onPress, accessibilityLabel = 'Jump to details' }: { onPress: () => void; accessibilityLabel?: string }) {
   const colors = useThemeColors();
   const { effectiveScale } = useDynamicType();
+  const insets = useSafeAreaInsets();
   return (
-    <View style={{ alignItems: 'center', marginBottom: 4 }}>
+    <View
+      pointerEvents="box-none"
+      style={{
+        position: 'absolute',
+        top: insets.top + 12,
+        right: 16,
+        zIndex: 20,
+      }}
+    >
       <Pressable
         onPress={onPress}
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
         style={({ pressed }) => [
           {
-            width: 40 * effectiveScale,
-            height: 40 * effectiveScale,
-            borderRadius: 20 * effectiveScale,
+            width: 44 * effectiveScale,
+            height: 44 * effectiveScale,
+            borderRadius: 22 * effectiveScale,
             backgroundColor: colors.brand,
             alignItems: 'center',
             justifyContent: 'center',
+            ...(Platform.OS === 'web'
+              ? { boxShadow: `0 6px 16px ${colors.ink}33` }
+              : { shadowColor: colors.ink, shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 6 }),
           },
           pressed && { opacity: 0.85, transform: [{ scale: 0.96 }] },
         ]}
       >
-        <Text style={{ color: '#fff', fontSize: 18 * effectiveScale, fontWeight: '800' }} allowFontScaling={false}>
+        <Text style={{ color: '#fff', fontSize: 20 * effectiveScale, fontWeight: '800' }} allowFontScaling={false}>
           ↓
         </Text>
       </Pressable>
