@@ -127,7 +127,18 @@ export function EventsPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ count: number; items: { title: string; sourceName: string }[] } | null>(null);
 
-  const [newEvent, setNewEvent] = useState({ title: '', description: '', eventDate: '', imageUrl: '' });
+  const [newEvent, setNewEvent] = useState({
+    title: '',
+    description: '',
+    eventDate: '',
+    eventTime: '',
+    imageUrl: '',
+    city: '',
+    phone: '',
+    eventLink: '',
+    sport: '',
+    eventType: '',
+  });
   const [editingEvent, setEditingEvent] = useState<AdminEvent | null>(null);
 
   // JSON bulk import state
@@ -204,10 +215,16 @@ export function EventsPage() {
         title: newEvent.title.trim(),
         description: newEvent.description.trim() || undefined,
         eventDate: newEvent.eventDate || undefined,
+        eventTime: newEvent.eventTime || undefined,
         imageUrl: newEvent.imageUrl.trim() || null,
+        city: newEvent.city.trim() || undefined,
+        phone: newEvent.phone.trim() || undefined,
+        eventLink: newEvent.eventLink.trim() || undefined,
+        sport: newEvent.sport.trim() || undefined,
+        eventType: newEvent.eventType.trim() || undefined,
       });
       setCustomEvents((prev) => [created, ...prev]);
-      setNewEvent({ title: '', description: '', eventDate: '', imageUrl: '' });
+      setNewEvent({ title: '', description: '', eventDate: '', eventTime: '', imageUrl: '', city: '', phone: '', eventLink: '', sport: '', eventType: '' });
       setToast('Event saved.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to save event');
@@ -223,7 +240,13 @@ export function EventsPage() {
         title: editingEvent.title.trim(),
         description: editingEvent.description || null,
         eventDate: editingEvent.eventDate || null,
+        eventTime: editingEvent.eventTime || null,
         imageUrl: editingEvent.imageUrl || null,
+        city: editingEvent.city || null,
+        phone: editingEvent.phone || null,
+        eventLink: editingEvent.eventLink || null,
+        sport: editingEvent.sport || null,
+        eventType: editingEvent.eventType || null,
       });
       setCustomEvents((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
       setEditingEvent(null);
@@ -309,9 +332,10 @@ export function EventsPage() {
     setImporting(false);
   }
 
-  function formatDate(date: string | null): string {
+  function formatDate(date: string | null, time: string | null): string {
     if (!date) return 'No date';
-    return new Date(date).toLocaleDateString();
+    const base = new Date(date).toLocaleDateString();
+    return time ? `${base} at ${time}` : base;
   }
 
   return (
@@ -354,6 +378,30 @@ export function EventsPage() {
             <label>
               Date
               <Input type="date" value={newEvent.eventDate} onChange={(e) => setNewEvent((prev) => ({ ...prev, eventDate: e.target.value }))} />
+            </label>
+            <label>
+              Time
+              <Input type="time" value={newEvent.eventTime} onChange={(e) => setNewEvent((prev) => ({ ...prev, eventTime: e.target.value }))} />
+            </label>
+            <label>
+              City
+              <Input value={newEvent.city} onChange={(e) => setNewEvent((prev) => ({ ...prev, city: e.target.value }))} placeholder="e.g. Phoenix" />
+            </label>
+            <label>
+              Contact phone
+              <Input type="tel" value={newEvent.phone} onChange={(e) => setNewEvent((prev) => ({ ...prev, phone: e.target.value }))} placeholder="(555) 555-1234" />
+            </label>
+            <label>
+              Event link
+              <Input value={newEvent.eventLink} onChange={(e) => setNewEvent((prev) => ({ ...prev, eventLink: e.target.value }))} placeholder="https://example.com/tickets" />
+            </label>
+            <label>
+              Sport
+              <Input value={newEvent.sport} onChange={(e) => setNewEvent((prev) => ({ ...prev, sport: e.target.value }))} placeholder="e.g. Basketball (optional)" />
+            </label>
+            <label>
+              Event type
+              <Input value={newEvent.eventType} onChange={(e) => setNewEvent((prev) => ({ ...prev, eventType: e.target.value }))} placeholder="e.g. Concert, Festival, Sports" />
             </label>
             <label>
               Event image
@@ -418,14 +466,19 @@ export function EventsPage() {
         </PageCard>
       ) : null}
 
-      <PageCard title="Your events" subtitle="Events you add manually appear in the app alongside RSS events.">
+      <PageCard title="Your events" subtitle="Events you add manually appear in the app alongside RSS events. Past events are hidden automatically once their date passes.">
         {customEvents.length === 0 ? <p className="muted">No custom events yet.</p> : null}
         <div className="vendor-list">
           {customEvents.map((event) => (
             <article key={event.id} className="list-row">
               <div>
                 <strong>{event.title}</strong>
-                <p className="muted">{formatDate(event.eventDate)}</p>
+                <p className="muted">{formatDate(event.eventDate, event.eventTime)}</p>
+                <div className="inline-row" style={{ gap: 6, flexWrap: 'wrap' }}>
+                  {event.city ? <Badge tone="neutral">{event.city}</Badge> : null}
+                  {event.eventType ? <Badge tone="neutral">{event.eventType}</Badge> : null}
+                  {event.sport ? <Badge tone="neutral">{event.sport}</Badge> : null}
+                </div>
                 {event.description ? <p className="muted">{event.description}</p> : null}
               </div>
               <div className="row-actions">
@@ -451,6 +504,30 @@ export function EventsPage() {
             <label>
               Date
               <Input type="date" value={editingEvent.eventDate ?? ''} onChange={(e) => setEditingEvent({ ...editingEvent, eventDate: e.target.value })} />
+            </label>
+            <label>
+              Time
+              <Input type="time" value={editingEvent.eventTime ?? ''} onChange={(e) => setEditingEvent({ ...editingEvent, eventTime: e.target.value })} />
+            </label>
+            <label>
+              City
+              <Input value={editingEvent.city ?? ''} onChange={(e) => setEditingEvent({ ...editingEvent, city: e.target.value })} placeholder="e.g. Phoenix" />
+            </label>
+            <label>
+              Contact phone
+              <Input type="tel" value={editingEvent.phone ?? ''} onChange={(e) => setEditingEvent({ ...editingEvent, phone: e.target.value })} placeholder="(555) 555-1234" />
+            </label>
+            <label>
+              Event link
+              <Input value={editingEvent.eventLink ?? ''} onChange={(e) => setEditingEvent({ ...editingEvent, eventLink: e.target.value })} placeholder="https://example.com/tickets" />
+            </label>
+            <label>
+              Sport
+              <Input value={editingEvent.sport ?? ''} onChange={(e) => setEditingEvent({ ...editingEvent, sport: e.target.value })} placeholder="e.g. Basketball (optional)" />
+            </label>
+            <label>
+              Event type
+              <Input value={editingEvent.eventType ?? ''} onChange={(e) => setEditingEvent({ ...editingEvent, eventType: e.target.value })} placeholder="e.g. Concert, Festival, Sports" />
             </label>
             <label>
               Event image

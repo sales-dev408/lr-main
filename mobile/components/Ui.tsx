@@ -2,6 +2,7 @@ import { ActivityIndicator, Image, Platform, Pressable, StyleSheet, Text, TextIn
 import { BlurView } from 'expo-blur';
 import { useCallback, useMemo, useRef, type ReactNode } from 'react';
 import { useFocusEffect } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { APPLE_TRADEMARK_NOTICE } from '@/lib/theme';
 import { useThemeColors } from '@/lib/useThemeColors';
 import { useDynamicType } from '@/lib/dynamicType';
@@ -155,6 +156,7 @@ export function AppleTrademark() {
 
 export function Screen({ children, accessibilityLabel, ...props }: ViewProps & { accessibilityLabel?: string }) {
   const styles = useUiStyles();
+  const insets = useSafeAreaInsets();
   const ref = useRef<View>(null);
 
   useFocusEffect(
@@ -170,8 +172,17 @@ export function Screen({ children, accessibilityLabel, ...props }: ViewProps & {
     }, []),
   );
 
+  // Add a little breathing room above the safe area so content doesn't feel
+  // cramped against the very top of the screen/notch.
+  const extraTopSpacing = 12;
+
   return (
-    <View ref={ref} style={styles.screen} accessibilityLabel={accessibilityLabel} {...props}>
+    <View
+      ref={ref}
+      style={[styles.screen, { paddingTop: styles.screen.padding + insets.top + extraTopSpacing }]}
+      accessibilityLabel={accessibilityLabel}
+      {...props}
+    >
       {children}
     </View>
   );
@@ -288,6 +299,39 @@ export function AppButton({
         {children}
       </Text>
     </Pressable>
+  );
+}
+
+/**
+ * Small circular button with a down arrow, shown once a vendor/listing is
+ * selected so the user can jump straight to its details section below.
+ */
+export function JumpToDetailsButton({ onPress, accessibilityLabel = 'Jump to details' }: { onPress: () => void; accessibilityLabel?: string }) {
+  const colors = useThemeColors();
+  const { effectiveScale } = useDynamicType();
+  return (
+    <View style={{ alignItems: 'center', marginBottom: 4 }}>
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        style={({ pressed }) => [
+          {
+            width: 40 * effectiveScale,
+            height: 40 * effectiveScale,
+            borderRadius: 20 * effectiveScale,
+            backgroundColor: colors.brand,
+            alignItems: 'center',
+            justifyContent: 'center',
+          },
+          pressed && { opacity: 0.85, transform: [{ scale: 0.96 }] },
+        ]}
+      >
+        <Text style={{ color: '#fff', fontSize: 18 * effectiveScale, fontWeight: '800' }} allowFontScaling={false}>
+          ↓
+        </Text>
+      </Pressable>
+    </View>
   );
 }
 

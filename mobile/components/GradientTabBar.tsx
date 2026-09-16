@@ -23,6 +23,8 @@ const TAB_GLYPHS: Record<string, string> = {
   events: '★',
   apartments: '🏠',
   discover: '✦',
+  sports: '🏀',
+  more: '⋯',
   profile: '●',
 };
 
@@ -121,9 +123,14 @@ export function GradientTabBar({ state, descriptors, navigation }: GradientTabBa
         />
       ) : null}
       {state.routes.map((route, index) => {
+        // Screens registered with `href: null` (e.g. Live, Apartments, Sports,
+        // Discover) stay routable but shouldn't render a bottom tab button;
+        // they're reachable from the "More" tab instead.
+        const options = descriptors[route.key]?.options;
+        if ((options as { href?: unknown } | undefined)?.href === null) return null;
+
         const focused = state.index === index;
         const tab = tabFor(route.name);
-        const options = descriptors[route.key]?.options;
         const label = typeof options?.title === 'string' ? options.title : tab.label;
 
         return (

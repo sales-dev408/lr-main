@@ -90,6 +90,7 @@ export async function scheduleDealNotifications(cards: CardSummary[], prefs?: Pu
 
 function eventMatchesCity(event: RssEvent, city: string): boolean {
   if (!city) return false;
+  if (event.city && event.city.trim().toLowerCase() === city.trim().toLowerCase()) return true;
   const haystack = `${event.title} ${event.description ?? ''} ${event.sourceName ?? ''}`.toLowerCase();
   return haystack.includes(city.toLowerCase());
 }

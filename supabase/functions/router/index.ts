@@ -1695,8 +1695,21 @@ Deno.serve(async (request) => {
       const auth = requireRole(request, ['admin']);
       if (auth instanceof Response) return auth;
       const id = path.split('/').pop()!;
-      const rows = await dbQuery<{ id: string; title: string; description: string | null; event_date: string | null; image_url: string | null; created_at: string }>(
-        'SELECT id, title, description, event_date, image_url, created_at FROM admin_events WHERE id = $1 LIMIT 1',
+      const rows = await dbQuery<{
+        id: string;
+        title: string;
+        description: string | null;
+        event_date: string | null;
+        event_time: string | null;
+        image_url: string | null;
+        city: string | null;
+        phone: string | null;
+        event_link: string | null;
+        sport: string | null;
+        event_type: string | null;
+        created_at: string;
+      }>(
+        'SELECT id, title, description, event_date, event_time, image_url, city, phone, event_link, sport, event_type, created_at FROM admin_events WHERE id = $1 LIMIT 1',
         [id],
       );
       if (rows.length === 0) {

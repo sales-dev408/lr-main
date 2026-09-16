@@ -289,6 +289,10 @@ export interface RssEvent {
   pubDate: string | null;
   sourceName: string | null;
   imageUrl: string | null;
+  city?: string | null;
+  phone?: string | null;
+  sport?: string | null;
+  eventType?: string | null;
 }
 
 export interface Ad {
