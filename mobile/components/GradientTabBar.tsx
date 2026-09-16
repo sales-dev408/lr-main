@@ -125,9 +125,14 @@ export function GradientTabBar({ state, descriptors, navigation }: GradientTabBa
       {state.routes.map((route, index) => {
         // Screens registered with `href: null` (e.g. Live, Apartments, Sports,
         // Discover) stay routable but shouldn't render a bottom tab button;
-        // they're reachable from the "More" tab instead.
+        // they're reachable from the "More" tab instead. Expo Router's Tabs
+        // layout strips the `href` option out of `options` before the
+        // navigator (and this custom tab bar) ever sees it — it instead sets
+        // `tabBarItemStyle: { display: 'none' }` as the reliable signal, so
+        // that's what we check for here (see expo-router's TabsClient.js).
         const options = descriptors[route.key]?.options;
-        if ((options as { href?: unknown } | undefined)?.href === null) return null;
+        const tabBarItemStyle = options?.tabBarItemStyle as { display?: string } | undefined;
+        if (tabBarItemStyle?.display === 'none') return null;
 
         const focused = state.index === index;
         const tab = tabFor(route.name);
