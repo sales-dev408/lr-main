@@ -179,7 +179,24 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "e2cfed42-af11-4443-9831-bf026f881cb3"
+        "projectId": "e2cfed42-af11-4443-9831-bf026f881cb3",
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "bundleIdentifier": "com.lightraildeals.app.widget",
+                  "targetName": "LightRailWidget",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.lightraildeals.app"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        }
       }
     },
     "runtimeVersion": {
@@ -187,6 +204,7 @@
     },
     "updates": {
       "url": "https://u.expo.dev/e2cfed42-af11-4443-9831-bf026f881cb3"
-    }
+    },
+    "owner": "sun-ray-llc"
   }
 }

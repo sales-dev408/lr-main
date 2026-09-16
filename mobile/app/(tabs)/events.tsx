@@ -256,7 +256,6 @@ export default function EventsScreen() {
               </View>
               {item.description ? (
                 <Text
-                  numberOfLines={4}
                   style={{ color: colors.muted, lineHeight: 20 * effectiveScale, fontSize: 14 * effectiveScale }}
                   allowFontScaling={false}
                 >
@@ -268,6 +267,7 @@ export default function EventsScreen() {
                   onPress={() => callPhone(item.phone!)}
                   accessibilityRole="link"
                   accessibilityLabel={`Call ${item.phone}`}
+                  accessibilityHint="Opens your phone app"
                   style={{ color: colors.brand, fontWeight: '600', fontSize: 14 * effectiveScale, textDecorationLine: 'underline' }}
                   allowFontScaling={false}
                 >
@@ -279,11 +279,11 @@ export default function EventsScreen() {
                   onPress={() => openLink(item.link)}
                   accessibilityRole="link"
                   accessibilityLabel={`Open event link: ${item.link}`}
-                  numberOfLines={1}
+                  accessibilityHint="Opens the event website"
                   style={{ color: colors.brand, fontWeight: '600', fontSize: 14 * effectiveScale, textDecorationLine: 'underline' }}
                   allowFontScaling={false}
                 >
-                  🔗 View event
+                  🌐 {item.link}
                 </Text>
               ) : null}
             </View>

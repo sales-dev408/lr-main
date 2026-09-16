@@ -17,13 +17,13 @@ export default function MoreScreen() {
                 <AppButton style={{ width: '100%' }}>Apartments & hotels</AppButton>
               </Link>
               <Link href="/(tabs)/sports" asChild>
-                <AppButton variant="secondary" style={{ width: '100%' }}>Sports</AppButton>
+                <AppButton style={{ width: '100%' }}>Sports</AppButton>
               </Link>
               <Link href="/(tabs)/discover" asChild>
-                <AppButton variant="secondary" style={{ width: '100%' }}>Discover</AppButton>
+                <AppButton style={{ width: '100%' }}>Discover</AppButton>
               </Link>
               <Link href="/(tabs)/live" asChild>
-                <AppButton variant="ghost" style={{ width: '100%' }}>Train schedule</AppButton>
+                <AppButton style={{ width: '100%' }}>Train schedule</AppButton>
               </Link>
             </View>
           </Card>
