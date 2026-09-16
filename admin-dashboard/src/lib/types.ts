@@ -199,7 +199,13 @@ export interface AdminEvent {
   title: string;
   description: string | null;
   eventDate: string | null;
+  eventTime: string | null;
   imageUrl: string | null;
+  city: string | null;
+  phone: string | null;
+  eventLink: string | null;
+  sport: string | null;
+  eventType: string | null;
   createdAt: string;
 }
 

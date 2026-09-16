@@ -1,7 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Image, Linking, RefreshControl, Text, useWindowDimensions, View } from 'react-native';
+import { FlatList, Image, Linking, Platform, RefreshControl, Text, useWindowDimensions, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { AppButton, Banner, BrandHeader, Screen, Spinner } from '@/components/Ui';
+import { AppButton, Banner, BrandHeader, GlassCard, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
+import { SimpleListPicker } from '@/components/SimpleListPicker';
 import { getEvents } from '@/lib/api';
 import { scheduleEventNotifications } from '@/lib/notifications';
 import { useAuth } from '@/lib/auth';
@@ -11,18 +12,52 @@ import type { RssEvent } from '@/lib/types';
 
 const MIN_CARD_WIDTH = 280;
 
+// Only admin-created events with no time-of-day set are emitted as a bare
+// `YYYY-MM-DD` string. RSS `pubDate` values (RFC-822, e.g.
+// "Mon, 06 Jan 2025 08:00:00 -0500") never match this and must be treated
+// as full date/times, not date-only strings.
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 function formatDateTime(iso: string | null | undefined) {
   if (!iso) return '';
+  const dateOnly = DATE_ONLY_RE.test(iso);
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
+  if (dateOnly) {
+    // Date-only events (no specific time set): show just the date.
+    return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+  }
   return d.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
+// Date-only events (no time-of-day set) remain visible through the end of
+// their day rather than expiring at midnight.
 function isPastEvent(item: RssEvent): boolean {
   if (!item.pubDate) return false;
-  const d = new Date(item.pubDate);
+  const dateOnly = DATE_ONLY_RE.test(item.pubDate);
+  const d = new Date(dateOnly ? `${item.pubDate}T23:59:59` : item.pubDate);
   if (Number.isNaN(d.getTime())) return false;
   return d.getTime() < Date.now();
+}
+
+// Soonest-first: events without a known date/time sort to the end.
+function compareByTime(a: RssEvent, b: RssEvent): number {
+  const aTime = a.pubDate ? new Date(a.pubDate).getTime() : NaN;
+  const bTime = b.pubDate ? new Date(b.pubDate).getTime() : NaN;
+  const aValid = !Number.isNaN(aTime);
+  const bValid = !Number.isNaN(bTime);
+  if (aValid && bValid) return aTime - bTime;
+  if (aValid) return -1;
+  if (bValid) return 1;
+  return a.title.localeCompare(b.title);
+}
+
+function formatPhoneForDisplay(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  return phone;
 }
 
 export default function EventsScreen() {
@@ -34,6 +69,9 @@ export default function EventsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cityFilter, setCityFilter] = useState('');
+  const [sportFilter, setSportFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
 
   const columns = Math.max(1, Math.floor(width / MIN_CARD_WIDTH));
   const gap = 16;
@@ -48,8 +86,9 @@ export default function EventsScreen() {
     setError(null);
     try {
       const data = await getEvents();
-      // Auto-remove events whose date/time has already passed.
-      const upcoming = data.filter((e) => !isPastEvent(e));
+      // Auto-remove events whose date/time has already passed, then sort
+      // soonest-first so the closest upcoming events show at the top.
+      const upcoming = data.filter((e) => !isPastEvent(e)).sort(compareByTime);
       setItems(upcoming);
       void scheduleEventNotifications(upcoming, auth.profile?.city ?? '', auth.profile?.pushPreferences);
     } catch (err) {
@@ -74,7 +113,7 @@ export default function EventsScreen() {
   // become stale while the user was away.
   useFocusEffect(
     useCallback(() => {
-      setItems((prev) => prev.filter((e) => !isPastEvent(e)));
+      setItems((prev) => prev.filter((e) => !isPastEvent(e)).sort(compareByTime));
     }, []),
   );
 
@@ -85,16 +124,107 @@ export default function EventsScreen() {
   }
 
   function openLink(url: string | null | undefined) {
-    if (url) void Linking.openURL(url);
+    if (!url) return;
+    const normalized = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+    void Linking.openURL(normalized);
   }
+
+  function callPhone(phone: string) {
+    void Linking.openURL(Platform.select({ default: `tel:${phone.replace(/[^\d+]/g, '')}` }) ?? '');
+  }
+
+  const cityOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const e of items) {
+      const city = e.city?.trim();
+      if (city) counts.set(city, (counts.get(city) ?? 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([value, count]) => ({ value, label: value, count }));
+  }, [items]);
+
+  const sportOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const e of items) {
+      const sport = e.sport?.trim();
+      if (sport) counts.set(sport, (counts.get(sport) ?? 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([value, count]) => ({ value, label: value, count }));
+  }, [items]);
+
+  const typeOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const e of items) {
+      const type = e.eventType?.trim();
+      if (type) counts.set(type, (counts.get(type) ?? 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([value, count]) => ({ value, label: value, count }));
+  }, [items]);
+
+  const filteredItems = useMemo(() => {
+    return items.filter((e) => {
+      if (cityFilter && (e.city ?? '').trim().toLowerCase() !== cityFilter.toLowerCase()) return false;
+      if (sportFilter && (e.sport ?? '').trim().toLowerCase() !== sportFilter.toLowerCase()) return false;
+      if (typeFilter && (e.eventType ?? '').trim().toLowerCase() !== typeFilter.toLowerCase()) return false;
+      return true;
+    });
+  }, [items, cityFilter, sportFilter, typeFilter]);
+
+  const hasActiveFilters = !!(cityFilter || sportFilter || typeFilter);
 
   const header = useMemo(
     () => (
       <View style={{ gap: 14, paddingBottom: 12 }}>
         <BrandHeader subtitle="Local events & happenings" />
+        <GlassCard>
+          <SectionTitle title="Filter events" subtitle="Narrow down by city, sport, or event type" />
+          <View style={{ gap: 10 }}>
+            <SimpleListPicker
+              entries={cityOptions}
+              selected={cityFilter}
+              onSelect={setCityFilter}
+              label="City"
+              itemNoun="event"
+              allLabel="All cities"
+            />
+            <SimpleListPicker
+              entries={sportOptions}
+              selected={sportFilter}
+              onSelect={setSportFilter}
+              label="Sport"
+              itemNoun="event"
+              allLabel="All sports"
+            />
+            <SimpleListPicker
+              entries={typeOptions}
+              selected={typeFilter}
+              onSelect={setTypeFilter}
+              label="Event type"
+              itemNoun="event"
+              allLabel="All event types"
+            />
+            {hasActiveFilters ? (
+              <AppButton
+                variant="ghost"
+                onPress={() => {
+                  setCityFilter('');
+                  setSportFilter('');
+                  setTypeFilter('');
+                }}
+              >
+                Clear filters
+              </AppButton>
+            ) : null}
+          </View>
+        </GlassCard>
       </View>
     ),
-    [],
+    [cityOptions, sportOptions, typeOptions, cityFilter, sportFilter, typeFilter, hasActiveFilters],
   );
 
   const renderItem = useCallback(
@@ -119,6 +249,11 @@ export default function EventsScreen() {
                   {formatDateTime(item.pubDate)}
                 </Text>
               ) : null}
+              <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+                {item.city ? <Pill tone="neutral">{item.city}</Pill> : null}
+                {item.eventType ? <Pill tone="neutral">{item.eventType}</Pill> : null}
+                {item.sport ? <Pill tone="neutral">{item.sport}</Pill> : null}
+              </View>
               {item.description ? (
                 <Text
                   numberOfLines={4}
@@ -128,10 +263,28 @@ export default function EventsScreen() {
                   {item.description}
                 </Text>
               ) : null}
+              {item.phone ? (
+                <Text
+                  onPress={() => callPhone(item.phone!)}
+                  accessibilityRole="link"
+                  accessibilityLabel={`Call ${item.phone}`}
+                  style={{ color: colors.brand, fontWeight: '600', fontSize: 14 * effectiveScale, textDecorationLine: 'underline' }}
+                  allowFontScaling={false}
+                >
+                  📞 {formatPhoneForDisplay(item.phone)}
+                </Text>
+              ) : null}
               {item.link ? (
-                <AppButton variant="secondary" onPress={() => openLink(item.link)}>
-                  View event
-                </AppButton>
+                <Text
+                  onPress={() => openLink(item.link)}
+                  accessibilityRole="link"
+                  accessibilityLabel={`Open event link: ${item.link}`}
+                  numberOfLines={1}
+                  style={{ color: colors.brand, fontWeight: '600', fontSize: 14 * effectiveScale, textDecorationLine: 'underline' }}
+                  allowFontScaling={false}
+                >
+                  🔗 View event
+                </Text>
               ) : null}
             </View>
           </View>
@@ -145,9 +298,13 @@ export default function EventsScreen() {
     <Screen>
       {loading ? <Spinner /> : null}
       {error ? <Banner tone="error">{error}</Banner> : null}
-      {!loading && items.length === 0 ? <Banner tone="info">No upcoming events. Pull down to refresh.</Banner> : null}
+      {!loading && filteredItems.length === 0 ? (
+        <Banner tone="info">
+          {hasActiveFilters ? 'No events match your filters.' : 'No upcoming events. Pull down to refresh.'}
+        </Banner>
+      ) : null}
       <FlatList
-        data={items}
+        data={filteredItems}
         key={columns}
         numColumns={columns}
         renderItem={renderItem}

@@ -488,11 +488,24 @@ export async function saveEventsRssUrls(urls: string[]): Promise<{ urls: string[
   return apiRequest<{ urls: string[] }>('/admin/events', { method: 'PATCH', body: jsonBody({ urls }) });
 }
 
-export async function createAdminEvent(body: { title: string; description?: string; eventDate?: string; imageUrl?: string | null }): Promise<AdminEvent> {
+export interface AdminEventInput {
+  title: string;
+  description?: string;
+  eventDate?: string;
+  eventTime?: string;
+  imageUrl?: string | null;
+  city?: string;
+  phone?: string;
+  eventLink?: string;
+  sport?: string;
+  eventType?: string;
+}
+
+export async function createAdminEvent(body: AdminEventInput): Promise<AdminEvent> {
   return apiRequest<AdminEvent>('/admin/events/custom', { method: 'POST', body: jsonBody(body) });
 }
 
-export async function updateAdminEvent(id: string, body: Partial<{ title: string; description: string | null; eventDate: string | null; imageUrl: string | null }>): Promise<AdminEvent> {
+export async function updateAdminEvent(id: string, body: Partial<{ title: string; description: string | null; eventDate: string | null; eventTime: string | null; imageUrl: string | null; city: string | null; phone: string | null; eventLink: string | null; sport: string | null; eventType: string | null }>): Promise<AdminEvent> {
   return apiRequest<AdminEvent>(`/admin/events/custom/${id}`, { method: 'PATCH', body: jsonBody(body) });
 }
 

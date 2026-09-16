@@ -3,7 +3,7 @@ import { Image, Linking, Platform, Pressable, RefreshControl, ScrollView, Switch
 import { Picker } from '@react-native-picker/picker';
 import { Link, useFocusEffect } from 'expo-router';
 import * as Location from 'expo-location';
-import { AppButton, Banner, BrandHeader, Card, FieldInput, GlassCard, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
+import { AppButton, Banner, BrandHeader, Card, FieldInput, GlassCard, JumpToDetailsButton, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { AdBanner } from '@/components/AdBanner';
 import { clearVersionCache, listVendors } from '@/lib/api';
 import { shareDeal } from '@/lib/share';
@@ -553,11 +553,7 @@ export default function BrowseScreen() {
       );
     })}
 
-        {selected ? (
-          <AppButton variant="ghost" onPress={scrollToDetails} style={{ marginBottom: 4 }}>
-            Jump to details ↓
-          </AppButton>
-        ) : null}
+        {selected ? <JumpToDetailsButton onPress={scrollToDetails} /> : null}
 
         {selected ? (
           <View onLayout={(event) => { detailsOffsetRef.current = event.nativeEvent.layout.y; }}>
