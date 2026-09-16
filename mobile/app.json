@@ -171,7 +171,8 @@
       ],
       "expo-notifications",
       "expo-secure-store",
-      "@bacons/apple-targets"
+      "@bacons/apple-targets",
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true
