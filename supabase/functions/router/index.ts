@@ -2169,7 +2169,19 @@ Deno.serve(async (request) => {
       const pathMatch = path.match(/^\/api\/proxy\/ncaa\/scoreboard\/([^/]+)\/(.+)$/);
       if (!pathMatch) return json(request, { error: 'Invalid path' }, { status: 400 });
       const [, sport, pathPart] = pathMatch;
-      const ncaaUrl = `https://api.ncaa.com/scoreboard/${sport}/${pathPart}`;
+      
+      // Validate and sanitize parameters to prevent SSRF
+      const allowedSports = /^(football|basketball-men|basketball-women|soccer-men|soccer-women|volleyball-women|baseball|softball|icehockey-men|icehockey-women|lacrosse-men|lacrosse-women)$/;
+      const allowedPath = /^[\w\-\/]+$/;
+      
+      if (!allowedSports.test(sport)) {
+        return json(request, { error: 'Invalid sport parameter' }, { status: 400 });
+      }
+      if (!allowedPath.test(pathPart)) {
+        return json(request, { error: 'Invalid path parameter' }, { status: 400 });
+      }
+      
+      const ncaaUrl = `https://api.ncaa.com/scoreboard/${encodeURIComponent(sport)}/${encodeURIComponent(pathPart)}`;
       
       try {
         const response = await fetch(ncaaUrl, {
@@ -2194,8 +2206,24 @@ Deno.serve(async (request) => {
       const pathMatch = path.match(/^\/api\/proxy\/ncaa\/standings\/([^/]+)\/([^/]+)(?:\/([^/]+))?$/);
       if (!pathMatch) return json(request, { error: 'Invalid path' }, { status: 400 });
       const [, sport, division, conference] = pathMatch;
-      const conferencePath = conference ? `/${conference}` : '';
-      const ncaaUrl = `https://api.ncaa.com/standings/${sport}/${division}${conferencePath}`;
+      
+      // Validate and sanitize parameters to prevent SSRF
+      const allowedSports = /^(football|basketball-men|basketball-women|soccer-men|soccer-women|volleyball-women|baseball|softball|icehockey-men|icehockey-women|lacrosse-men|lacrosse-women)$/;
+      const allowedDivision = /^(fbs|fcs|d1|d2|d3)$/;
+      const allowedConference = /^[\w\-]+$/;
+      
+      if (!allowedSports.test(sport)) {
+        return json(request, { error: 'Invalid sport parameter' }, { status: 400 });
+      }
+      if (!allowedDivision.test(division)) {
+        return json(request, { error: 'Invalid division parameter' }, { status: 400 });
+      }
+      if (conference && !allowedConference.test(conference)) {
+        return json(request, { error: 'Invalid conference parameter' }, { status: 400 });
+      }
+      
+      const conferencePath = conference ? `/${encodeURIComponent(conference)}` : '';
+      const ncaaUrl = `https://api.ncaa.com/standings/${encodeURIComponent(sport)}/${encodeURIComponent(division)}${conferencePath}`;
       
       try {
         const response = await fetch(ncaaUrl, {

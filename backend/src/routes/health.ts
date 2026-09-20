@@ -26,7 +26,19 @@ export async function registerHealthRoutes(fastify: FastifyInstance): Promise<vo
   // NCAA API proxy endpoint to bypass CORS/DNS issues
   fastify.get('/api/proxy/ncaa/scoreboard/:sport/:path', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const { sport, path } = request.params as { sport: string; path: string };
-    const ncaaUrl = `https://api.ncaa.com/scoreboard/${sport}/${path}`;
+    
+    // Validate and sanitize parameters to prevent SSRF
+    const allowedSports = /^(football|basketball-men|basketball-women|soccer-men|soccer-women|volleyball-women|baseball|softball|icehockey-men|icehockey-women|lacrosse-men|lacrosse-women)$/;
+    const allowedPath = /^[\w\-\/]+$/;
+    
+    if (!allowedSports.test(sport)) {
+      return reply.code(400).send({ error: 'Invalid sport parameter' });
+    }
+    if (!allowedPath.test(path)) {
+      return reply.code(400).send({ error: 'Invalid path parameter' });
+    }
+    
+    const ncaaUrl = `https://api.ncaa.com/scoreboard/${encodeURIComponent(sport)}/${encodeURIComponent(path)}`;
     
     try {
       const response = await fetch(ncaaUrl, {
@@ -51,8 +63,24 @@ export async function registerHealthRoutes(fastify: FastifyInstance): Promise<vo
   fastify.get('/api/proxy/ncaa/standings/:sport/:division/:conference?', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const { sport, division } = request.params as { sport: string; division: string };
     const { conference } = request.query as { conference?: string };
-    const conferencePath = conference ? `/${conference}` : '';
-    const ncaaUrl = `https://api.ncaa.com/standings/${sport}/${division}${conferencePath}`;
+    
+    // Validate and sanitize parameters to prevent SSRF
+    const allowedSports = /^(football|basketball-men|basketball-women|soccer-men|soccer-women|volleyball-women|baseball|softball|icehockey-men|icehockey-women|lacrosse-men|lacrosse-women)$/;
+    const allowedDivision = /^(fbs|fcs|d1|d2|d3)$/;
+    const allowedConference = /^[\w\-]+$/;
+    
+    if (!allowedSports.test(sport)) {
+      return reply.code(400).send({ error: 'Invalid sport parameter' });
+    }
+    if (!allowedDivision.test(division)) {
+      return reply.code(400).send({ error: 'Invalid division parameter' });
+    }
+    if (conference && !allowedConference.test(conference)) {
+      return reply.code(400).send({ error: 'Invalid conference parameter' });
+    }
+    
+    const conferencePath = conference ? `/${encodeURIComponent(conference)}` : '';
+    const ncaaUrl = `https://api.ncaa.com/standings/${encodeURIComponent(sport)}/${encodeURIComponent(division)}${conferencePath}`;
     
     try {
       const response = await fetch(ncaaUrl, {
