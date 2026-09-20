@@ -6,12 +6,37 @@ import { sendVendorWelcomeEmail } from './resend.ts';
 import { qrCodeUrl } from './quickchart.ts';
 // Automatic push notifications disabled - only admin can manually trigger push notifications
 
+// Geocoding function using Mapbox Geocoding API
+async function geocodeAddress(address: string): Promise<{ latitude: number; longitude: number } | null> {
+  if (!config.mapboxAccessToken || !address.trim()) return null;
+  
+  try {
+    const encodedAddress = encodeURIComponent(address);
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedAddress}.json?access_token=${config.mapboxAccessToken}&limit=1`;
+    
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    
+    const data = await response.json() as { features?: Array<{ center: [number, number] }> };
+    if (data.features && data.features.length > 0 && data.features[0]) {
+      const [longitude, latitude] = data.features[0].center;
+      return { latitude, longitude };
+    }
+    
+    return null;
+  } catch (error) {
+    console.warn('[vendors] Geocoding error:', error);
+    return null;
+  }
+}
+
 export type VendorCategory = 'Sports' | 'Dining' | 'Entertainment';
 
 export interface CreateVendorInput {
   name: string;
   ownerName?: string | null;
   address?: string | null;
+  station?: string | null;
   category: VendorCategory;
   email?: string | null;
   phone?: string | null;
@@ -70,10 +95,22 @@ export async function createVendorWithDiscount(input: CreateVendorInput): Promis
       const defaultTerms = 'Cannot be applied with any other offer\nNot redeemable for cash\nCan be used 1 time per week';
       const discountDescription = input.discountDescription?.trim() || (input.discountType === 'bogo' ? 'Buy one, get one offer' : `${label} member discount`);
       const discountTerms = input.discountTerms?.trim() || defaultTerms;
+      
+      // Auto-geocode if address is provided but coordinates are missing
+      let latitude = input.latitude;
+      let longitude = input.longitude;
+      if (input.address && (!latitude || !longitude)) {
+        const coords = await geocodeAddress(input.address);
+        if (coords) {
+          latitude = coords.latitude;
+          longitude = coords.longitude;
+        }
+      }
+      
       const vendorRows = await client.query<{ id: string }>(
-        `INSERT INTO vendors (name, owner_name, location, address, city, category, pos_type, pos_system, email, phone, password_hash, status, latitude, longitude, discount_terms)
-         VALUES ($1, $2, $3, $4, NULL, $5, NULL, NULL, $6, $7, NULL, 'approved', $8, $9, $10) RETURNING id`,
-        [input.name, input.ownerName ?? null, input.address ?? null, input.address ?? null, input.category, input.email ?? null, input.phone ?? null, input.latitude ?? null, input.longitude ?? null, discountTerms],
+        `INSERT INTO vendors (name, owner_name, location, address, city, station, category, pos_type, pos_system, email, phone, password_hash, status, latitude, longitude, discount_terms)
+         VALUES ($1, $2, $3, $4, NULL, $5, $6, NULL, NULL, $7, $8, NULL, 'approved', $9, $10, $11) RETURNING id`,
+        [input.name, input.ownerName ?? null, input.address ?? null, input.address ?? null, input.station ?? null, input.category, input.email ?? null, input.phone ?? null, latitude ?? null, longitude ?? null, discountTerms],
       );
       const vendorId = vendorRows.rows[0]!.id;
 

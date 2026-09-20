@@ -574,6 +574,22 @@ export function VendorsPage() {
         errors.push(`Row ${i + 1}: skipped (no name).`);
         continue;
       }
+      
+      // Auto-geocode if address is provided but coordinates are missing
+      let latitude = input.latitude;
+      let longitude = input.longitude;
+      if (input.address && (!latitude || !longitude) && mapboxToken) {
+        try {
+          const coords = await geocodeAddress(input.address);
+          if (coords) {
+            latitude = coords.latitude;
+            longitude = coords.longitude;
+          }
+        } catch (err) {
+          console.warn(`Failed to geocode ${input.name}:`, err);
+        }
+      }
+      
       try {
         await createAdminVendor({
           name: input.name,
@@ -583,8 +599,8 @@ export function VendorsPage() {
           category: input.category as 'Sports' | 'Dining' | 'Entertainment',
           email: input.email,
           phone: input.phone,
-          latitude: input.latitude,
-          longitude: input.longitude,
+          latitude,
+          longitude,
           discountType: input.discountType || 'percent',
           discountValue: input.discountValue || 0,
           discountDescription: input.discountDescription,
@@ -781,13 +797,13 @@ export function VendorsPage() {
 
         <PageCard
           title="Import from JSON"
-          subtitle="Paste a JSON array of vendors. Column names are case-insensitive (e.g. name, address, category, phone, email, discountType, discountValue). Only a name is required; other fields are optional."
+          subtitle="Paste a JSON array of vendors. Column names are case-insensitive (e.g. name, address, station, category, phone, email, discountType, discountValue). Only a name is required; other fields are optional. Addresses are automatically geocoded if coordinates not provided."
         >
           <Textarea
             rows={12}
             value={jsonText}
             onChange={(e) => setJsonText(e.target.value)}
-            placeholder={'[\n  {\n    "name": "Joe\'s Pizza",\n    "address": "123 Main St",\n    "category": "Dining",\n    "phone": "(602) 555-1234",\n    "discountType": "percent",\n    "discountValue": 15\n  }\n]'}
+            placeholder={'[\n  {\n    "name": "Joe\'s Pizza",\n    "address": "123 Main St, Phoenix, AZ",\n    "station": "Central Station",\n    "category": "Dining",\n    "phone": "(602) 555-1234",\n    "discountType": "percent",\n    "discountValue": 15\n  }\n]'}
           />
           <div className="inline-row" style={{ marginTop: 12 }}>
             <Button onClick={handleImportJson} disabled={importing || !jsonText.trim() || readOnly}>

@@ -11,6 +11,31 @@ import { sendVendorWelcomeEmail, sendDealOfTheDayBlast } from '../services/resen
 import { getAllPushTokens, getPushTokensByCity, sendPushNotifications } from '../services/push.js';
 import { qrCodeUrl } from '../services/quickchart.js';
 import { deleteDiscountFromVendorConnections, syncDiscountToVendorConnections } from '../services/pos.js';
+import { config } from '../config.js';
+
+// Geocoding function using Mapbox Geocoding API
+async function geocodeAddress(address: string): Promise<{ latitude: number; longitude: number } | null> {
+  if (!config.mapboxAccessToken || !address.trim()) return null;
+  
+  try {
+    const encodedAddress = encodeURIComponent(address);
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedAddress}.json?access_token=${config.mapboxAccessToken}&limit=1`;
+    
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    
+    const data = await response.json() as { features?: Array<{ center: [number, number] }> };
+    if (data.features && data.features.length > 0 && data.features[0]) {
+      const [longitude, latitude] = data.features[0].center;
+      return { latitude, longitude };
+    }
+    
+    return null;
+  } catch (error) {
+    console.warn('[admin] Geocoding error:', error);
+    return null;
+  }
+}
 
 const cardSchema = z.object({
   name: z.string().min(1),
@@ -169,6 +194,18 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
     }
     const result = await withDbClient(async (client: PoolClient) => {
       const address = body.address ?? body.location;
+      
+      // Auto-geocode if address is provided but coordinates are missing
+      let latitude = body.latitude;
+      let longitude = body.longitude;
+      if (address && (!latitude || !longitude)) {
+        const coords = await geocodeAddress(address);
+        if (coords) {
+          latitude = coords.latitude;
+          longitude = coords.longitude;
+        }
+      }
+      
       const vendorRows = await client.query<{ id: string }>(
         `
           INSERT INTO vendors (name, owner_name, location, address, city, station, category, pos_type, pos_system, email, phone, password_hash, status, latitude, longitude, icon_url, logo_url, discount_terms)
@@ -189,8 +226,8 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
           body.phone ?? null,
           null,
           body.status ?? 'approved',
-          body.latitude ?? null,
-          body.longitude ?? null,
+          latitude ?? null,
+          longitude ?? null,
           body.iconDataUrl ?? null,
           body.logoDataUrl ?? null,
           body.discountTerms ?? null,
