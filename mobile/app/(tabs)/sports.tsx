@@ -76,7 +76,12 @@ export default function SportsScreen() {
   }, [standings, favorites]);
 
   const sportOptions = useMemo(() => SPORTS, []);
-  const divisionOptions = useMemo(() => DIVISIONS, []);
+  const divisionOptions = useMemo(() => {
+    // FBS/FCS only exist for football; D1 does not exist for football
+    // upstream (D2/D3 do).
+    if (sportFilter === 'football') return DIVISIONS.filter((d) => d.value !== 'd1');
+    return DIVISIONS.filter((d) => d.value !== 'fbs' && d.value !== 'fcs');
+  }, [sportFilter]);
   const conferenceOptions = useMemo(() => {
     if (sportFilter !== 'football') return [];
     return CONFERENCES;
@@ -213,6 +218,8 @@ export default function SportsScreen() {
                 if (value !== 'football') {
                   if (divisionFilter === 'fbs' || divisionFilter === 'fcs') setDivisionFilter('d1');
                   setConferenceFilter('');
+                } else if (divisionFilter === 'd1') {
+                  setDivisionFilter('fbs');
                 }
               }}
               label="Sport"

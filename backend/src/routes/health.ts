@@ -87,6 +87,17 @@ function ncaaNumField(row: Record<string, unknown>, ...keys: string[]): number {
   return 0;
 }
 
+// Upstream divisions: football uses fbs/fcs/d2/d3 (d1 does not exist);
+// every other sport uses d1/d2/d3 (fbs/fcs do not). Shipped app versions
+// keep the stale division when switching sports, so coerce invalid combos
+// here instead of passing the upstream 400/404 through to clients (whose
+// direct-API fallback points at the dead api.ncaa.com host).
+function ncaaCoerceDivision(sport: string, division: string): string {
+  const isFootballDivision = division === 'fbs' || division === 'fcs';
+  if (sport === 'football') return division === 'd1' ? 'fbs' : division;
+  return isFootballDivision ? 'd1' : division;
+}
+
 export async function registerHealthRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get('/api/health', { config: { rateLimit: { max: 100, timeWindow: '1 minute' } } }, async () => {
     const pool = getPool();
@@ -137,6 +148,7 @@ export async function registerHealthRoutes(fastify: FastifyInstance): Promise<vo
     if (segments.length > 1 && !/^\d+$/.test(segments[segments.length - 1]!)) {
       conference = segments.pop()!;
     }
+    if (segments.length > 0) segments[0] = ncaaCoerceDivision(sport, segments[0]!);
     const upstreamPath = segments.map(encodeURIComponent).join('/');
     const ncaaUrl = `${ncaaUpstreamBase}/scoreboard/${encodeURIComponent(sport)}/${upstreamPath}`;
 
@@ -191,7 +203,7 @@ export async function registerHealthRoutes(fastify: FastifyInstance): Promise<vo
     }
 
     const conferencePath = conference ? `/${encodeURIComponent(conference)}` : '';
-    const ncaaUrl = `${ncaaUpstreamBase}/standings/${encodeURIComponent(sport)}/${encodeURIComponent(division)}${conferencePath}`;
+    const ncaaUrl = `${ncaaUpstreamBase}/standings/${encodeURIComponent(sport)}/${encodeURIComponent(ncaaCoerceDivision(sport, division))}${conferencePath}`;
 
     try {
       const response = await fetch(ncaaUrl, {

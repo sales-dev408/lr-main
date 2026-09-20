@@ -794,6 +794,17 @@ function ncaaMapGame(entry: unknown, sport: string, division: string) {
   };
 }
 
+// Upstream divisions: football uses fbs/fcs/d2/d3 (d1 does not exist);
+// every other sport uses d1/d2/d3 (fbs/fcs do not). Shipped app versions
+// keep the stale division when switching sports, so coerce invalid combos
+// here instead of passing the upstream 400/404 through to clients (whose
+// direct-API fallback points at the dead api.ncaa.com host).
+function ncaaCoerceDivision(sport: string, division: string): string {
+  const isFootballDivision = division === 'fbs' || division === 'fcs';
+  if (sport === 'football') return division === 'd1' ? 'fbs' : division;
+  return isFootballDivision ? 'd1' : division;
+}
+
 function ncaaNumField(row: Record<string, unknown>, ...keys: string[]): number {
   for (const key of keys) {
     const value = row[key];
@@ -2309,6 +2320,7 @@ Deno.serve(async (request) => {
       if (segments.length > 1 && !/^\d+$/.test(segments[segments.length - 1]!)) {
         conference = segments.pop()!;
       }
+      if (segments.length > 0) segments[0] = ncaaCoerceDivision(sport, segments[0]!);
       const upstreamPath = segments.map(encodeURIComponent).join('/');
       const ncaaUrl = `https://ncaa-api.henrygd.me/scoreboard/${encodeURIComponent(sport)}/${upstreamPath}`;
 
@@ -2367,7 +2379,7 @@ Deno.serve(async (request) => {
       }
 
       const conferencePath = conference ? `/${encodeURIComponent(conference)}` : '';
-      const ncaaUrl = `https://ncaa-api.henrygd.me/standings/${encodeURIComponent(sport)}/${encodeURIComponent(division)}${conferencePath}`;
+      const ncaaUrl = `https://ncaa-api.henrygd.me/standings/${encodeURIComponent(sport)}/${encodeURIComponent(ncaaCoerceDivision(sport, division))}${conferencePath}`;
 
       try {
         const response = await fetch(ncaaUrl, {
