@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { AppButton, Banner, BrandHeader, Card, GlassCard, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
-import { SimpleListPicker } from '@/components/SimpleListPicker';
+import { SimpleListPicker, type SimpleListPickerEntry } from '@/components/SimpleListPicker';
 import { fetchScoreboard, fetchStandings, CONFERENCES, DIVISIONS, SPORTS, type NcaaGame, type NcaaStanding } from '@/lib/ncaa';
 import { useSportsFavorites } from '@/lib/sportsFavorites';
 import { useThemeColors } from '@/lib/useThemeColors';
@@ -201,7 +201,7 @@ export default function SportsScreen() {
           <SectionTitle title="Filter" subtitle="Select sport, division, and conference" />
           <View style={{ gap: 10 }}>
             <SimpleListPicker
-              entries={sportOptions}
+              entries={[...sportOptions] as SimpleListPickerEntry[]}
               selected={sportFilter}
               onSelect={setSportFilter}
               label="Sport"
@@ -209,7 +209,7 @@ export default function SportsScreen() {
               allLabel="All sports"
             />
             <SimpleListPicker
-              entries={divisionOptions}
+              entries={[...divisionOptions] as SimpleListPickerEntry[]}
               selected={divisionFilter}
               onSelect={setDivisionFilter}
               label="Division"
@@ -218,7 +218,7 @@ export default function SportsScreen() {
             />
             {conferenceOptions.length > 0 ? (
               <SimpleListPicker
-                entries={conferenceOptions}
+                entries={[...conferenceOptions] as SimpleListPickerEntry[]}
                 selected={conferenceFilter}
                 onSelect={setConferenceFilter}
                 label="Conference"

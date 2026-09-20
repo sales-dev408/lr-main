@@ -4,7 +4,8 @@ import { useFocusEffect } from 'expo-router';
 import { AppButton, Banner, BrandHeader, GlassCard, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { SimpleListPicker } from '@/components/SimpleListPicker';
 import { getEvents } from '@/lib/api';
-import { scheduleEventNotifications } from '@/lib/notifications';
+// Automatic event notifications disabled - only admin can manually trigger push notifications
+// import { scheduleEventNotifications } from '@/lib/notifications';
 import { useAuth } from '@/lib/auth';
 import { useThemeColors } from '@/lib/useThemeColors';
 import { useDynamicType } from '@/lib/dynamicType';
@@ -120,7 +121,8 @@ export default function EventsScreen() {
       // soonest-first so the closest upcoming events show at the top.
       const upcoming = data.filter((e) => !isPastEvent(e)).sort(compareByTime);
       setItems(upcoming);
-      void scheduleEventNotifications(upcoming, auth.profile?.city ?? '', auth.profile?.pushPreferences);
+      // Automatic event notifications disabled - only admin can manually trigger push notifications
+      // void scheduleEventNotifications(upcoming, auth.profile?.city ?? '', auth.profile?.pushPreferences);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load events');
     }

@@ -1,7 +1,9 @@
 // NCAA API client for fetching sports data
 // Based on https://api.ncaa.com/ - public API limited to 5 requests per second per IP
+// Uses backend proxy to bypass CORS/DNS issues
 
 const NCAA_API_BASE = 'https://api.ncaa.com';
+const PROXY_API_BASE = 'https://okbolfpndeakmchpznmt.supabase.co/functions/v1/router';
 
 export interface NcaaGame {
   id: number;
@@ -48,9 +50,28 @@ export interface NcaaStandingsResponse {
 }
 
 export async function fetchScoreboard(sport: string, path: string): Promise<NcaaScoreboardResponse> {
-  const url = `${NCAA_API_BASE}/scoreboard/${sport}/${path}`;
+  // Try backend proxy first, fall back to direct API
+  const proxyUrl = `${PROXY_API_BASE}/proxy/ncaa/scoreboard/${sport}/${path}`;
+  const directUrl = `${NCAA_API_BASE}/scoreboard/${sport}/${path}`;
+  
   try {
-    const response = await fetch(url, {
+    const response = await fetch(proxyUrl, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+    if (response.ok) {
+      const data = await response.json();
+      return { games: data.games || data || [] };
+    }
+  } catch (error) {
+    console.warn('Proxy fetch failed, trying direct API:', error);
+  }
+  
+  // Fallback to direct API
+  try {
+    const response = await fetch(directUrl, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
@@ -60,7 +81,6 @@ export async function fetchScoreboard(sport: string, path: string): Promise<Ncaa
       throw new Error(`NCAA API error: ${response.status}`);
     }
     const data = await response.json();
-    // Handle different response structures
     return { games: data.games || data || [] };
   } catch (error) {
     console.error('NCAA Scoreboard fetch error:', error);
@@ -73,9 +93,28 @@ export async function fetchScoreboard(sport: string, path: string): Promise<Ncaa
 
 export async function fetchStandings(sport: string, division: string, conference?: string): Promise<NcaaStandingsResponse> {
   const conferencePath = conference ? `/${conference}` : '';
-  const url = `${NCAA_API_BASE}/standings/${sport}/${division}${conferencePath}`;
+  const proxyUrl = `${PROXY_API_BASE}/proxy/ncaa/standings/${sport}/${division}${conferencePath}?conference=${conference || ''}`;
+  const directUrl = `${NCAA_API_BASE}/standings/${sport}/${division}${conferencePath}`;
+  
+  // Try backend proxy first, fall back to direct API
   try {
-    const response = await fetch(url, {
+    const response = await fetch(proxyUrl, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+    if (response.ok) {
+      const data = await response.json();
+      return { standings: data.standings || data || [] };
+    }
+  } catch (error) {
+    console.warn('Proxy fetch failed, trying direct API:', error);
+  }
+  
+  // Fallback to direct API
+  try {
+    const response = await fetch(directUrl, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
@@ -85,7 +124,6 @@ export async function fetchStandings(sport: string, division: string, conference
       throw new Error(`NCAA API error: ${response.status}`);
     }
     const data = await response.json();
-    // Handle different response structures
     return { standings: data.standings || data || [] };
   } catch (error) {
     console.error('NCAA Standings fetch error:', error);

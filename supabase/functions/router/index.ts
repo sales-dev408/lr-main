@@ -2164,6 +2164,58 @@ Deno.serve(async (request) => {
       return json(request, { sent: pushResult.sent, errors: pushResult.errors });
     }
 
+    // NCAA API proxy endpoints to bypass CORS/DNS issues
+    if (path.startsWith('/api/proxy/ncaa/scoreboard/') && request.method === 'GET') {
+      const pathMatch = path.match(/^\/api\/proxy\/ncaa\/scoreboard\/([^/]+)\/(.+)$/);
+      if (!pathMatch) return json(request, { error: 'Invalid path' }, { status: 400 });
+      const [, sport, pathPart] = pathMatch;
+      const ncaaUrl = `https://api.ncaa.com/scoreboard/${sport}/${pathPart}`;
+      
+      try {
+        const response = await fetch(ncaaUrl, {
+          headers: {
+            'Accept': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          return json(request, { error: `NCAA API error: ${response.status}` }, { status: response.status });
+        }
+        
+        const data = await response.json();
+        return json(request, data);
+      } catch (error) {
+        console.error('NCAA API proxy error:', error);
+        return json(request, { error: 'Failed to fetch from NCAA API' }, { status: 502 });
+      }
+    }
+
+    if (path.startsWith('/api/proxy/ncaa/standings/') && request.method === 'GET') {
+      const pathMatch = path.match(/^\/api\/proxy\/ncaa\/standings\/([^/]+)\/([^/]+)(?:\/([^/]+))?$/);
+      if (!pathMatch) return json(request, { error: 'Invalid path' }, { status: 400 });
+      const [, sport, division, conference] = pathMatch;
+      const conferencePath = conference ? `/${conference}` : '';
+      const ncaaUrl = `https://api.ncaa.com/standings/${sport}/${division}${conferencePath}`;
+      
+      try {
+        const response = await fetch(ncaaUrl, {
+          headers: {
+            'Accept': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          return json(request, { error: `NCAA API error: ${response.status}` }, { status: response.status });
+        }
+        
+        const data = await response.json();
+        return json(request, data);
+      } catch (error) {
+        console.error('NCAA API proxy error:', error);
+        return json(request, { error: 'Failed to fetch from NCAA API' }, { status: 502 });
+      }
+    }
+
     // Ads: public list and admin CRUD.
     if (path === '/api/ads' && request.method === 'GET') {
       const rows = await dbQuery('SELECT id, slot, image_url, link_url, active, created_at, updated_at FROM ads WHERE active = true ORDER BY slot');
