@@ -100,27 +100,29 @@ export default function HomeScreen() {
         <Card>
           <SectionTitle title="Quick actions" subtitle="Jump to the most used features" />
           <View style={{ gap: 10 }}>
+            {/* Fixed height keeps all four boxes identical — the longer labels
+                wrap to two lines instead of making taller buttons. */}
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <View style={{ flex: 1 }}>
                 <Link href="/(tabs)/events" asChild>
-                  <AppButton>Events</AppButton>
+                  <AppButton style={{ width: '100%', height: 64 * effectiveScale }}>Events</AppButton>
                 </Link>
               </View>
               <View style={{ flex: 1 }}>
                 <Link href={{ pathname: '/(tabs)/browse', params: { type: 'Bars & Restaurants' } }} asChild>
-                  <AppButton>Bars & Restaurants</AppButton>
+                  <AppButton style={{ width: '100%', height: 64 * effectiveScale }}>Bars & Restaurants</AppButton>
                 </Link>
               </View>
             </View>
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <View style={{ flex: 1 }}>
                 <Link href="/(tabs)/browse" asChild>
-                  <AppButton>Browse Deals</AppButton>
+                  <AppButton style={{ width: '100%', height: 64 * effectiveScale }}>Browse Deals</AppButton>
                 </Link>
               </View>
               <View style={{ flex: 1 }}>
                 <Link href="/(tabs)/apartments" asChild>
-                  <AppButton>Apartments & Hotels</AppButton>
+                  <AppButton style={{ width: '100%', height: 64 * effectiveScale }}>Apartments & Hotels</AppButton>
                 </Link>
               </View>
             </View>

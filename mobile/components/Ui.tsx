@@ -90,7 +90,7 @@ function useUiStyles() {
       button_ghost: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.border },
       button_danger: { backgroundColor: colors.danger },
       buttonPressed: { opacity: 0.88, transform: [{ scale: 0.98 }] },
-      buttonText: { color: '#fff', fontWeight: '700', fontSize: scale(14) },
+      buttonText: { color: '#fff', fontWeight: '700', fontSize: scale(14), textAlign: 'center' },
       buttonTextDark: { color: colors.ink },
       input: {
         backgroundColor: colors.panel,
