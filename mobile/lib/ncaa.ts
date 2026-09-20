@@ -64,6 +64,9 @@ export async function fetchScoreboard(sport: string, path: string): Promise<Ncaa
     return { games: data.games || data || [] };
   } catch (error) {
     console.error('NCAA Scoreboard fetch error:', error);
+    if (error instanceof Error && error.message.includes('Failed to fetch')) {
+      throw new Error('NCAA API is not accessible in this environment. The API requires a backend proxy to work properly.');
+    }
     throw new Error(`Failed to fetch scoreboard: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
@@ -86,6 +89,9 @@ export async function fetchStandings(sport: string, division: string, conference
     return { standings: data.standings || data || [] };
   } catch (error) {
     console.error('NCAA Standings fetch error:', error);
+    if (error instanceof Error && error.message.includes('Failed to fetch')) {
+      throw new Error('NCAA API is not accessible in this environment. The API requires a backend proxy to work properly.');
+    }
     throw new Error(`Failed to fetch standings: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
