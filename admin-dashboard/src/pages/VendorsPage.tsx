@@ -120,6 +120,136 @@ function csvEscape(value: string): string {
   return str;
 }
 
+// ---- JSON import helpers ---------------------------------------------------
+
+// Canonical field -> accepted aliases (compared case- and punctuation-insensitively).
+const VENDOR_FIELD_ALIASES: Record<keyof ParsedVendorRow, string[]> = {
+  name: ['name', 'business', 'businessname', 'company', 'vendor', 'vendorname'],
+  ownerName: ['owner', 'ownername', 'contact', 'contactname'],
+  address: ['address', 'location', 'street', 'streetaddress'],
+  station: ['station', 'stop', 'trainstop', 'stopname'],
+  category: ['category', 'type', 'businesstype'],
+  email: ['email', 'emailaddress'],
+  phone: ['phone', 'phonenumber', 'tel', 'telephone'],
+  latitude: ['latitude', 'lat', 'latcoord'],
+  longitude: ['longitude', 'lon', 'lng', 'long', 'longcoord'],
+  discountType: ['discounttype', 'discount', 'offertype'],
+  discountValue: ['discountvalue', 'discountamount', 'value', 'amount'],
+  discountDescription: ['discountdescription', 'description', 'details', 'offerdetails'],
+};
+
+interface ParsedVendorRow {
+  name?: string;
+  ownerName?: string;
+  address?: string;
+  station?: string;
+  category?: string;
+  email?: string;
+  phone?: string;
+  latitude?: string;
+  longitude?: string;
+  discountType?: string;
+  discountValue?: string;
+  discountDescription?: string;
+}
+
+function normalizeKey(key: string): string {
+  return key.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+// Build a reverse lookup: normalized alias -> canonical field name.
+const VENDOR_ALIAS_LOOKUP: Record<string, keyof ParsedVendorRow> = (() => {
+  const map: Record<string, keyof ParsedVendorRow> = {};
+  (Object.keys(VENDOR_FIELD_ALIASES) as (keyof ParsedVendorRow)[]).forEach((field) => {
+    map[normalizeKey(field)] = field;
+    VENDOR_FIELD_ALIASES[field].forEach((alias) => {
+      map[normalizeKey(alias)] = field;
+    });
+  });
+  return map;
+})();
+
+function coerceString(value: unknown): string | undefined {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === 'string') return value.trim() || undefined;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value).trim() || undefined;
+  return undefined;
+}
+
+function parseVendorRows(raw: string): ParsedVendorRow[] {
+  let data: unknown;
+  try {
+    data = JSON.parse(raw);
+  } catch (err) {
+    throw new Error('Invalid JSON: ' + (err instanceof Error ? err.message : 'parse error'));
+  }
+
+  // Accept a top-level array, a single object, or an object wrapping an array under common keys.
+  let records: unknown[] = [];
+  if (Array.isArray(data)) {
+    records = data;
+  } else if (data && typeof data === 'object') {
+    const obj = data as Record<string, unknown>;
+    const wrapperKey = Object.keys(obj).find((k) => {
+      const n = normalizeKey(k);
+      return (n === 'vendors' || n === 'data' || n === 'items' || n === 'list' || n === 'rows') && Array.isArray(obj[k]);
+    });
+    if (wrapperKey) {
+      records = obj[wrapperKey] as unknown[];
+    } else {
+      records = [data];
+    }
+  } else {
+    throw new Error('JSON must be an object or an array of objects.');
+  }
+
+  return records.map((record, index) => {
+    if (!record || typeof record !== 'object' || Array.isArray(record)) {
+      throw new Error(`Row ${index + 1} is not an object.`);
+    }
+    const row: ParsedVendorRow = {};
+    for (const [key, value] of Object.entries(record as Record<string, unknown>)) {
+      const field = VENDOR_ALIAS_LOOKUP[normalizeKey(key)];
+      if (!field) continue;
+      const text = coerceString(value);
+      if (text === undefined) continue;
+      // Don't overwrite an already-matched canonical field.
+      if (row[field] === undefined) row[field] = text;
+    }
+    return row;
+  });
+}
+
+function rowToVendorInput(row: ParsedVendorRow): { name: string; ownerName?: string; address?: string; station?: string; category?: string; email?: string; phone?: string; latitude?: number; longitude?: number; discountType?: 'fixed' | 'percent' | 'bogo'; discountValue?: number; discountDescription?: string } | null {
+  const name = row.name?.trim();
+  if (!name) return null;
+  
+  const category = row.category?.trim() as VendorCategory | undefined;
+  const validCategory = category && CATEGORIES.includes(category) ? category : 'Dining';
+  
+  const discountType = row.discountType?.trim().toLowerCase() as 'fixed' | 'percent' | 'bogo' | undefined;
+  const validDiscountType = (discountType === 'fixed' || discountType === 'percent' || discountType === 'bogo') ? discountType : 'percent';
+  
+  const discountValue = row.discountValue ? Number(row.discountValue) : undefined;
+  const latitude = row.latitude ? Number(row.latitude) : undefined;
+  const longitude = row.longitude ? Number(row.longitude) : undefined;
+  
+  return {
+    name,
+    ownerName: row.ownerName?.trim() || undefined,
+    address: row.address?.trim() || undefined,
+    station: row.station?.trim() || undefined,
+    category: validCategory,
+    email: row.email?.trim() || undefined,
+    phone: row.phone?.trim() || undefined,
+    latitude: latitude && !isNaN(latitude) ? latitude : undefined,
+    longitude: longitude && !isNaN(longitude) ? longitude : undefined,
+    discountType: validDiscountType,
+    discountValue: discountValue && !isNaN(discountValue) ? discountValue : undefined,
+    discountDescription: row.discountDescription?.trim() || undefined,
+  };
+}
+
 function downloadCsv(vendors: VendorRecord[]) {
   const header = ['Biz Name', 'First Name', 'Last Name', 'Street Address', 'City', 'State', 'Zip Code', 'Phone Number', 'Additional Info'];
   const rows = vendors.map((vendor) => {
@@ -187,6 +317,11 @@ export function VendorsPage() {
   const [scanNote, setScanNote] = useState<string | null>(null);
   const [statsVendor, setStatsVendor] = useState<{ vendor: VendorRecord; stats: VendorAnalyticsResponse } | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
+  
+  // JSON bulk import state
+  const [jsonText, setJsonText] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ created: number; skipped: number; failed: number; errors: string[] } | null>(null);
 
   function handleAutofillRetrieve(res: AddressAutofillRetrieveResponse) {
     const feature = res.features[0];
@@ -407,6 +542,69 @@ export function VendorsPage() {
     }
   }
 
+  async function handleImportJson() {
+    setError(null);
+    setImportResult(null);
+    if (!jsonText.trim()) {
+      setError('Paste a JSON array of vendors first.');
+      return;
+    }
+    let rows: ParsedVendorRow[];
+    try {
+      rows = parseVendorRows(jsonText);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to parse JSON');
+      return;
+    }
+    if (rows.length === 0) {
+      setError('No vendor rows found in the JSON.');
+      return;
+    }
+
+    setImporting(true);
+    let created = 0;
+    let skipped = 0;
+    let failed = 0;
+    const errors: string[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const input = rowToVendorInput(rows[i]!);
+      if (!input) {
+        skipped++;
+        errors.push(`Row ${i + 1}: skipped (no name).`);
+        continue;
+      }
+      try {
+        await createAdminVendor({
+          name: input.name,
+          ownerName: input.ownerName,
+          address: input.address,
+          station: input.station,
+          category: input.category as 'Sports' | 'Dining' | 'Entertainment',
+          email: input.email,
+          phone: input.phone,
+          latitude: input.latitude,
+          longitude: input.longitude,
+          discountType: input.discountType || 'percent',
+          discountValue: input.discountValue || 0,
+          discountDescription: input.discountDescription,
+          discountTerms: DEFAULT_DISCOUNT_TERMS,
+        });
+        created++;
+      } catch (err) {
+        failed++;
+        errors.push(`Row ${i + 1} ("${input.name}"): ${err instanceof Error ? err.message : 'failed'}`);
+      }
+    }
+
+    setImportResult({ created, skipped, failed, errors: errors.slice(0, 20) });
+    if (failed === 0 && created > 0) {
+      await load();
+      setJsonText('');
+    }
+    setImporting(false);
+  }
+
   return (
     <div className="stack">
       <div className="page-heading">
@@ -428,6 +626,7 @@ export function VendorsPage() {
             ))}
           </Select>
           <Button variant="secondary" onClick={() => downloadCsv(sorted)}>Export to CSV</Button>
+          <Button variant="secondary" onClick={() => { setJsonText(''); setImportResult(null); }}>Clear import</Button>
         </div>
       </div>
 
@@ -578,6 +777,42 @@ export function VendorsPage() {
               {creating ? 'Creating…' : 'Create vendor'}
             </Button>
           </form>
+        </PageCard>
+
+        <PageCard
+          title="Import from JSON"
+          subtitle="Paste a JSON array of vendors. Column names are case-insensitive (e.g. name, address, category, phone, email, discountType, discountValue). Only a name is required; other fields are optional."
+        >
+          <Textarea
+            rows={12}
+            value={jsonText}
+            onChange={(e) => setJsonText(e.target.value)}
+            placeholder={'[\n  {\n    "name": "Joe\'s Pizza",\n    "address": "123 Main St",\n    "category": "Dining",\n    "phone": "(602) 555-1234",\n    "discountType": "percent",\n    "discountValue": 15\n  }\n]'}
+          />
+          <div className="inline-row" style={{ marginTop: 12 }}>
+            <Button onClick={handleImportJson} disabled={importing || !jsonText.trim() || readOnly}>
+              {importing ? 'Importing…' : 'Import vendors'}
+            </Button>
+            {jsonText.trim() ? (
+              <Button variant="ghost" onClick={() => { setJsonText(''); setImportResult(null); }} disabled={importing}>
+                Clear
+              </Button>
+            ) : null}
+          </div>
+          {importResult ? (
+            <div className="muted" style={{ marginTop: 12 }}>
+              <p>
+                Created: <strong>{importResult.created}</strong> · Skipped: <strong>{importResult.skipped}</strong> · Failed: <strong>{importResult.failed}</strong>
+              </p>
+              {importResult.errors.length > 0 ? (
+                <ul className="event-preview-list" style={{ marginTop: 8 }}>
+                  {importResult.errors.map((msg, i) => (
+                    <li key={i}>{msg}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
         </PageCard>
 
         <PageCard title="Vendors list">

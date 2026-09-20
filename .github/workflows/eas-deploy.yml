@@ -26,6 +26,9 @@ jobs:
         with:
           node-version: '18'
 
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
       - name: Install dependencies (mobile)
         working-directory: mobile
         run: |
@@ -39,14 +42,35 @@ jobs:
           eas --version
           npx expo --version
 
+      - name: Check for existing iOS builds
+        working-directory: mobile
+        run: |
+          # Check for existing builds and get the latest one if available
+          BUILD_ID=$(eas build:list --platform=ios --limit=1 --non-interactive --json 2>/dev/null | jq -r '.[0].id // empty' || echo "")
+          echo "BUILD_ID=$BUILD_ID" >> $GITHUB_ENV
+          if [ -n "$BUILD_ID" ]; then
+            echo "Found existing iOS build: $BUILD_ID"
+          else
+            echo "No existing iOS build found, will create new build"
+          fi
+
       - name: Build iOS (EAS)
         working-directory: mobile
         run: |
           # non-interactive so CI doesn't hang
-          eas build --platform ios --profile production --non-interactive
+          if [ -n "$BUILD_ID" ]; then
+            echo "Using existing build $BUILD_ID for submission"
+            echo "EXISTING_BUILD_ID=$BUILD_ID" >> $GITHUB_ENV
+          else
+            eas build --platform ios --profile production --non-interactive
+          fi
 
       - name: Submit to App Store (EAS)
         working-directory: mobile
         run: |
-          # Submit the most recent build created for the profile
-          eas submit --platform ios --profile production --non-interactive
+          # Submit the most recent build created for the profile, or use existing build ID
+          if [ -n "$EXISTING_BUILD_ID" ]; then
+            eas submit --platform ios --profile production --non-interactive --id "$EXISTING_BUILD_ID"
+          else
+            eas submit --platform ios --profile production --non-interactive
+          fi

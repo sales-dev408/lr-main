@@ -849,20 +849,36 @@ Deno.serve(async (request) => {
       const isEmail = body.identifier.includes('@');
       const loginPhone = isEmail ? null : normalizePhone(body.identifier);
       if (!isEmail && !loginPhone) return json(request, { error: 'Invalid phone number' }, { status: 400 });
-      const rows = await dbQuery<{ id: string; email: string | null; phone: string | null }>(
-        'SELECT id, email::text AS email, phone FROM users WHERE status = \'active\' AND (($1::text IS NOT NULL AND lower(email::text) = lower($1::text)) OR ($2::text IS NOT NULL AND phone = $2::text)) LIMIT 1',
+      const rows = await dbQuery<{ id: string; email: string | null; phone: string | null; expo_push_token: string | null }>(
+        'SELECT id, email::text AS email, phone, expo_push_token FROM users WHERE status = \'active\' AND (($1::text IS NOT NULL AND lower(email::text) = lower($1::text)) OR ($2::text IS NOT NULL AND phone = $2::text)) LIMIT 1',
         [isEmail ? body.identifier.toLowerCase() : null, loginPhone],
       );
       if (rows.length === 0) {
-        return json(request, { message: 'If an account exists, a verification code has been sent.' });
+        return json(request, { message: 'If an account exists, a verification code has been sent via push notification.' });
       }
+      const user = rows[0]!;
       const code = generateSecureSixDigitCode();
       const codeHash = await bcrypt.hash(code, 10);
       await dbQuery(
         'UPDATE users SET password_reset_code_hash = $1, password_reset_expires_at = now() + interval \'15 minutes\' WHERE id = $2',
-        [codeHash, rows[0]!.id],
+        [codeHash, user.id],
       );
-      return json(request, { message: 'If an account exists, a verification code has been sent.', verificationCode: code });
+      
+      // Send push notification with reset code if user has a push token
+      if (user.expo_push_token && user.expo_push_token.trim() !== '') {
+        try {
+          await sendPushNotifications(
+            [user.expo_push_token],
+            'Password Reset Code',
+            `Your password reset code is: ${code}`,
+            { type: 'password_reset', userId: user.id },
+          );
+        } catch (err) {
+          console.warn('[auth] Failed to send password reset push notification:', err);
+        }
+      }
+      
+      return json(request, { message: 'If an account exists, a verification code has been sent via push notification.' });
     }
 
     if (path === '/api/auth/reset-password' && request.method === 'POST') {

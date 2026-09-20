@@ -128,7 +128,7 @@ export default function AuthScreen() {
         setLoading(true);
         try {
           await requestPasswordReset(forgotIdentifier.trim());
-          setSuccess('If an account exists, a verification code was sent to your email or phone.');
+          setSuccess('If an account exists, a verification code has been sent via push notification.');
           setForgotStep('reset');
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Unable to request reset');
@@ -240,7 +240,7 @@ export default function AuthScreen() {
               mode === 'register'
                 ? 'Your membership pass is generated as soon as you sign up.'
                 : mode === 'forgot'
-                  ? 'Enter the email or phone number for your account.'
+                  ? 'Enter the email or phone number for your account. A reset code will be sent via push notification.'
                   : 'Enter your email or phone and password.'
             }
           />

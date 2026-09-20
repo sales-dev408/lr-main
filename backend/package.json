@@ -9,6 +9,9 @@
     "start": "node dist/server.js",
     "migrate": "tsx src/db/migrate.ts",
     "seed": "tsx src/db/seed.ts",
+    "seed:restaurants": "tsx src/db/seed_restaurants.ts",
+    "update:discounts": "tsx src/db/update_vendor_discounts.ts",
+    "add:coordinates": "tsx src/db/add_coordinates.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"

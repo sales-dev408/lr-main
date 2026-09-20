@@ -8,7 +8,7 @@ import { buildLookupDiscountView, generateDiscountCode, humanDiscountLabel } fro
 import { generateTempPassword } from '../utils/ids.js';
 import { writeTransactionAudit } from '../services/audit.js';
 import { sendVendorWelcomeEmail, sendDealOfTheDayBlast } from '../services/resend.js';
-import { getPushTokensForNewVendor, getAllPushTokens, getPushTokensByCity, sendPushNotifications } from '../services/push.js';
+import { getAllPushTokens, getPushTokensByCity, sendPushNotifications } from '../services/push.js';
 import { qrCodeUrl } from '../services/quickchart.js';
 import { deleteDiscountFromVendorConnections, syncDiscountToVendorConnections } from '../services/pos.js';
 
@@ -260,14 +260,7 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
       ip: request.ip,
     });
 
-    void getPushTokensForNewVendor().then((tokens) =>
-      sendPushNotifications(
-        tokens,
-        'New vendor joined',
-        `${result.vendor.name} is now offering Light Rail Deals discounts.`,
-        { type: 'new_vendor', vendorId: result.vendor.id },
-      ),
-    );
+    // Automatic push notifications disabled - only admin can manually trigger push notifications
 
     return reply.code(201).send(result);
   });

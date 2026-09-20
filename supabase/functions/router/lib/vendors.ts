@@ -4,7 +4,7 @@ import { uploadImageDataUrl } from './storage.ts';
 import { config } from './config.ts';
 import { sendVendorWelcomeEmail } from './resend.ts';
 import { qrCodeUrl } from './quickchart.ts';
-import { getPushTokensForNewVendor, sendPushNotifications } from './push.ts';
+// Automatic push notifications disabled - only admin can manually trigger push notifications
 
 export type VendorCategory = 'Sports' | 'Dining' | 'Entertainment';
 
@@ -133,14 +133,7 @@ export async function createVendorWithDiscount(input: CreateVendorInput): Promis
         }
       }
 
-      void getPushTokensForNewVendor().then((tokens) =>
-        sendPushNotifications(
-          tokens,
-          'New vendor joined',
-          `${input.name} is now offering ${config.brandName} discounts.`,
-          { type: 'new_vendor', vendorId: vendorId },
-        ),
-      );
+      // Automatic push notifications disabled - only admin can manually trigger push notifications
 
       return result;
     } catch (error) {

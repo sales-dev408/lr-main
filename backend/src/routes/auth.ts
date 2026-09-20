@@ -6,6 +6,7 @@ import { dbQuery, withDbClient } from '../db/pool.js';
 import { verifyCaptcha } from '../services/captcha.js';
 import { signJwt } from '../services/jwt.js';
 import { normalizePhone } from '../utils/phone.js';
+import { sendPushNotifications } from '../services/push.js';
 import type { AdminProfile, PushPreferences, UserProfile, VendorProfile } from '../types.js';
 
 const customerRegisterSchema = z.object({
@@ -33,11 +34,11 @@ const customerLoginSchema = z
   .refine((data) => Boolean(data.email || data.phone), { message: 'Email or phone is required', path: ['email'] });
 
 const forgotPasswordSchema = z.object({
-  phone: z.string().min(7),
+  identifier: z.string().min(1),
 });
 
 const resetPasswordSchema = z.object({
-  phone: z.string().min(7),
+  identifier: z.string().min(1),
   code: z.string().length(6),
   password: z.string().min(8),
 });
@@ -249,43 +250,54 @@ export async function registerAuthRoutes(fastify: FastifyInstance): Promise<void
 
   fastify.post('/api/auth/forgot-password', { config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }, async (request, reply) => {
     const body = forgotPasswordSchema.parse(request.body);
-    const phone = normalizePhone(body.phone);
-    if (!phone) {
-      return reply.code(400).send({ error: 'Invalid phone number' });
-    }
+    const isEmail = body.identifier.includes('@');
+    const loginPhone = isEmail ? null : normalizePhone(body.identifier);
+    if (!isEmail && !loginPhone) return reply.code(400).send({ error: 'Invalid phone number' });
 
-    const userRows = await dbQuery<{ id: string }>(
-      `SELECT id FROM users WHERE phone = $1 AND status = 'active' LIMIT 1`,
-      [phone],
+    const userRows = await dbQuery<{ id: string; expo_push_token: string | null }>(
+      `SELECT id, expo_push_token FROM users WHERE status = 'active' AND (($1::text IS NOT NULL AND lower(email::text) = lower($1::text)) OR ($2::text IS NOT NULL AND phone = $2::text)) LIMIT 1`,
+      [isEmail ? body.identifier.toLowerCase() : null, loginPhone],
     );
 
     if (userRows.length === 0) {
-      return reply.send({ message: 'If an account exists with this phone number, a verification code has been sent.' });
+      return reply.send({ message: 'If an account exists, a verification code has been sent via push notification.' });
     }
 
+    const user = userRows[0]!;
     const code = String(crypto.randomInt(100000, 999999));
     const codeHash = await bcrypt.hash(code, 10);
 
     await dbQuery(
       `UPDATE users SET password_reset_code_hash = $1, password_reset_expires_at = now() + interval '15 minutes' WHERE id = $2`,
-      [codeHash, userRows[0]!.id],
+      [codeHash, user.id],
     );
 
-    // In production this code must be sent by SMS. It is returned here only for
-    // local/dev testing where no SMS provider is configured.
-    return reply.send({ message: 'If an account exists with this phone number, a verification code has been sent.', verificationCode: code });
+    // Send push notification with reset code if user has a push token
+    if (user.expo_push_token && user.expo_push_token.trim() !== '') {
+      try {
+        await sendPushNotifications(
+          [user.expo_push_token],
+          'Password Reset Code',
+          `Your password reset code is: ${code}`,
+          { type: 'password_reset', userId: user.id },
+        );
+      } catch (err) {
+        console.warn('[auth] Failed to send password reset push notification:', err);
+      }
+    }
+
+    return reply.send({ message: 'If an account exists, a verification code has been sent via push notification.' });
   });
 
   fastify.post('/api/auth/reset-password', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const body = resetPasswordSchema.parse(request.body);
-    const phone = normalizePhone(body.phone);
-    if (!phone) {
-      return reply.code(400).send({ error: 'Invalid phone number' });
-    }
+    const isEmail = body.identifier.includes('@');
+    const loginPhone = isEmail ? null : normalizePhone(body.identifier);
+    if (!isEmail && !loginPhone) return reply.code(400).send({ error: 'Invalid phone number' });
 
     const rows = await dbQuery<{ id: string; password_reset_code_hash: string | null }>(
-      `SELECT id, password_reset_code_hash FROM users WHERE phone = $1 AND status = 'active' AND password_reset_expires_at > now() LIMIT 1`,
-      [phone],
+      `SELECT id, password_reset_code_hash FROM users WHERE status = 'active' AND password_reset_expires_at > now() AND (($1::text IS NOT NULL AND lower(email::text) = lower($1::text)) OR ($2::text IS NOT NULL AND phone = $2::text)) LIMIT 1`,
+      [isEmail ? body.identifier.toLowerCase() : null, loginPhone],
     );
 
     const user = rows[0];

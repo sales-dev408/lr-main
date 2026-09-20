@@ -307,6 +307,18 @@ export function EventsPage() {
         errors.push(`Row ${i + 1}: skipped (no name/title).`);
         continue;
       }
+      
+      // Check for duplicate event by title
+      const isDuplicate = customEvents.some(event => 
+        event.title.toLowerCase() === input.title.toLowerCase()
+      );
+      
+      if (isDuplicate) {
+        skipped++;
+        errors.push(`Row ${i + 1}: skipped (duplicate event "${input.title}").`);
+        continue;
+      }
+      
       try {
         const event = await createAdminEvent(input);
         createdEvents.push(event);

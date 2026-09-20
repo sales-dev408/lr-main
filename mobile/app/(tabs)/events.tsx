@@ -10,6 +10,8 @@ import { useThemeColors } from '@/lib/useThemeColors';
 import { useDynamicType } from '@/lib/dynamicType';
 import type { RssEvent } from '@/lib/types';
 
+type ViewMode = 'all' | 'day' | 'week' | 'month';
+
 const MIN_CARD_WIDTH = 280;
 
 // Only admin-created events with no time-of-day set are emitted as a bare
@@ -52,6 +54,33 @@ function compareByTime(a: RssEvent, b: RssEvent): number {
   return a.title.localeCompare(b.title);
 }
 
+// Filter events by view mode (all/day/week/month)
+function filterByViewMode(events: RssEvent[], mode: ViewMode): RssEvent[] {
+  if (mode === 'all') return events;
+  
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const endOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (7 - now.getDay()));
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  
+  return events.filter((event) => {
+    if (!event.pubDate) return false;
+    const eventDate = new Date(event.pubDate);
+    
+    switch (mode) {
+      case 'day':
+        return eventDate >= startOfDay && eventDate < endOfDay;
+      case 'week':
+        return eventDate >= startOfDay && eventDate <= endOfWeek;
+      case 'month':
+        return eventDate >= startOfDay && eventDate <= endOfMonth;
+      default:
+        return true;
+    }
+  });
+}
+
 function formatPhoneForDisplay(phone: string): string {
   const digits = phone.replace(/\D/g, '');
   if (digits.length === 10) {
@@ -72,6 +101,7 @@ export default function EventsScreen() {
   const [cityFilter, setCityFilter] = useState('');
   const [sportFilter, setSportFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
+  const [viewMode, setViewMode] = useState<ViewMode>('all');
 
   const columns = Math.max(1, Math.floor(width / MIN_CARD_WIDTH));
   const gap = 16;
@@ -167,13 +197,18 @@ export default function EventsScreen() {
   }, [items]);
 
   const filteredItems = useMemo(() => {
-    return items.filter((e) => {
+    let filtered = items.filter((e) => {
       if (cityFilter && (e.city ?? '').trim().toLowerCase() !== cityFilter.toLowerCase()) return false;
       if (sportFilter && (e.sport ?? '').trim().toLowerCase() !== sportFilter.toLowerCase()) return false;
       if (typeFilter && (e.eventType ?? '').trim().toLowerCase() !== typeFilter.toLowerCase()) return false;
       return true;
     });
-  }, [items, cityFilter, sportFilter, typeFilter]);
+    
+    // Apply view mode filter
+    filtered = filterByViewMode(filtered, viewMode);
+    
+    return filtered;
+  }, [items, cityFilter, sportFilter, typeFilter, viewMode]);
 
   const hasActiveFilters = !!(cityFilter || sportFilter || typeFilter);
 
@@ -184,6 +219,36 @@ export default function EventsScreen() {
         <GlassCard>
           <SectionTitle title="Filter events" subtitle="Narrow down by city, sport, or event type" />
           <View style={{ gap: 10 }}>
+            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+              <AppButton
+                variant={viewMode === 'all' ? 'primary' : 'secondary'}
+                onPress={() => setViewMode('all')}
+                style={{ flex: 1, minWidth: 60 }}
+              >
+                All
+              </AppButton>
+              <AppButton
+                variant={viewMode === 'day' ? 'primary' : 'secondary'}
+                onPress={() => setViewMode('day')}
+                style={{ flex: 1, minWidth: 60 }}
+              >
+                Day
+              </AppButton>
+              <AppButton
+                variant={viewMode === 'week' ? 'primary' : 'secondary'}
+                onPress={() => setViewMode('week')}
+                style={{ flex: 1, minWidth: 60 }}
+              >
+                Week
+              </AppButton>
+              <AppButton
+                variant={viewMode === 'month' ? 'primary' : 'secondary'}
+                onPress={() => setViewMode('month')}
+                style={{ flex: 1, minWidth: 60 }}
+              >
+                Month
+              </AppButton>
+            </View>
             <SimpleListPicker
               entries={cityOptions}
               selected={cityFilter}
@@ -224,7 +289,7 @@ export default function EventsScreen() {
         </GlassCard>
       </View>
     ),
-    [cityOptions, sportOptions, typeOptions, cityFilter, sportFilter, typeFilter, hasActiveFilters],
+    [cityOptions, sportOptions, typeOptions, cityFilter, sportFilter, typeFilter, hasActiveFilters, viewMode],
   );
 
   const renderItem = useCallback(
@@ -300,7 +365,9 @@ export default function EventsScreen() {
       {error ? <Banner tone="error">{error}</Banner> : null}
       {!loading && filteredItems.length === 0 ? (
         <Banner tone="info">
-          {hasActiveFilters ? 'No events match your filters.' : 'No upcoming events. Pull down to refresh.'}
+          {hasActiveFilters || viewMode !== 'all' 
+            ? 'No events match your filters.' 
+            : 'No upcoming events. Pull down to refresh.'}
         </Banner>
       ) : null}
       <FlatList
