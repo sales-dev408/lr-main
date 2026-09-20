@@ -99,18 +99,31 @@ export default function HomeScreen() {
 
         <Card>
           <SectionTitle title="Quick actions" subtitle="Jump to the most used features" />
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-            <View style={{ flex: 1, minWidth: 140 }}>
-              <Link href="/(tabs)/browse" asChild>
-                <AppButton>Browse discounts</AppButton>
-              </Link>
+          <View style={{ gap: 10 }}>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View style={{ flex: 1 }}>
+                <Link href="/(tabs)/events" asChild>
+                  <AppButton>Events</AppButton>
+                </Link>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Link href={{ pathname: '/(tabs)/browse', params: { type: 'Bars & Restaurants' } }} asChild>
+                  <AppButton>Bars & Restaurants</AppButton>
+                </Link>
+              </View>
             </View>
-            <View style={{ flex: 1, minWidth: 140 }}>
-              <Link href="/(tabs)/apartments" asChild>
-                <AppButton>Apartments & hotels</AppButton>
-              </Link>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View style={{ flex: 1 }}>
+                <Link href="/(tabs)/browse" asChild>
+                  <AppButton>Browse Deals</AppButton>
+                </Link>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Link href="/(tabs)/apartments" asChild>
+                  <AppButton>Apartments & Hotels</AppButton>
+                </Link>
+              </View>
             </View>
-
           </View>
         </Card>
 

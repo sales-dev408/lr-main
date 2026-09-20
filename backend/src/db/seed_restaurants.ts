@@ -419,8 +419,6 @@ async function main(): Promise<void> {
           continue;
         }
 
-        const stationId = stationResult.rows[0].id;
-
         for (const restaurant of restaurants) {
           // Check if vendor already exists
           const existingVendor = await client.query<{ id: string }>(

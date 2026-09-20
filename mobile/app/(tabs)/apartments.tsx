@@ -292,7 +292,7 @@ export default function ApartmentsScreen() {
           </View>
         ))}
 
-        {selected ? <JumpToDetailsButton onPress={scrollToDetails} scrollY={scrollY} /> : null}
+        {selected ? <JumpToDetailsButton onPress={scrollToDetails} scrollY={scrollY} mapHeightOffset={mapHeightOffset} /> : null}
 
         {selected ? (
           <View onLayout={(event) => { detailsOffsetRef.current = event.nativeEvent.layout.y; }}>

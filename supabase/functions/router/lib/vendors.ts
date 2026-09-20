@@ -32,6 +32,29 @@ async function geocodeAddress(address: string): Promise<{ latitude: number; long
 
 export type VendorCategory = 'Sports' | 'Dining' | 'Entertainment';
 
+// Maps a free-text vendor category ("Mexican", "Sports Bar", "Coffee", ...) to
+// the canonical vendor_type values used by the app's Browse type filters.
+export function inferVendorType(category: string | null | undefined): string | null {
+  if (!category) return null;
+  const raw = category.trim();
+  if (!raw) return null;
+  const lower = raw.toLowerCase();
+  if (lower === 'restaurant' || lower === 'bar' || lower === 'cafe' || lower === 'other') return lower;
+  if (/(bar|pub|brew|tavern|lounge|cocktail|wine|beer|rooftop|live music)/i.test(raw)) return 'bar';
+  if (/(caf|coffee)/i.test(raw)) return 'cafe';
+  if (/(convenience|market|store|retail|shop|sport|entertainment|music)/i.test(raw)) return 'other';
+  return 'restaurant';
+}
+
+// Cuisine is only meaningful for restaurants; generic labels like "Dining" or
+// "Restaurant" carry no cuisine information.
+export function inferCuisine(category: string | null | undefined, vendorType: string | null): string | null {
+  if (!category || vendorType !== 'restaurant') return null;
+  const raw = category.trim();
+  if (!raw || /^(restaurant|dining|food)$/i.test(raw)) return null;
+  return raw.toLowerCase();
+}
+
 export interface CreateVendorInput {
   name: string;
   ownerName?: string | null;
@@ -107,10 +130,11 @@ export async function createVendorWithDiscount(input: CreateVendorInput): Promis
         }
       }
       
+      const vendorType = inferVendorType(input.category);
       const vendorRows = await client.query<{ id: string }>(
-        `INSERT INTO vendors (name, owner_name, location, address, city, station, category, pos_type, pos_system, email, phone, password_hash, status, latitude, longitude, discount_terms)
-         VALUES ($1, $2, $3, $4, NULL, $5, $6, NULL, NULL, $7, $8, NULL, 'approved', $9, $10, $11) RETURNING id`,
-        [input.name, input.ownerName ?? null, input.address ?? null, input.address ?? null, input.station ?? null, input.category, input.email ?? null, input.phone ?? null, latitude ?? null, longitude ?? null, discountTerms],
+        `INSERT INTO vendors (name, owner_name, location, address, city, station, category, vendor_type, cuisine, pos_type, pos_system, email, phone, password_hash, status, latitude, longitude, discount_terms)
+         VALUES ($1, $2, $3, $4, NULL, $5, $6, $12, $13, NULL, NULL, $7, $8, NULL, 'approved', $9, $10, $11) RETURNING id`,
+        [input.name, input.ownerName ?? null, input.address ?? null, input.address ?? null, input.station ?? null, input.category, input.email ?? null, input.phone ?? null, latitude ?? null, longitude ?? null, discountTerms, vendorType, inferCuisine(input.category, vendorType)],
       );
       const vendorId = vendorRows.rows[0]!.id;
 

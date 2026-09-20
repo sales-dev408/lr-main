@@ -58,7 +58,6 @@ async function main(): Promise<void> {
       console.log(`Found ${vendors.rows.length} vendors to update`);
 
       let updatedCount = 0;
-      let skippedCount = 0;
 
       for (const vendor of vendors.rows) {
         // Check if vendor already has a discount with the 0% card

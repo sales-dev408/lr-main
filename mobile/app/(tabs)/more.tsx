@@ -16,6 +16,9 @@ export default function MoreScreen() {
               <Link href="/(tabs)/apartments" asChild>
                 <AppButton style={{ width: '100%' }}>Apartments & hotels</AppButton>
               </Link>
+              <Link href="/(tabs)/az-events" asChild>
+                <AppButton style={{ width: '100%' }}>Events Around Arizona</AppButton>
+              </Link>
               <Link href="/(tabs)/sports" asChild>
                 <AppButton style={{ width: '100%' }}>Sports</AppButton>
               </Link>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Linking, Platform, Pressable, RefreshControl, ScrollView, Switch, Text, View, useWindowDimensions } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { Link, useFocusEffect } from 'expo-router';
+import { Link, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as Location from 'expo-location';
 import { AppButton, Banner, BrandHeader, Card, FieldInput, GlassCard, JumpToDetailsButton, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { AdBanner } from '@/components/AdBanner';
@@ -15,7 +15,7 @@ import { StopPicker } from '@/components/StopPicker';
 import { compareStops, findStop, getStops } from '@/lib/stops';
 import type { VendorListItem } from '@/lib/types';
 
-const TYPE_OPTIONS = ['All', 'Restaurant', 'Bar', 'Cafe'] as const;
+const TYPE_OPTIONS = ['All', 'Bars & Restaurants', 'Restaurant', 'Bar', 'Cafe'] as const;
 
 function distanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371;
@@ -63,6 +63,7 @@ export default function BrowseScreen() {
   const { width } = useWindowDimensions();
   const mapHeight = Math.min(280, Math.max(180, width * 0.45));
   const { favorites, toggle: toggleFavorite, isFavorite } = useFavorites();
+  const searchParams = useLocalSearchParams<{ type?: string }>();
   const [vendors, setVendors] = useState<VendorListItem[]>([]);
   const [typeFilter, setTypeFilter] = useState<(typeof TYPE_OPTIONS)[number]>('All');
   const [cuisineFilter, setCuisineFilter] = useState<string>('');
@@ -104,6 +105,11 @@ export default function BrowseScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      const type = searchParams.type;
+      if (typeof type === 'string' && (TYPE_OPTIONS as readonly string[]).includes(type)) {
+        setTypeFilter(type as (typeof TYPE_OPTIONS)[number]);
+        setCuisineFilter('');
+      }
       let active = true;
       setLoading(true);
       void load().finally(() => {
@@ -112,7 +118,7 @@ export default function BrowseScreen() {
       return () => {
         active = false;
       };
-    }, [load]),
+    }, [load, searchParams.type]),
   );
 
   useEffect(() => {
@@ -164,7 +170,9 @@ export default function BrowseScreen() {
       const hay = [v.name, v.cuisine, v.station, v.address, v.city, v.category].filter(Boolean).join(' ').toLowerCase();
       return hay.includes(term);
     });
-    if (typeFilter !== 'All') {
+    if (typeFilter === 'Bars & Restaurants') {
+      list = list.filter((v) => ['bar', 'restaurant'].includes((v.vendorType ?? '').toLowerCase()));
+    } else if (typeFilter !== 'All') {
       list = list.filter((v) => (v.vendorType ?? '').toLowerCase() === typeFilter.toLowerCase());
     }
     if (cuisineFilter) {
@@ -568,8 +576,6 @@ export default function BrowseScreen() {
         </View>
       );
     })}
-
-        {selected ? <JumpToDetailsButton onPress={scrollToDetails} scrollY={scrollY} /> : null}
 
         {selected ? (
           <View onLayout={(event) => { detailsOffsetRef.current = event.nativeEvent.layout.y; }}>

@@ -498,7 +498,7 @@ export function VendorsPage() {
         email: editing.email ?? undefined,
         phone: editing.phone ?? undefined,
         status: editing.status,
-        ...(editing.discount_type ? { discountType: editing.discount_type } : {}),
+        ...(editing.discount_type || value !== null ? { discountType: kind } : {}),
         ...(needsValue && value !== null ? { discountValue: value } : {}),
         discountDescription: editing.discount_description?.trim() || null,
         discountTerms: editing.discount_terms?.trim() || DEFAULT_DISCOUNT_TERMS,
@@ -964,9 +964,9 @@ export function VendorsPage() {
                 <option value="bogo">BOGO</option>
               </Select>
             </label>
-            {(editing.discount_type === 'percent' || editing.discount_type === 'fixed') ? (
+            {(editing.discount_type ?? 'percent') !== 'bogo' ? (
               <label>
-                Discount value
+                Discount value ({(editing.discount_type ?? 'percent') === 'percent' ? '% off' : '$ off'})
                 <Input type="number" min="0" step="0.01" value={editing.discount_value ?? ''} onChange={(e) => setEditing({ ...editing, discount_value: e.target.value ? Number(e.target.value) : null })} />
               </label>
             ) : null}

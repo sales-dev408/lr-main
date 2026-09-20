@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, GlassCard, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { SimpleListPicker, type SimpleListPickerEntry } from '@/components/SimpleListPicker';
 import { fetchScoreboard, fetchStandings, CONFERENCES, DIVISIONS, SPORTS, type NcaaGame, type NcaaStanding } from '@/lib/ncaa';
@@ -28,8 +29,7 @@ export default function SportsScreen() {
     setError(null);
     try {
       if (viewMode === 'scoreboard') {
-        const path = conferenceFilter ? `${divisionFilter}/current/all-conf/${conferenceFilter}` : `${divisionFilter}/current/all-conf`;
-        const data = await fetchScoreboard(sportFilter, path);
+        const data = await fetchScoreboard(sportFilter, divisionFilter, conferenceFilter || undefined);
         setGames(data.games || []);
       } else {
         const data = await fetchStandings(sportFilter, divisionFilter, conferenceFilter || undefined);
@@ -44,15 +44,18 @@ export default function SportsScreen() {
     }
   }, [sportFilter, divisionFilter, conferenceFilter, viewMode]);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    await load();
-    setLoading(false);
-  }, [load]);
-
-  useEffect(() => {
-    void loadData();
-  }, [loadData]);
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      setLoading(true);
+      void load().finally(() => {
+        if (active) setLoading(false);
+      });
+      return () => {
+        active = false;
+      };
+    }, [load]),
+  );
 
   async function onRefresh() {
     setRefreshing(true);
@@ -147,7 +150,7 @@ export default function SportsScreen() {
           
           {item.quarter || item.time_remaining ? (
             <Text style={{ color: colors.brand, fontSize: 12 * effectiveScale, textAlign: 'center', fontWeight: '600' }} allowFontScaling={false}>
-              {item.quarter ? `Q${item.quarter}` : ''} {item.time_remaining}
+              {[item.quarter, item.time_remaining].filter(Boolean).join(' · ')}
             </Text>
           ) : null}
         </View>
@@ -203,7 +206,15 @@ export default function SportsScreen() {
             <SimpleListPicker
               entries={[...sportOptions] as SimpleListPickerEntry[]}
               selected={sportFilter}
-              onSelect={setSportFilter}
+              onSelect={(value) => {
+                setSportFilter(value);
+                // FBS/FCS only exist for football; reset to a valid division
+                // and clear the conference filter when switching sports.
+                if (value !== 'football') {
+                  if (divisionFilter === 'fbs' || divisionFilter === 'fcs') setDivisionFilter('d1');
+                  setConferenceFilter('');
+                }
+              }}
               label="Sport"
               itemNoun="sport"
               allLabel="All sports"

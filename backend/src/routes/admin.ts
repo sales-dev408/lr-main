@@ -336,20 +336,52 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
 
     if (body.discountType !== undefined || body.discountValue !== undefined || body.discountStartsAt !== undefined || body.discountEndsAt !== undefined || body.boosted !== undefined || body.discountDescription !== undefined) {
       const discountDescription = body.discountDescription?.trim();
-      await dbQuery(
-        `
-          UPDATE discounts
-          SET type = COALESCE($2, type),
-              value = COALESCE($3, value),
-              description = COALESCE($4, description),
-              starts_at = COALESCE($5, starts_at),
-              ends_at = COALESCE($6, ends_at),
-              boosted = COALESCE($7, boosted),
-              updated_at = now()
-          WHERE vendor_id = $1 AND card_id = (SELECT id FROM cards WHERE is_membership = true LIMIT 1)
-        `,
-        [id, body.discountType ?? null, body.discountValue ?? null, discountDescription ?? null, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? null],
-      );
+      if (body.discountType !== undefined || body.discountValue !== undefined) {
+        // Upsert so vendors without a membership discount row get one created;
+        // a plain UPDATE would silently affect zero rows.
+        const membership = await dbQuery<{ id: string }>(`SELECT id FROM cards WHERE is_membership = true LIMIT 1`);
+        const membershipId = membership[0]?.id;
+        if (membershipId) {
+          await dbQuery(`INSERT INTO card_vendors (card_id, vendor_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [membershipId, id]);
+          const discountCode = generateDiscountCode({
+            merchantId: String(rows[0]?.name ?? id),
+            type: body.discountType ?? 'percent',
+            value: body.discountValue ?? 0,
+          });
+          await dbQuery(
+            `
+              INSERT INTO discounts (card_id, vendor_id, type, value, discount_code, description, active, starts_at, ends_at, boosted)
+              VALUES ($2, $1, COALESCE($3, 'percent'), COALESCE($4, 0), $5, $6, true, $7, $8, $9)
+              ON CONFLICT (card_id, vendor_id) DO UPDATE SET
+                type = COALESCE($3, discounts.type),
+                value = COALESCE($4, discounts.value),
+                discount_code = COALESCE(discounts.discount_code, EXCLUDED.discount_code),
+                description = COALESCE($6, discounts.description),
+                starts_at = COALESCE($7, discounts.starts_at),
+                ends_at = COALESCE($8, discounts.ends_at),
+                boosted = COALESCE($9, discounts.boosted),
+                active = true,
+                updated_at = now()
+            `,
+            [id, membershipId, body.discountType ?? null, body.discountValue ?? null, discountCode, discountDescription ?? null, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? null],
+          );
+        }
+      } else {
+        await dbQuery(
+          `
+            UPDATE discounts
+            SET type = COALESCE($2, type),
+                value = COALESCE($3, value),
+                description = COALESCE($4, description),
+                starts_at = COALESCE($5, starts_at),
+                ends_at = COALESCE($6, ends_at),
+                boosted = COALESCE($7, boosted),
+                updated_at = now()
+            WHERE vendor_id = $1 AND card_id = (SELECT id FROM cards WHERE is_membership = true LIMIT 1)
+          `,
+          [id, body.discountType ?? null, body.discountValue ?? null, discountDescription ?? null, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? null],
+        );
+      }
     }
 
     return rows[0] ?? {};

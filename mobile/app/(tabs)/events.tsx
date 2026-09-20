@@ -6,7 +6,6 @@ import { SimpleListPicker } from '@/components/SimpleListPicker';
 import { getEvents } from '@/lib/api';
 // Automatic event notifications disabled - only admin can manually trigger push notifications
 // import { scheduleEventNotifications } from '@/lib/notifications';
-import { useAuth } from '@/lib/auth';
 import { useThemeColors } from '@/lib/useThemeColors';
 import { useDynamicType } from '@/lib/dynamicType';
 import type { RssEvent } from '@/lib/types';
@@ -93,7 +92,6 @@ function formatPhoneForDisplay(phone: string): string {
 export default function EventsScreen() {
   const colors = useThemeColors();
   const { effectiveScale } = useDynamicType();
-  const auth = useAuth();
   const { width } = useWindowDimensions();
   const [items, setItems] = useState<RssEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,13 +102,15 @@ export default function EventsScreen() {
   const [typeFilter, setTypeFilter] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('all');
 
-  const columns = Math.max(1, Math.floor(width / MIN_CARD_WIDTH));
   const gap = 16;
-  // Screen padding is responsive (16-24px based on width), use the max for safety.
-  const screenPadding = Math.min(24, Math.max(16, width * 0.05));
+  // Screen padding mirrors Ui.tsx: responsive to width AND scaled by the
+  // user's text-size multiplier. Keeping this in sync prevents cards from
+  // overflowing and overlapping horizontally.
+  const screenPadding = Math.round(Math.min(24, Math.max(16, width * 0.05)) * effectiveScale);
   const listPadding = 20;
   // Account for both the Screen wrapper padding and the FlatList content padding.
   const availableWidth = width - (screenPadding + listPadding) * 2;
+  const columns = Math.max(1, Math.floor(availableWidth / MIN_CARD_WIDTH));
   const cardWidth = (availableWidth - gap * (columns - 1)) / columns;
 
   const load = useCallback(async () => {
@@ -126,7 +126,7 @@ export default function EventsScreen() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load events');
     }
-  }, [auth.profile]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {

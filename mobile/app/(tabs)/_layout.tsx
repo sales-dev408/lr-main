@@ -16,6 +16,7 @@ export default function TabLayout() {
       {/* These screens stay routable (reachable from the More tab) but are
           hidden from the bottom tab bar via href: null. */}
       <Tabs.Screen name="live" options={{ title: 'Train Schedule', href: null }} />
+      <Tabs.Screen name="az-events" options={{ title: 'Events Around Arizona', href: null }} />
       <Tabs.Screen name="apartments" options={{ title: 'Apartments', href: null }} />
       <Tabs.Screen name="sports" options={{ title: 'Sports', href: null }} />
       <Tabs.Screen name="discover" options={{ title: 'Discover', href: null }} />

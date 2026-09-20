@@ -61,6 +61,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+// Maps a free-text vendor category ("Mexican", "Sports Bar", "Coffee", ...) to
+// the canonical vendor_type values used by the Browse type filters.
+export function inferVendorType(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const raw = value.trim();
+  if (!raw) return null;
+  const lower = raw.toLowerCase();
+  if (lower === 'restaurant' || lower === 'bar' || lower === 'cafe' || lower === 'other') return lower;
+  if (/(bar|pub|brew|tavern|lounge|cocktail|wine|beer|rooftop|live music)/i.test(raw)) return 'bar';
+  if (/(caf|coffee)/i.test(raw)) return 'cafe';
+  if (/(convenience|market|store|retail|shop|sport|entertainment|music)/i.test(raw)) return 'other';
+  return 'restaurant';
+}
+
 function normalizeDiscount(input: Record<string, unknown>): CardDiscount {
   const cityOverrides = (input.city_overrides ?? input.cityOverrides ?? {}) as CityOverrideMap;
   const applied = isRecord(input.applied)
@@ -262,7 +276,7 @@ function normalizeVendor(input: Record<string, unknown>): VendorListItem {
     endsAt: (input.endsAt as string | null | undefined) ?? null,
     cardId: String(input.cardId ?? ''),
     walletUrl: input.walletUrl == null ? null : String(input.walletUrl),
-    vendorType: (input.vendorType as string | null | undefined) ?? (input.vendor_type as string | null | undefined) ?? (input.category as string | null | undefined) ?? null,
+    vendorType: inferVendorType(input.vendorType ?? input.vendor_type ?? input.category),
     cuisine: (input.cuisine as string | null | undefined) ?? null,
     station: (input.station as string | null | undefined) ?? null,
   };

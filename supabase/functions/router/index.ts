@@ -7,7 +7,7 @@ import { getAdminAnalytics, getVendorAnalytics } from './lib/analytics.ts';
 import { buildLookupDiscountView } from './lib/discounts.ts';
 import { resolvePassLookup, resolveCardLookup } from './lib/lookup.ts';
 import { redeemDiscount } from './lib/redeem.ts';
-import { createVendorWithDiscount, getAdminVendorById, getVendorDirectory } from './lib/vendors.ts';
+import { createVendorWithDiscount, getAdminVendorById, getVendorDirectory, inferCuisine, inferVendorType } from './lib/vendors.ts';
 import { ensureMembershipPass } from './lib/membership.ts';
 import { generateDiscountCode, humanDiscountLabel } from './lib/codes.ts';
 import { qrCodeUrl } from './lib/quickchart.ts';
@@ -719,6 +719,92 @@ function notFound(request: Request): Response {
   return json(request, { error: 'Not found' }, { status: 404 });
 }
 
+// ---- NCAA upstream normalization ----
+// ncaa-api.henrygd.me returns nested shapes (`games[].game`, grouped
+// `data[].standings[]`). Normalize into the flat shape every shipped app
+// version expects so older bundles keep working without an update.
+interface NcaaUpstreamTeam {
+  score?: string | number;
+  names?: { char6?: string; short?: string; seo?: string; full?: string };
+  conferences?: { conferenceSeo?: string | null }[];
+}
+
+interface NcaaUpstreamGame {
+  gameID?: string | number;
+  away?: NcaaUpstreamTeam;
+  home?: NcaaUpstreamTeam;
+  finalMessage?: string;
+  startTime?: string;
+  startTimeEpoch?: string | number;
+  gameState?: string;
+  startDate?: string;
+  currentPeriod?: string;
+  contestClock?: string;
+}
+
+function ncaaToScore(value: unknown): number | undefined {
+  if (value === null || value === undefined || value === '') return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+function ncaaMapTeam(team: NcaaUpstreamTeam | undefined) {
+  const names = team?.names ?? {};
+  const name = names.short || names.full || names.char6 || 'TBD';
+  return {
+    id: names.seo || name,
+    name,
+    abbreviation: names.char6 || name,
+    score: ncaaToScore(team?.score),
+  };
+}
+
+function ncaaTeamInConference(team: NcaaUpstreamTeam | undefined, conference: string): boolean {
+  return (team?.conferences ?? []).some((c) => c?.conferenceSeo === conference);
+}
+
+function ncaaGameStatus(game: NcaaUpstreamGame): string | undefined {
+  if (game.finalMessage?.trim()) return game.finalMessage.trim();
+  switch (game.gameState) {
+    case 'final':
+      return 'Final';
+    case 'live':
+      return 'Live';
+    case 'pre':
+      return game.startTime || undefined;
+    default:
+      return undefined;
+  }
+}
+
+function ncaaMapGame(entry: unknown, sport: string, division: string) {
+  const game = (entry as { game?: NcaaUpstreamGame } | null)?.game;
+  if (!game) return null;
+  const epoch = Number(game.startTimeEpoch);
+  return {
+    id: Number(game.gameID) || 0,
+    sport,
+    path: division,
+    game_date: Number.isFinite(epoch) && epoch > 0 ? new Date(epoch * 1000).toISOString() : String(game.startDate ?? ''),
+    home_team: ncaaMapTeam(game.home),
+    away_team: ncaaMapTeam(game.away),
+    status: ncaaGameStatus(game),
+    quarter: game.gameState === 'live' ? game.currentPeriod?.trim() || undefined : undefined,
+    time_remaining: game.gameState === 'live' ? game.contestClock?.trim() || undefined : undefined,
+  };
+}
+
+function ncaaNumField(row: Record<string, unknown>, ...keys: string[]): number {
+  for (const key of keys) {
+    const value = row[key];
+    if (value !== undefined && value !== null && value !== '') {
+      const n = Number(value);
+      if (Number.isFinite(n)) return n;
+    }
+  }
+  return 0;
+}
+
 Deno.serve(async (request) => {
   const url = new URL(request.url);
 
@@ -1319,15 +1405,47 @@ Deno.serve(async (request) => {
       if (auth instanceof Response) return auth;
       const id = path.split('/').pop()!;
       const body = adminVendorUpdateSchema.parse(await readJsonBody(request, {}));
+      const vendorType = body.category !== undefined ? inferVendorType(body.category) : null;
+      const cuisine = body.category !== undefined ? inferCuisine(body.category, vendorType) : null;
       const rows = await dbQuery(
-        `UPDATE vendors SET name = COALESCE($2, name), owner_name = COALESCE($3, owner_name), location = COALESCE($4, location), address = COALESCE($4, address), category = COALESCE($5, category), email = COALESCE($6, email), phone = COALESCE($7, phone), status = COALESCE($8, status), latitude = COALESCE($9, latitude), longitude = COALESCE($10, longitude), discount_terms = COALESCE($11, discount_terms), updated_at = now() WHERE id = $1 RETURNING *`,
-        [id, body.name ?? null, body.ownerName ?? null, body.address ?? null, body.category ?? null, body.email ?? null, body.phone ?? null, body.status ?? null, body.latitude ?? null, body.longitude ?? null, body.discountTerms ?? null],
+        `UPDATE vendors SET name = COALESCE($2, name), owner_name = COALESCE($3, owner_name), location = COALESCE($4, location), address = COALESCE($4, address), category = COALESCE($5, category), email = COALESCE($6, email), phone = COALESCE($7, phone), status = COALESCE($8, status), latitude = COALESCE($9, latitude), longitude = COALESCE($10, longitude), discount_terms = COALESCE($11, discount_terms), vendor_type = COALESCE($12, vendor_type), cuisine = COALESCE($13, cuisine), updated_at = now() WHERE id = $1 RETURNING *`,
+        [id, body.name ?? null, body.ownerName ?? null, body.address ?? null, body.category ?? null, body.email ?? null, body.phone ?? null, body.status ?? null, body.latitude ?? null, body.longitude ?? null, body.discountTerms ?? null, vendorType, cuisine],
       );
       if (body.discountType !== undefined || body.discountValue !== undefined || body.discountDescription !== undefined || body.discountStartsAt !== undefined || body.discountEndsAt !== undefined || body.boosted !== undefined) {
-        await dbQuery(
-          `UPDATE discounts SET type = COALESCE($2, type), value = COALESCE($3, value), description = COALESCE($4, description), starts_at = COALESCE($5, starts_at), ends_at = COALESCE($6, ends_at), boosted = COALESCE($7, boosted), updated_at = now() WHERE vendor_id = $1 AND card_id = (SELECT id FROM cards WHERE is_membership = true LIMIT 1)`,
-          [id, body.discountType ?? null, body.discountValue ?? null, body.discountDescription ?? null, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? null],
-        );
+        if (body.discountType !== undefined || body.discountValue !== undefined) {
+          // Upsert so vendors without a membership discount row get one created;
+          // a plain UPDATE would silently affect zero rows.
+          const membership = await dbQuery<{ id: string }>(`SELECT id FROM cards WHERE is_membership = true LIMIT 1`);
+          const membershipId = membership[0]?.id;
+          if (membershipId) {
+            await dbQuery(`INSERT INTO card_vendors (card_id, vendor_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [membershipId, id]);
+            const discountCode = generateDiscountCode({
+              merchantId: String(rows[0]?.name ?? id),
+              type: body.discountType ?? 'percent',
+              value: body.discountValue ?? 0,
+            });
+            await dbQuery(
+              `INSERT INTO discounts (card_id, vendor_id, type, value, discount_code, description, active, starts_at, ends_at, boosted)
+               VALUES ($2, $1, COALESCE($3, 'percent'), COALESCE($4, 0), $5, $6, true, $7, $8, $9)
+               ON CONFLICT (card_id, vendor_id) DO UPDATE SET
+                 type = COALESCE($3, discounts.type),
+                 value = COALESCE($4, discounts.value),
+                 discount_code = COALESCE(discounts.discount_code, EXCLUDED.discount_code),
+                 description = COALESCE($6, discounts.description),
+                 starts_at = COALESCE($7, discounts.starts_at),
+                 ends_at = COALESCE($8, discounts.ends_at),
+                 boosted = COALESCE($9, discounts.boosted),
+                 active = true,
+                 updated_at = now()`,
+              [id, membershipId, body.discountType ?? null, body.discountValue ?? null, discountCode, body.discountDescription ?? null, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? null],
+            );
+          }
+        } else {
+          await dbQuery(
+            `UPDATE discounts SET type = COALESCE($2, type), value = COALESCE($3, value), description = COALESCE($4, description), starts_at = COALESCE($5, starts_at), ends_at = COALESCE($6, ends_at), boosted = COALESCE($7, boosted), updated_at = now() WHERE vendor_id = $1 AND card_id = (SELECT id FROM cards WHERE is_membership = true LIMIT 1)`,
+            [id, body.discountType ?? null, body.discountValue ?? null, body.discountDescription ?? null, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? null],
+          );
+        }
       }
       return json(request, rows[0] ?? {});
     }
@@ -2164,38 +2282,64 @@ Deno.serve(async (request) => {
       return json(request, { sent: pushResult.sent, errors: pushResult.errors });
     }
 
-    // NCAA API proxy endpoints to bypass CORS/DNS issues
+    // NCAA API proxy endpoints to bypass CORS/DNS issues. Upstream is the
+    // public ncaa-api.henrygd.me mirror (the old api.ncaa.com endpoints no
+    // longer resolve).
     if (path.startsWith('/api/proxy/ncaa/scoreboard/') && request.method === 'GET') {
       const pathMatch = path.match(/^\/api\/proxy\/ncaa\/scoreboard\/([^/]+)\/(.+)$/);
       if (!pathMatch) return json(request, { error: 'Invalid path' }, { status: 400 });
       const [, sport, pathPart] = pathMatch;
-      
+
       // Validate and sanitize parameters to prevent SSRF
       const allowedSports = /^(football|basketball-men|basketball-women|soccer-men|soccer-women|volleyball-women|baseball|softball|icehockey-men|icehockey-women|lacrosse-men|lacrosse-women)$/;
       const allowedPath = /^[\w\-\/]+$/;
-      
+
       if (!allowedSports.test(sport)) {
         return json(request, { error: 'Invalid sport parameter' }, { status: 400 });
       }
       if (!allowedPath.test(pathPart)) {
         return json(request, { error: 'Invalid path parameter' }, { status: 400 });
       }
-      
-      const ncaaUrl = `https://api.ncaa.com/scoreboard/${encodeURIComponent(sport)}/${encodeURIComponent(pathPart)}`;
-      
+
+      // Normalize legacy client paths (`{div}/current/all-conf[/conference]`)
+      // to the upstream layout. A trailing non-numeric segment is treated as a
+      // conference slug and filtered server-side for older app versions.
+      const segments = pathPart.split('/').filter((s) => s && s !== 'current' && s !== 'all-conf');
+      let conference: string | null = null;
+      if (segments.length > 1 && !/^\d+$/.test(segments[segments.length - 1]!)) {
+        conference = segments.pop()!;
+      }
+      const upstreamPath = segments.map(encodeURIComponent).join('/');
+      const ncaaUrl = `https://ncaa-api.henrygd.me/scoreboard/${encodeURIComponent(sport)}/${upstreamPath}`;
+
       try {
         const response = await fetch(ncaaUrl, {
           headers: {
             'Accept': 'application/json',
           },
         });
-        
+
         if (!response.ok) {
           return json(request, { error: `NCAA API error: ${response.status}` }, { status: response.status });
         }
-        
+
         const data = await response.json();
-        return json(request, data);
+        const entries = Array.isArray((data as { games?: unknown[] })?.games)
+          ? (data as { games: unknown[] }).games
+          : [];
+        // The upstream scoreboard endpoint ignores conference path segments, so
+        // filtering happens here by matching team conference slugs.
+        const filtered = conference
+          ? entries.filter(
+              (entry) =>
+                ncaaTeamInConference((entry as { game?: NcaaUpstreamGame })?.game?.home, conference) ||
+                ncaaTeamInConference((entry as { game?: NcaaUpstreamGame })?.game?.away, conference),
+            )
+          : entries;
+        const games = filtered
+          .map((entry) => ncaaMapGame(entry, sport, segments[0] ?? ''))
+          .filter((game) => game !== null);
+        return json(request, { games });
       } catch (error) {
         console.error('NCAA API proxy error:', error);
         return json(request, { error: 'Failed to fetch from NCAA API' }, { status: 502 });
@@ -2206,12 +2350,12 @@ Deno.serve(async (request) => {
       const pathMatch = path.match(/^\/api\/proxy\/ncaa\/standings\/([^/]+)\/([^/]+)(?:\/([^/]+))?$/);
       if (!pathMatch) return json(request, { error: 'Invalid path' }, { status: 400 });
       const [, sport, division, conference] = pathMatch;
-      
+
       // Validate and sanitize parameters to prevent SSRF
       const allowedSports = /^(football|basketball-men|basketball-women|soccer-men|soccer-women|volleyball-women|baseball|softball|icehockey-men|icehockey-women|lacrosse-men|lacrosse-women)$/;
       const allowedDivision = /^(fbs|fcs|d1|d2|d3)$/;
       const allowedConference = /^[\w\-]+$/;
-      
+
       if (!allowedSports.test(sport)) {
         return json(request, { error: 'Invalid sport parameter' }, { status: 400 });
       }
@@ -2221,23 +2365,43 @@ Deno.serve(async (request) => {
       if (conference && !allowedConference.test(conference)) {
         return json(request, { error: 'Invalid conference parameter' }, { status: 400 });
       }
-      
+
       const conferencePath = conference ? `/${encodeURIComponent(conference)}` : '';
-      const ncaaUrl = `https://api.ncaa.com/standings/${encodeURIComponent(sport)}/${encodeURIComponent(division)}${conferencePath}`;
-      
+      const ncaaUrl = `https://ncaa-api.henrygd.me/standings/${encodeURIComponent(sport)}/${encodeURIComponent(division)}${conferencePath}`;
+
       try {
         const response = await fetch(ncaaUrl, {
           headers: {
             'Accept': 'application/json',
           },
         });
-        
+
         if (!response.ok) {
           return json(request, { error: `NCAA API error: ${response.status}` }, { status: response.status });
         }
-        
+
         const data = await response.json();
-        return json(request, data);
+        const groups = Array.isArray((data as { data?: { conference?: string; standings?: Record<string, unknown>[] }[] })?.data)
+          ? (data as { data: { conference?: string; standings?: Record<string, unknown>[] }[] }).data
+          : [];
+        const standings: Record<string, unknown>[] = [];
+        for (const group of groups) {
+          for (const row of group.standings ?? []) {
+            const wins = ncaaNumField(row, 'Overall W', 'W');
+            const losses = ncaaNumField(row, 'Overall L', 'L');
+            const ties = ncaaNumField(row, 'Overall T', 'T', 'Overall Ties');
+            const total = wins + losses + ties;
+            standings.push({
+              team: String(row['School'] ?? row['Team'] ?? ''),
+              conference: String(group.conference ?? ''),
+              wins,
+              losses,
+              ...(ties > 0 ? { ties } : {}),
+              ...(total > 0 ? { percentage: wins / total } : {}),
+            });
+          }
+        }
+        return json(request, { standings });
       } catch (error) {
         console.error('NCAA API proxy error:', error);
         return json(request, { error: 'Failed to fetch from NCAA API' }, { status: 502 });
