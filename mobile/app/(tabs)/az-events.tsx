@@ -1,7 +1,15 @@
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Pressable, SectionList, Text, View } from 'react-native';
-import { BrandHeader, Screen, SectionTitle } from '@/components/Ui';
-import { AZ_ADMISSION_COLORS, AZ_ADMISSION_LABELS, AZ_EVENT_MONTHS, type AzAdmission, type AzEvent } from '@/lib/azEvents';
+import { AppButton, Banner, BrandHeader, Screen, SectionTitle } from '@/components/Ui';
+import {
+  AZ_ADMISSION_COLORS,
+  AZ_ADMISSION_LABELS,
+  AZ_EVENT_MONTHS,
+  azEventMatchesMode,
+  type AzAdmission,
+  type AzEvent,
+  type AzViewMode,
+} from '@/lib/azEvents';
 import { useThemeColors } from '@/lib/useThemeColors';
 import { useDynamicType } from '@/lib/dynamicType';
 
@@ -18,6 +26,13 @@ const LEGEND: { kind: AzAdmission; label: string }[] = [
   { kind: 'tbd', label: 'TBD' },
 ];
 
+const VIEW_MODES: { value: AzViewMode; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'day', label: 'Day' },
+  { value: 'week', label: 'Week' },
+  { value: 'month', label: 'Month' },
+];
+
 function AdmissionDot({ kind }: { kind: AzAdmission }) {
   return (
     <View
@@ -31,17 +46,28 @@ export default function AzEventsScreen() {
   const colors = useThemeColors();
   const { effectiveScale } = useDynamicType();
   const listRef = useRef<SectionList<AzEvent, MonthSection>>(null);
+  const pendingSection = useRef<number | null>(null);
+  const [viewMode, setViewMode] = useState<AzViewMode>('all');
 
   const sections = useMemo<MonthSection[]>(
-    () => AZ_EVENT_MONTHS.map((m, index) => ({ title: m.month, index, data: m.events })),
-    [],
+    () =>
+      AZ_EVENT_MONTHS.map((m) => ({
+        title: m.month,
+        index: 0,
+        data: m.events.filter((event) => azEventMatchesMode(event, m.month, viewMode)),
+      }))
+        .filter((s) => s.data.length > 0)
+        .map((s, index) => ({ ...s, index })),
+    [viewMode],
   );
 
   function scrollToMonth(index: number) {
+    pendingSection.current = index;
     try {
-      listRef.current?.scrollToLocation({ sectionIndex: index, itemIndex: 0, animated: true });
+      listRef.current?.scrollToLocation({ sectionIndex: index, itemIndex: 0, viewOffset: 0, animated: true });
     } catch {
-      // Ignore out-of-range scroll requests while the list is still laying out.
+      // SectionList throws while sections are still laying out; the
+      // onScrollToIndexFailed / retry below covers that window.
     }
   }
 
@@ -60,20 +86,33 @@ export default function AzEventsScreen() {
         ))}
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {VIEW_MODES.map((mode) => (
+          <AppButton
+            key={mode.value}
+            variant={viewMode === mode.value ? 'primary' : 'secondary'}
+            onPress={() => setViewMode(mode.value)}
+            style={{ flexBasis: '45%', flexGrow: 1 }}
+          >
+            {mode.label}
+          </AppButton>
+        ))}
+      </View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {sections.map((section) => (
           <Pressable
             key={section.title}
             onPress={() => scrollToMonth(section.index)}
+            hitSlop={6}
             accessibilityRole="button"
             accessibilityLabel={`Jump to ${section.title}`}
-            style={{
+            style={({ pressed }) => ({
               borderRadius: 999,
               borderWidth: 1,
               borderColor: colors.border,
-              backgroundColor: colors.panel,
+              backgroundColor: pressed ? colors.brand : colors.panel,
               paddingHorizontal: 12,
               paddingVertical: 6,
-            }}
+            })}
           >
             <Text style={{ color: colors.ink, fontSize: 12 * effectiveScale, fontWeight: '600' }} allowFontScaling={false}>
               {section.title.replace(/ \d{4}$/, '')}
@@ -86,6 +125,9 @@ export default function AzEventsScreen() {
 
   return (
     <Screen>
+      {sections.length === 0 ? (
+        <Banner tone="info">No statewide events match this time filter.</Banner>
+      ) : null}
       <SectionList
         ref={listRef}
         sections={sections}
@@ -93,6 +135,12 @@ export default function AzEventsScreen() {
         stickySectionHeadersEnabled
         ListHeaderComponent={header}
         contentContainerStyle={{ paddingBottom: 32 }}
+        onScrollToIndexFailed={() => {
+          const target = pendingSection.current;
+          if (target != null) {
+            setTimeout(() => scrollToMonth(target), 250);
+          }
+        }}
         renderSectionHeader={({ section }) => (
           <View style={{ backgroundColor: colors.bg, paddingVertical: 8 }}>
             <Text style={{ color: colors.ink, fontWeight: '800', fontSize: 18 * effectiveScale }} allowFontScaling={false}>

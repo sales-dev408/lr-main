@@ -682,3 +682,82 @@ export const AZ_ADMISSION_COLORS: Record<AzAdmission, string> = {
   mixed: '#3b82f6',
   tbd: '#9ca3af',
 };
+
+// ---- Day/week/month filtering ----
+// Dates in this calendar are freeform strings: 'Sept. 19', 'Sept. 19–Jan. 31',
+// 'Apr. 10–11', 'July — TBD', 'Saturdays', or bare month names. Resolve each to
+// a concrete [start, end] range using the section's year (cross-year ranges
+// like Sept→Jan bump the end year).
+
+const AZ_MONTH_INDEX: Record<string, number> = {
+  jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2, apr: 3, april: 3,
+  may: 4, jun: 5, june: 5, jul: 6, july: 6, aug: 7, august: 7,
+  sep: 8, sept: 8, september: 8, oct: 9, october: 9, nov: 10, november: 10,
+  dec: 11, december: 11,
+};
+
+function monthIndexOf(token: string): number | undefined {
+  return AZ_MONTH_INDEX[token.replace(/\./g, '').toLowerCase()];
+}
+
+function parseMonthDay(text: string): { month: number; day: number } | null {
+  const match = text.trim().match(/^([A-Za-z]+)\.?\s+(\d{1,2})$/);
+  if (!match) return null;
+  const month = monthIndexOf(match[1]!);
+  return month === undefined ? null : { month, day: Number(match[2]) };
+}
+
+export function azEventRange(date: string, monthTitle: string): { start: Date; end: Date } | null {
+  const yearMatch = monthTitle.match(/\d{4}/);
+  const sectionYear = yearMatch ? Number(yearMatch[0]) : new Date().getFullYear();
+  const sectionMonth = monthIndexOf(monthTitle.trim().split(' ')[0] ?? '') ?? -1;
+
+  const cleaned = date
+    .replace(/[–—]/g, '-')
+    .replace(/-?\s*(tbd|weekend|ongoing|tentative)\s*$/i, '')
+    .trim();
+  const halves = cleaned.split(/\s*-\s*/).filter(Boolean);
+
+  const first = parseMonthDay(halves[0] ?? '');
+  if (first) {
+    const start = new Date(sectionYear, first.month, first.day);
+    let end = start;
+    const secondRaw = (halves[1] ?? '').trim();
+    if (secondRaw) {
+      const second = parseMonthDay(secondRaw);
+      if (second) {
+        end = new Date(second.month < first.month ? sectionYear + 1 : sectionYear, second.month, second.day);
+      } else if (/^\d{1,2}$/.test(secondRaw)) {
+        end = new Date(sectionYear, first.month, Number(secondRaw));
+      }
+    }
+    return { start, end };
+  }
+
+  // Bare month names ('December', 'March — TBD') and recurring hints
+  // ('Thursdays') span the whole named month, or the section month when no
+  // month is named.
+  const named = monthIndexOf(cleaned.replace(/[^a-zA-Z]/g, ''));
+  const month = named ?? sectionMonth;
+  if (month < 0) return null;
+  const year = sectionMonth >= 0 && month < sectionMonth ? sectionYear + 1 : sectionYear;
+  return { start: new Date(year, month, 1), end: new Date(year, month + 1, 0) };
+}
+
+export type AzViewMode = 'all' | 'day' | 'week' | 'month';
+
+// An event matches when its date range overlaps the filter window, so
+// multi-week events ('Sept. 19–Jan. 31') stay visible in day/week views.
+export function azEventMatchesMode(event: AzEvent, monthTitle: string, mode: AzViewMode, now = new Date()): boolean {
+  if (mode === 'all') return true;
+  const range = azEventRange(event.date, monthTitle);
+  if (!range) return false;
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const windowEnd =
+    mode === 'day'
+      ? new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+      : mode === 'week'
+        ? new Date(now.getFullYear(), now.getMonth(), now.getDate() + (7 - now.getDay()))
+        : new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return range.start.getTime() < windowEnd.getTime() && range.end.getTime() >= startOfDay.getTime();
+}

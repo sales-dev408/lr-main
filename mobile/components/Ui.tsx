@@ -306,28 +306,19 @@ export function AppButton({
  * Small circular button with a down arrow, shown once a vendor/listing is
  * selected so the user can jump straight to its details section below.
  */
-// Moves with scroll position so it stays visible while scrolling.
-export function JumpToDetailsButton({ onPress, accessibilityLabel = 'Jump to details', scrollY, mapHeightOffset }: { onPress: () => void; accessibilityLabel?: string; scrollY?: number; mapHeightOffset?: number }) {
+// Rendered as a sibling of the ScrollView (not inside it) so it floats at a
+// fixed spot in the viewport and stays tappable while the user scrolls.
+export function JumpToDetailsButton({ onPress, accessibilityLabel = 'Jump to details' }: { onPress: () => void; accessibilityLabel?: string }) {
   const colors = useThemeColors();
   const { effectiveScale } = useDynamicType();
-  const insets = useSafeAreaInsets();
-  
-  // Calculate the top position based on scroll, keeping it within safe bounds
-  const baseTop = insets.top + 12;
-  // Start position should be below the map
-  const startOffset = mapHeightOffset || 0;
-  // Button position follows scroll directly for better responsiveness during touch/drag
-  const scrollOffset = scrollY ?? 0;
-  // Button appears after map and moves with scroll
-  const topPosition = baseTop + startOffset + scrollOffset;
 
   return (
     <View
       pointerEvents="box-none"
       style={{
         position: 'absolute',
-        top: topPosition,
-        right: 16,
+        bottom: 12,
+        right: 4,
         zIndex: 20,
       }}
     >

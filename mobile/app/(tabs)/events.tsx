@@ -221,35 +221,19 @@ export default function EventsScreen() {
         <GlassCard>
           <SectionTitle title="Filter events" subtitle="Narrow down by city, sport, or event type" />
           <View style={{ gap: 10 }}>
+            {/* 2x2 grid: a single wrapping row squeezed the buttons at larger
+                text scales and covered the Month label. */}
             <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-              <AppButton
-                variant={viewMode === 'all' ? 'primary' : 'secondary'}
-                onPress={() => setViewMode('all')}
-                style={{ flex: 1, minWidth: 60 }}
-              >
-                All
-              </AppButton>
-              <AppButton
-                variant={viewMode === 'day' ? 'primary' : 'secondary'}
-                onPress={() => setViewMode('day')}
-                style={{ flex: 1, minWidth: 60 }}
-              >
-                Day
-              </AppButton>
-              <AppButton
-                variant={viewMode === 'week' ? 'primary' : 'secondary'}
-                onPress={() => setViewMode('week')}
-                style={{ flex: 1, minWidth: 60 }}
-              >
-                Week
-              </AppButton>
-              <AppButton
-                variant={viewMode === 'month' ? 'primary' : 'secondary'}
-                onPress={() => setViewMode('month')}
-                style={{ flex: 1, minWidth: 60 }}
-              >
-                Month
-              </AppButton>
+              {(['all', 'day', 'week', 'month'] as ViewMode[]).map((mode) => (
+                <AppButton
+                  key={mode}
+                  variant={viewMode === mode ? 'primary' : 'secondary'}
+                  onPress={() => setViewMode(mode)}
+                  style={{ flexBasis: '45%', flexGrow: 1 }}
+                >
+                  {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                </AppButton>
+              ))}
             </View>
             <SimpleListPicker
               entries={cityOptions}

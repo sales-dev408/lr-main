@@ -83,9 +83,6 @@ export default function BrowseScreen() {
   const jumpIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const detailsOffsetRef = useRef<number | null>(null);
   const detailsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [scrollY, setScrollY] = useState(0);
-  const mapRef = useRef<View>(null);
-  const [mapHeightOffset, setMapHeightOffset] = useState(0);
 
   const load = useCallback(async () => {
     setError(null);
@@ -362,11 +359,6 @@ export default function BrowseScreen() {
         ref={scrollRef}
         contentContainerStyle={{ gap: 18, paddingBottom: 32, paddingTop: 4 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
-        onScroll={(event) => {
-          const y = event.nativeEvent.contentOffset.y;
-          setScrollY(y);
-        }}
-        scrollEventThrottle={16}
       >
         <BrandHeader subtitle="Browse discounts by train stop" />
 
@@ -455,13 +447,7 @@ export default function BrowseScreen() {
         </GlassCard>
 
         {region ? (
-          <View 
-            ref={mapRef}
-            style={{ height: mapHeight, borderRadius: 16, overflow: 'hidden' }}
-            onLayout={(event) => {
-              setMapHeightOffset(event.nativeEvent.layout.y + event.nativeEvent.layout.height);
-            }}
-          >
+          <View style={{ height: mapHeight, borderRadius: 16, overflow: 'hidden' }}>
             <MapView
               style={{ flex: 1, borderRadius: 16 }}
               initialRegion={region}
@@ -485,8 +471,6 @@ export default function BrowseScreen() {
             </MapView>
           </View>
         ) : null}
-
-        {selected ? <JumpToDetailsButton onPress={scrollToDetails} scrollY={scrollY} mapHeightOffset={mapHeightOffset} /> : null}
 
         {loading ? <Spinner /> : null}
         {error ? <Banner tone="error">{error}</Banner> : null}
@@ -654,6 +638,7 @@ export default function BrowseScreen() {
           </View>
         ) : null}
       </ScrollView>
+      {selected ? <JumpToDetailsButton onPress={scrollToDetails} /> : null}
     </Screen>
   );
 }

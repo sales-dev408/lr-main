@@ -36,9 +36,6 @@ export default function ApartmentsScreen() {
   const jumpIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const detailsOffsetRef = useRef<number | null>(null);
   const detailsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [scrollY, setScrollY] = useState(0);
-  const mapRef = useRef<View>(null);
-  const [mapHeightOffset, setMapHeightOffset] = useState(0);
 
   const load = useCallback(async () => {
     setError(null);
@@ -187,22 +184,11 @@ export default function ApartmentsScreen() {
         ref={scrollRef}
         contentContainerStyle={{ gap: 18, paddingBottom: 32, paddingTop: 4 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
-        onScroll={(event) => {
-          const y = event.nativeEvent.contentOffset.y;
-          setScrollY(y);
-        }}
-        scrollEventThrottle={1}
       >
         <BrandHeader subtitle="Apartments & hotels within 1/2 mile of the light rail" />
 
         {region ? (
-          <View 
-            ref={mapRef}
-            style={{ height: mapHeight, borderRadius: 16, overflow: 'hidden' }}
-            onLayout={(event) => {
-              setMapHeightOffset(event.nativeEvent.layout.y + event.nativeEvent.layout.height);
-            }}
-          >
+          <View style={{ height: mapHeight, borderRadius: 16, overflow: 'hidden' }}>
             <MapView
               style={{ flex: 1, borderRadius: 16 }}
               initialRegion={region}
@@ -292,8 +278,6 @@ export default function ApartmentsScreen() {
           </View>
         ))}
 
-        {selected ? <JumpToDetailsButton onPress={scrollToDetails} scrollY={scrollY} mapHeightOffset={mapHeightOffset} /> : null}
-
         {selected ? (
           <View onLayout={(event) => { detailsOffsetRef.current = event.nativeEvent.layout.y; }}>
             <Card>
@@ -340,6 +324,7 @@ export default function ApartmentsScreen() {
           </View>
         ) : null}
       </ScrollView>
+      {selected ? <JumpToDetailsButton onPress={scrollToDetails} /> : null}
     </Screen>
   );
 }
