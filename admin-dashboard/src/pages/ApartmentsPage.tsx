@@ -20,6 +20,7 @@ async function geocodeAddress(address: string): Promise<{ latitude: number; long
 
 const blankApartment: Omit<ApartmentRecord, 'id' | 'created_at' | 'updated_at'> = {
   name: '',
+  listing_type: 'apartment',
   section: '',
   station: '',
   address: '',
@@ -169,9 +170,18 @@ export function ApartmentsPage() {
         </label>
         <div className="grid-2">
           <label>
+            Type
+            <Select value={data.listing_type ?? 'apartment'} onChange={(e) => handleInputChange('listing_type', e.target.value)}>
+              <option value="apartment">Apartment</option>
+              <option value="hotel">Hotel</option>
+            </Select>
+          </label>
+          <label>
             Section
             <Input value={data.section ?? ''} onChange={(e) => handleInputChange('section', e.target.value)} placeholder="e.g. North Phoenix" />
           </label>
+        </div>
+        <div className="grid-2">
           <label>
             Station
             <Select value={data.station ?? ''} onChange={(e) => handleInputChange('station', e.target.value)}>
@@ -260,7 +270,8 @@ export function ApartmentsPage() {
               {apartments.map((apt) => (
                 <article key={apt.id} className="list-row">
                   <div>
-                    <strong>{apt.name}</strong>
+                    <strong>{apt.name}</strong>{' '}
+                    <span className="muted">({apt.listing_type === 'hotel' ? 'Hotel' : 'Apartment'})</span>
                     <p className="muted">{[apt.station, apt.address, apt.city].filter(Boolean).join(' · ')}</p>
                   </div>
                   <div className="row-actions">

@@ -8,6 +8,7 @@ import { listStops, type StopRecord } from './stops.ts';
 export interface PublicApartment {
   id: string;
   name: string;
+  listingType: 'apartment' | 'hotel';
   section: string | null;
   station: string | null;
   address: string | null;
@@ -130,6 +131,7 @@ export async function getAppStatus(): Promise<AppStatus> {
 function toPublicApartment(row: {
   id: string;
   name: string;
+  listing_type: 'apartment' | 'hotel';
   section: string | null;
   station: string | null;
   address: string | null;
@@ -148,6 +150,7 @@ function toPublicApartment(row: {
   return {
     id: row.id,
     name: row.name,
+    listingType: row.listing_type,
     section: row.section,
     station: row.station,
     address: row.address,

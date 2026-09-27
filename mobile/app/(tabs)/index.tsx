@@ -122,10 +122,13 @@ export default function HomeScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Link href="/(tabs)/apartments" asChild>
-                  <AppButton style={{ width: '100%', height: 64 * effectiveScale }}>Apartments & Hotels</AppButton>
+                  <AppButton style={{ width: '100%', height: 64 * effectiveScale }}>Apartments</AppButton>
                 </Link>
               </View>
             </View>
+            <Link href="/(tabs)/hotels" asChild>
+              <AppButton style={{ width: '100%', height: 64 * effectiveScale }}>Hotels</AppButton>
+            </Link>
           </View>
         </Card>
 

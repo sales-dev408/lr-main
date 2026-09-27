@@ -5,6 +5,7 @@ import { dbQuery } from '../db/pool.js';
 export interface ApartmentRecord {
   id: string;
   name: string;
+  listing_type: 'apartment' | 'hotel';
   section: string | null;
   station: string | null;
   address: string | null;
@@ -21,6 +22,7 @@ export interface ApartmentRecord {
 
 const apartmentSchema = z.object({
   name: z.string().min(1),
+  listing_type: z.enum(['apartment', 'hotel']).optional().nullable(),
   section: z.string().optional().nullable(),
   station: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
@@ -35,13 +37,13 @@ const apartmentSchema = z.object({
 
 export async function listApartments(): Promise<ApartmentRecord[]> {
   return dbQuery<ApartmentRecord>(
-    'SELECT id, name, section, station, address, city, state, zip, phone, website, latitude, longitude, created_at, updated_at FROM apartments_hotels ORDER BY section NULLS LAST, name',
+    'SELECT id, name, listing_type, section, station, address, city, state, zip, phone, website, latitude, longitude, created_at, updated_at FROM apartments_hotels ORDER BY section NULLS LAST, name',
   );
 }
 
 export async function getApartment(id: string): Promise<ApartmentRecord | null> {
   const rows = await dbQuery<ApartmentRecord>(
-    'SELECT id, name, section, station, address, city, state, zip, phone, website, latitude, longitude, created_at, updated_at FROM apartments_hotels WHERE id = $1 LIMIT 1',
+    'SELECT id, name, listing_type, section, station, address, city, state, zip, phone, website, latitude, longitude, created_at, updated_at FROM apartments_hotels WHERE id = $1 LIMIT 1',
     [id],
   );
   return rows[0] ?? null;
@@ -49,10 +51,10 @@ export async function getApartment(id: string): Promise<ApartmentRecord | null> 
 
 export async function createApartment(input: z.infer<typeof apartmentSchema>): Promise<ApartmentRecord> {
   const rows = await dbQuery<ApartmentRecord>(
-    `INSERT INTO apartments_hotels (name, section, station, address, city, state, zip, phone, website, latitude, longitude)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-     RETURNING id, name, section, station, address, city, state, zip, phone, website, latitude, longitude, created_at, updated_at`,
-    [input.name, input.section ?? null, input.station ?? null, input.address ?? null, input.city ?? null, input.state ?? null, input.zip ?? null, input.phone ?? null, input.website ?? null, input.latitude ?? null, input.longitude ?? null],
+    `INSERT INTO apartments_hotels (name, listing_type, section, station, address, city, state, zip, phone, website, latitude, longitude)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+     RETURNING id, name, listing_type, section, station, address, city, state, zip, phone, website, latitude, longitude, created_at, updated_at`,
+    [input.name, input.listing_type ?? 'apartment', input.section ?? null, input.station ?? null, input.address ?? null, input.city ?? null, input.state ?? null, input.zip ?? null, input.phone ?? null, input.website ?? null, input.latitude ?? null, input.longitude ?? null],
   );
   return rows[0]!;
 }
@@ -63,20 +65,21 @@ export async function updateApartment(id: string, input: ApartmentUpdateInput): 
   const rows = await dbQuery<ApartmentRecord>(
     `UPDATE apartments_hotels
      SET name = COALESCE($2, name),
-         section = COALESCE($3, section),
-         station = COALESCE($4, station),
-         address = COALESCE($5, address),
-         city = COALESCE($6, city),
-         state = COALESCE($7, state),
-         zip = COALESCE($8, zip),
-         phone = COALESCE($9, phone),
-         website = COALESCE($10, website),
-         latitude = COALESCE($11, latitude),
-         longitude = COALESCE($12, longitude),
+         listing_type = COALESCE($3, listing_type),
+         section = COALESCE($4, section),
+         station = COALESCE($5, station),
+         address = COALESCE($6, address),
+         city = COALESCE($7, city),
+         state = COALESCE($8, state),
+         zip = COALESCE($9, zip),
+         phone = COALESCE($10, phone),
+         website = COALESCE($11, website),
+         latitude = COALESCE($12, latitude),
+         longitude = COALESCE($13, longitude),
          updated_at = now()
      WHERE id = $1
-     RETURNING id, name, section, station, address, city, state, zip, phone, website, latitude, longitude, created_at, updated_at`,
-    [id, input.name, input.section ?? null, input.station ?? null, input.address ?? null, input.city ?? null, input.state ?? null, input.zip ?? null, input.phone ?? null, input.website ?? null, input.latitude ?? null, input.longitude ?? null],
+     RETURNING id, name, listing_type, section, station, address, city, state, zip, phone, website, latitude, longitude, created_at, updated_at`,
+    [id, input.name, input.listing_type ?? null, input.section ?? null, input.station ?? null, input.address ?? null, input.city ?? null, input.state ?? null, input.zip ?? null, input.phone ?? null, input.website ?? null, input.latitude ?? null, input.longitude ?? null],
   );
   return rows[0] ?? null;
 }

@@ -14,7 +14,10 @@ export default function MoreScreen() {
           <Card>
             <View style={{ gap: 12, alignItems: 'center' }}>
               <Link href="/(tabs)/apartments" asChild>
-                <AppButton style={{ width: '100%' }}>Apartments & hotels</AppButton>
+                <AppButton style={{ width: '100%' }}>Apartments</AppButton>
+              </Link>
+              <Link href="/(tabs)/hotels" asChild>
+                <AppButton style={{ width: '100%' }}>Hotels</AppButton>
               </Link>
               <Link href="/(tabs)/az-events" asChild>
                 <AppButton style={{ width: '100%' }}>Events Around Arizona</AppButton>

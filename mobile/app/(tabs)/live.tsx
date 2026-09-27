@@ -1,32 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Image, ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { BrandHeader, Card, GlassCard, Pill, Screen, SectionTitle } from '@/components/Ui';
+import { ZoomableImage } from '@/components/ZoomableImage';
 import { useDynamicType } from '@/lib/dynamicType';
 import { useThemeColors } from '@/lib/useThemeColors';
-import { SCHEDULES, type DayType, type Direction } from '@/lib/liveSchedules';
+import { SCHEDULES, type DayType, type Direction, type LineId } from '@/lib/liveSchedules';
 
 const SIDEBAR_BREAKPOINT = 600;
 
-type ScheduleLineInfo = {
+type LineInfo = {
   name: string;
   color: string;
   map: any;
-  line: 'a' | 'b';
+  line: LineId;
   direction: Direction;
-  stations: string[];
 };
-
-type SimulatedLineInfo = {
-  name: string;
-  color: string;
-  map: any;
-  stations: string[];
-  segmentMinutes: number[];
-  firstDeparture: { hour: number; minute: number };
-  loop?: boolean;
-};
-
-type LineInfo = ScheduleLineInfo | SimulatedLineInfo;
 
 const LINES: LineInfo[] = [
   {
@@ -35,21 +23,6 @@ const LINES: LineInfo[] = [
     map: require('@/assets/images/aline_map.jpeg'),
     line: 'a',
     direction: 'eastbound',
-    stations: [
-      'DOWNTOWN PHX HUB/JEFFERSON ST',
-      '3RD ST/JEFFERSON',
-      '24TH ST/JEFFERSON',
-      '44TH ST/WASHINGTON',
-      '50TH ST/WASHINGTON ST',
-      'PRIEST DR/WASHINGTON ST',
-      'VETERANS WAY/COLLEGE AVE',
-      'UNIVERSITY DR/RURAL RD',
-      'MCCLINTOCK DR/APACHE BLVD',
-      'SYCAMORE/MAIN ST',
-      'COUNTRY CLUB/MAIN ST',
-      'MESA DR/MAIN ST',
-      'GILBERT RD/MAIN ST',
-    ],
   },
   {
     name: 'A Line',
@@ -57,21 +30,6 @@ const LINES: LineInfo[] = [
     map: require('@/assets/images/aline_map.jpeg'),
     line: 'a',
     direction: 'westbound',
-    stations: [
-      'GILBERT RD/MAIN ST',
-      'MESA DR/MAIN ST',
-      'COUNTRY CLUB/MAIN ST',
-      'SYCAMORE/MAIN ST',
-      'MCCLINTOCK DR/APACHE BLVD',
-      'UNIVERSITY DR/RURAL RD',
-      'VETERANS WAY/COLLEGE AVE',
-      'PRIEST DR/WASHINGTON ST',
-      '50TH ST/WASHINGTON ST',
-      '44TH ST/WASHINGTON ST',
-      '24TH ST/WASHINGTON ST',
-      '3RD ST/WASHINGTON ST',
-      'DOWNTOWN PHX HUB/WASHINGTON ST',
-    ],
   },
   {
     name: 'B Line',
@@ -79,24 +37,6 @@ const LINES: LineInfo[] = [
     map: require('@/assets/images/bline_map.jpeg'),
     line: 'b',
     direction: 'northbound',
-    stations: [
-      'BASELINE/CENTRAL AVE',
-      'SOUTHERN/CENTRAL AVE',
-      'BROADWAY/CENTRAL AVE',
-      'BUCKEYE/CENTRAL AVE',
-      'DOWNTOWN PHX HUB/CENTRAL AVE',
-      'WASHINGTON/CENTRAL AVE',
-      'VAN BUREN/CENTRAL AVE',
-      'MCDOWELL/CENTRAL AVE',
-      'THOMAS/CENTRAL AVE',
-      'INDIAN SCHOOL/CENTRAL AVE',
-      'CENTRAL AVE/CAMELBACK',
-      '19TH AVE/CAMELBACK',
-      'MONTEBELLO/19TH AVE',
-      'GLENDALE/19TH AVE',
-      '19TH AVE/DUNLAP',
-      'METRO PKWY',
-    ],
   },
   {
     name: 'B Line',
@@ -104,59 +44,32 @@ const LINES: LineInfo[] = [
     map: require('@/assets/images/bline_map.jpeg'),
     line: 'b',
     direction: 'southbound',
-    stations: [
-      'METRO PKWY',
-      '19TH AVE/DUNLAP',
-      'GLENDALE/19TH AVE',
-      'MONTEBELLO/19TH AVE',
-      '19TH AVE/CAMELBACK',
-      'CENTRAL AVE/CAMELBACK',
-      'INDIAN SCHOOL/CENTRAL AVE',
-      'THOMAS/CENTRAL AVE',
-      'MCDOWELL/CENTRAL AVE',
-      'VAN BUREN/1ST AVE',
-      'DOWNTOWN PHX HUB/1ST AVE',
-      'DOWNTOWN PHX HUB/JEFFERSON ST',
-      'BUCKEYE/CENTRAL AVE',
-      'BROADWAY/CENTRAL AVE',
-      'SOUTHERN/CENTRAL AVE',
-      'BASELINE/CENTRAL AVE',
-    ],
   },
   {
     name: 'Streetcar',
     color: '#f97316',
     map: require('@/assets/images/streetcar_map.jpeg'),
-    stations: [
-      'Dorsey/Apache',
-      'Rural/Apache',
-      'Paseo Del Saber/Apache',
-      'College Ave/Apache',
-      '11th St/Mill',
-      '9th St/Mill',
-      '6th St/Mill',
-      '3rd St/Mill',
-      'University Dr/Ash',
-      '5th St/Ash',
-      '3rd St/Ash',
-      'Tempe Beach Park/Rio Salado',
-      'Hayden Ferry/Rio Salado',
-      'Marina Heights/Rio Salado',
-    ],
-    segmentMinutes: [1, 2, 2, 3, 2, 2, 2, 2, 2, 2, 3, 2, 2],
-    firstDeparture: { hour: 6, minute: 0 },
-    loop: true,
+    line: 'streetcar',
+    direction: 'northbound',
+  },
+  {
+    name: 'Streetcar',
+    color: '#f97316',
+    map: require('@/assets/images/streetcar_map.jpeg'),
+    line: 'streetcar',
+    direction: 'southbound',
   },
 ];
 
-type LineStatus = {
-  current: string;
-  next: string;
-  minutes: number;
-  segmentDuration: number;
-  progress: number;
-  day: DayType;
-};
+// Valley Metro schedules run on Phoenix local time (America/Phoenix, UTC-7, no
+// DST). Rebase "now" onto Phoenix wall time so the times stay correct no matter
+// what timezone the device is set to.
+const PHOENIX_OFFSET_MIN = 7 * 60; // minutes behind UTC
+
+function toPhoenixTime(date: Date) {
+  // Returns a Date whose local-time getters read as Phoenix wall-clock time.
+  return new Date(date.getTime() + (date.getTimezoneOffset() - PHOENIX_OFFSET_MIN) * 60000);
+}
 
 function minutesSinceMidnight(date: Date) {
   return date.getHours() * 60 + date.getMinutes() + date.getSeconds() / 60;
@@ -173,16 +86,18 @@ function dayLabel(day: DayType) {
   return day === 'weekday' ? 'Weekday' : day.charAt(0).toUpperCase() + day.slice(1);
 }
 
-function directionLabel(line: LineInfo): string {
-  if ('direction' in line) return line.direction;
-  return line.loop ? 'Loop' : '';
-}
-
 function lineKey(line: LineInfo) {
-  return `${line.name}-${directionLabel(line)}`;
+  return `${line.name}-${line.direction}`;
 }
 
-function scheduleFor(date: Date, line: 'a' | 'b', direction: Direction) {
+function formatArrival(minutes: number) {
+  const m = ((Math.round(minutes) % 1440) + 1440) % 1440;
+  const hour24 = Math.floor(m / 60);
+  const hour = hour24 % 12 === 0 ? 12 : hour24 % 12;
+  return `${hour}:${String(m % 60).padStart(2, '0')} ${hour24 < 12 ? 'AM' : 'PM'}`;
+}
+
+function scheduleFor(date: Date, line: LineId, direction: Direction) {
   const day = dayType(date);
   const lineSchedules = SCHEDULES[line];
   if (!lineSchedules) return null;
@@ -191,243 +106,205 @@ function scheduleFor(date: Date, line: 'a' | 'b', direction: Direction) {
   return daySchedule[direction] ?? null;
 }
 
-function firstValidIndex(trip: number[]) {
-  for (let i = 0; i < trip.length; i += 1) {
-    if (trip[i] !== -1) return i;
-  }
-  return -1;
+function formatTime(date: Date) {
+  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
-function lastValidIndex(trip: number[]) {
-  for (let i = trip.length - 1; i >= 0; i -= 1) {
-    if (trip[i] !== -1) return i;
+/**
+ * All stops served by a line+direction, in timetable order. Station lists are
+ * identical across day types for a given direction, so weekday is preferred
+ * with the other days as fallback.
+ */
+function stationsForLine(line: LineInfo): string[] {
+  for (const day of ['weekday', 'saturday', 'sunday'] as DayType[]) {
+    const stations = SCHEDULES[line.line]?.[day]?.[line.direction]?.stations;
+    if (stations && stations.length > 0) return stations;
   }
-  return -1;
+  return [];
 }
 
-function getScheduleStatus(line: ScheduleLineInfo, now: Date): LineStatus {
+/**
+ * Minutes-since-midnight of the next scheduled arrival at a stop, looking at
+ * yesterday (post-midnight trips), today, and tomorrow so results stay correct
+ * around the end of service. Returns null when nothing serves the stop.
+ */
+function nextArrivalAtStop(
+  line: LineId,
+  direction: Direction,
+  stationIndex: number,
+  now: Date,
+): { minutes: number; day: DayType } | null {
   const nowMinutes = minutesSinceMidnight(now);
-  const currentDay = dayType(now);
+  const candidates: { minutes: number; day: DayType }[] = [];
 
-  const candidates: { status: LineStatus; nextArrival: number; day: DayType }[] = [];
-
-  const addCandidate = (date: Date, timeOffset: number, dayLabel: DayType) => {
-    const schedule = scheduleFor(date, line.line, line.direction);
-    if (!schedule || schedule.trips.length === 0) return;
-    const status = findBestTrip(schedule.trips, nowMinutes + timeOffset, line.stations);
-    if (status && status.next !== '—') {
-      candidates.push({ status, nextArrival: nowMinutes + status.minutes, day: dayLabel });
+  const consider = (date: Date, offset: number) => {
+    const schedule = scheduleFor(date, line, direction);
+    if (!schedule) return;
+    const day = dayType(date);
+    for (const trip of schedule.trips) {
+      const t = trip[stationIndex];
+      if (typeof t !== 'number' || t < 0) continue;
+      const absolute = t + offset;
+      if (absolute >= nowMinutes) candidates.push({ minutes: absolute, day });
     }
   };
 
   const previousDay = new Date(now);
   previousDay.setDate(now.getDate() - 1);
-  addCandidate(previousDay, 1440, dayType(previousDay));
-
-  addCandidate(now, 0, currentDay);
-
+  consider(previousDay, -1440);
+  consider(now, 0);
   const nextDay = new Date(now);
   nextDay.setDate(now.getDate() + 1);
-  addCandidate(nextDay, -1440, dayType(nextDay));
+  consider(nextDay, 1440);
 
-  if (candidates.length > 0) {
-    candidates.sort((a, b) => a.nextArrival - b.nextArrival);
-    const best = candidates[0];
-    return { ...best.status, day: best.day };
-  }
-
-  return { current: '—', next: '—', minutes: 0, segmentDuration: 0, progress: 0, day: currentDay };
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => a.minutes - b.minutes);
+  return candidates[0];
 }
 
-function findBestTrip(trips: number[][], nowMinutes: number, stations: string[]): LineStatus | null {
-  let best: { nextArrival: number; status: LineStatus } | null = null;
-  for (const trip of trips) {
-    const status = statusFromTrip(trip, stations, nowMinutes);
-    if (status.next === '—') continue;
-    const nextArrival = nowMinutes + status.minutes;
-    if (!best || nextArrival < best.nextArrival) {
-      best = { nextArrival, status };
-    }
-  }
-  return best?.status ?? null;
+function arrivalDayLabel(minutes: number) {
+  return minutes < 1440 ? 'Today' : minutes < 2880 ? 'Tomorrow' : `In ${Math.floor(minutes / 1440)} days`;
 }
 
-function statusFromTrip(trip: number[], stations: string[], nowMinutes: number): LineStatus {
-  const startIdx = firstValidIndex(trip);
-  const endIdx = lastValidIndex(trip);
-
-  if (startIdx === -1) {
-    return { current: '—', next: '—', minutes: 0, segmentDuration: 0, progress: 0, day: 'weekday' };
-  }
-
-  // If the train hasn't started yet, show first station and next departure.
-  if (nowMinutes < trip[startIdx]) {
-    let nextIdx = startIdx + 1;
-    while (nextIdx <= endIdx && trip[nextIdx] === -1) nextIdx += 1;
-    const nextTime = trip[nextIdx] ?? trip[endIdx];
-    const segmentDuration = Math.max(1, nextTime - trip[startIdx]);
-    return {
-      current: stations[startIdx],
-      next: stations[nextIdx] ?? stations[endIdx],
-      minutes: Math.max(0, Math.ceil(nextTime - nowMinutes)),
-      segmentDuration,
-      progress: 0,
-      day: 'weekday',
-    };
-  }
-
-  // If the train has already finished, mark it so it can be skipped in favor
-  // of the next day's first departure.
-  if (nowMinutes >= trip[endIdx]) {
-    return { current: '—', next: '—', minutes: 0, segmentDuration: 0, progress: 0, day: 'weekday' };
-  }
-
-  // Find the station the train has most recently passed and the next stop.
-  let currentIdx = startIdx;
-  let nextIdx = endIdx;
-  for (let i = startIdx; i < endIdx; i += 1) {
-    if (trip[i] === -1) continue;
-    let j = i + 1;
-    while (j <= endIdx && trip[j] === -1) j += 1;
-    if (j > endIdx) continue;
-    if (nowMinutes >= trip[i] && nowMinutes < trip[j]) {
-      currentIdx = i;
-      nextIdx = j;
-    }
-  }
-
-  const segmentDuration = Math.max(1, trip[nextIdx] - trip[currentIdx]);
-  const elapsed = Math.max(0, nowMinutes - trip[currentIdx]);
-  const minutesToNext = Math.max(0, Math.ceil(trip[nextIdx] - nowMinutes));
-  const progress = Math.min(1, Math.max(0, elapsed / segmentDuration));
-
-  return {
-    current: stations[currentIdx],
-    next: stations[nextIdx],
-    minutes: minutesToNext,
-    segmentDuration,
-    progress,
-    day: 'weekday',
-  };
+/** "DOWNTOWN PHX HUB/JEFFERSON ST" -> "Downtown PHX Hub/Jefferson St" */
+function titleCaseStation(name: string) {
+  return name
+    .split('/')
+    .map((part) =>
+      part
+        .split(' ')
+        .map((token) => {
+          const lower = token.toLowerCase();
+          if (lower === 'phx') return 'PHX';
+          if (/^\d+(st|nd|rd|th)$/i.test(token)) return lower;
+          return token.charAt(0).toUpperCase() + lower.slice(1);
+        })
+        .join(' '),
+    )
+    .join('/');
 }
 
-function getSimulatedStatus(line: SimulatedLineInfo, now: Date): LineStatus {
-  const totalMinutes = line.segmentMinutes.reduce((a, b) => a + b, 0);
-  const start = line.firstDeparture.hour * 60 + line.firstDeparture.minute;
-  let elapsed = minutesSinceMidnight(now) - start;
-  if (elapsed < 0) {
-    elapsed += Math.ceil(-elapsed / totalMinutes) * totalMinutes;
-  }
-  const intoCycle = elapsed % totalMinutes;
-
-  let currentIndex = 0;
-  let accumulated = 0;
-  for (let i = 0; i < line.segmentMinutes.length; i += 1) {
-    const duration = line.segmentMinutes[i];
-    if (intoCycle <= accumulated + duration) {
-      currentIndex = i;
-      break;
-    }
-    accumulated += duration;
-  }
-
-  const segmentDuration = line.segmentMinutes[currentIndex];
-  const elapsedInSegment = intoCycle - accumulated;
-  const minutesToNext = Math.max(0, Math.ceil(segmentDuration - elapsedInSegment));
-  const progress = Math.min(1, Math.max(0, elapsedInSegment / segmentDuration));
-  const nextIndex = line.loop ? (currentIndex + 1) % line.stations.length : Math.min(currentIndex + 1, line.stations.length - 1);
-
-  return {
-    current: line.stations[currentIndex],
-    next: line.stations[nextIndex],
-    minutes: minutesToNext,
-    segmentDuration,
-    progress,
-    day: dayType(now),
-  };
-}
-
-function getLineStatus(line: LineInfo, now: Date): LineStatus {
-  return 'line' in line ? getScheduleStatus(line, now) : getSimulatedStatus(line, now);
-}
-
-function formatTime(date: Date) {
-  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-}
-
-function StatusRow({ label, value, color, muted, centered = false }: { label: string; value: string; color: string; muted?: string; centered?: boolean }) {
+function StopArrivalPicker({ line, now }: { line: LineInfo; now: Date }) {
   const colors = useThemeColors();
   const { effectiveScale } = useDynamicType();
+  const [open, setOpen] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const stations = useMemo(() => stationsForLine(line), [line]);
+
+  const arrival =
+    selectedIndex != null ? nextArrivalAtStop(line.line, line.direction, selectedIndex, now) : null;
+
+  if (stations.length === 0) return null;
+
   return (
-    <View style={{ gap: 4, alignItems: centered ? 'center' : 'flex-start' }}>
-      <Text style={{ color: colors.muted, fontSize: 11 * effectiveScale, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }} allowFontScaling={false}>{label}</Text>
-      <Text style={{ color, fontSize: 15 * effectiveScale, fontWeight: '700', lineHeight: 22 * effectiveScale, textAlign: centered ? 'center' : 'left' }} allowFontScaling={false}>{value}</Text>
-      {muted ? <Text style={{ color: colors.muted, fontSize: 12 * effectiveScale, textAlign: centered ? 'center' : 'left' }} allowFontScaling={false}>{muted}</Text> : null}
+    <View style={{ width: '100%', gap: 8 }}>
+      <Pressable
+        onPress={() => setOpen((prev) => !prev)}
+        accessibilityRole="button"
+        accessibilityLabel={`Choose a ${line.direction} stop on the ${line.name}`}
+        accessibilityState={{ expanded: open }}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: 14,
+          paddingHorizontal: 14,
+          paddingVertical: 11,
+          backgroundColor: colors.panel,
+        }}
+      >
+        <Text style={{ color: colors.ink, fontSize: 15 * effectiveScale }} allowFontScaling={false}>
+          {selectedIndex != null ? titleCaseStation(stations[selectedIndex]) : 'Choose a stop'}
+        </Text>
+        <Text style={{ color: colors.muted, fontSize: 14 * effectiveScale }} allowFontScaling={false}>
+          {stations.length} stop{stations.length === 1 ? '' : 's'} {open ? '▴' : '▾'}
+        </Text>
+      </Pressable>
+
+      {open ? (
+        <ScrollView
+          style={{ maxHeight: 220, borderWidth: 1, borderColor: colors.border, borderRadius: 14, backgroundColor: colors.panel }}
+          contentContainerStyle={{ paddingVertical: 4 }}
+          nestedScrollEnabled
+          keyboardShouldPersistTaps="handled"
+        >
+          {stations.map((station, index) => {
+            const active = index === selectedIndex;
+            return (
+              <Pressable
+                key={station}
+                onPress={() => {
+                  setSelectedIndex(index);
+                  setOpen(false);
+                }}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                style={({ pressed }) => ({
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  backgroundColor: pressed || active ? line.color + '18' : 'transparent',
+                })}
+              >
+                <Text
+                  style={{ color: colors.ink, fontSize: 14 * effectiveScale, fontWeight: active ? '700' : '400' }}
+                  allowFontScaling={false}
+                >
+                  {titleCaseStation(station)}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      ) : null}
+
+      {selectedIndex != null ? (
+        <View style={{ paddingHorizontal: 4 }}>
+          {arrival ? (
+            <Text style={{ color: colors.ink, fontSize: 14 * effectiveScale }} allowFontScaling={false}>
+              Next arrival:{' '}
+              <Text style={{ color: line.color, fontWeight: '800' }} allowFontScaling={false}>
+                {formatArrival(arrival.minutes)}
+              </Text>
+              <Text style={{ color: colors.muted }} allowFontScaling={false}>
+                {` · ${arrivalDayLabel(arrival.minutes)}`}
+              </Text>
+            </Text>
+          ) : (
+            <Text style={{ color: colors.muted, fontSize: 14 * effectiveScale }} allowFontScaling={false}>
+              No scheduled arrivals for this stop.
+            </Text>
+          )}
+        </View>
+      ) : null}
     </View>
   );
 }
 
-function LineCard({ line, status, compact }: { line: LineInfo; status: LineStatus; compact: boolean }) {
+function LineCard({ line, compact, now }: { line: LineInfo; compact: boolean; now: Date }) {
   const colors = useThemeColors();
   const { effectiveScale } = useDynamicType();
   const { width } = useWindowDimensions();
   const centered = width < SIDEBAR_BREAKPOINT;
-  const direction = directionLabel(line);
   const mapHeight = Math.min(200, Math.max(120, width * 0.4)) * effectiveScale;
 
   return (
-    <Card accessibilityLabel={`${line.name} ${direction} live status`}>
+    <Card accessibilityLabel={`${line.name} ${line.direction} schedule`}>
       <View style={{ alignItems: centered ? 'center' : 'flex-start', gap: 14, width: '100%' }}>
-        <Image
-          source={line.map}
-          style={{ width: '100%', height: mapHeight, borderRadius: 16, backgroundColor: colors.panel }}
-          resizeMode="contain"
-          accessibilityLabel={`${line.name} map`}
-        />
+        <ZoomableImage source={line.map} label={`${line.name} map`} height={mapHeight} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, alignSelf: centered ? 'center' : 'flex-start', flexWrap: 'wrap' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: line.color }} />
             <Text style={{ color: colors.ink, fontSize: 18 * effectiveScale, fontWeight: '800' }} allowFontScaling={false}>{line.name}</Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            {direction ? <Pill tone="warning">{direction.charAt(0).toUpperCase() + direction.slice(1)}</Pill> : null}
-            <Pill tone="neutral">{dayLabel(status.day)}</Pill>
-            <View style={{ borderRadius: 999, backgroundColor: colors.dangerSoft, paddingVertical: 4, paddingHorizontal: 10 }}>
-              <Text style={{ color: colors.accent, fontSize: 11 * effectiveScale, fontWeight: '800' }} allowFontScaling={false}>LIVE</Text>
-            </View>
+            <Pill tone="warning">{line.direction.charAt(0).toUpperCase() + line.direction.slice(1)}</Pill>
+            <Pill tone="neutral">{dayLabel(dayType(now))}</Pill>
           </View>
         </View>
 
-        {compact ? (
-          <View style={{ alignItems: 'center', gap: 14, width: '100%' }}>
-            <View style={{ width: '100%' }}>
-              <StatusRow label="Current stop" value={status.current} color={colors.ink} centered />
-            </View>
-            <View style={{ width: '100%' }}>
-              <StatusRow label="Next station" value={status.next} color={line.color} muted={`Arriving in ${status.minutes} min`} centered />
-            </View>
-            <View style={{ width: '100%', height: 8 * effectiveScale, backgroundColor: colors.border, borderRadius: 4, overflow: 'hidden' }}>
-              <View style={{ width: `${status.progress * 100}%`, height: '100%', backgroundColor: line.color, borderRadius: 4 }} />
-            </View>
-          </View>
-        ) : (
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', paddingTop: 6, gap: 10 }}>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <StatusRow label="Current stop" value={status.current} color={colors.ink} />
-            </View>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <StatusRow label="Next station" value={status.next} color={line.color} muted={`Arriving in ${status.minutes} min`} />
-            </View>
-            <View style={{ alignItems: 'flex-end', gap: 4, minWidth: 80 * effectiveScale }}>
-              <Text style={{ color: colors.muted, fontSize: 11 * effectiveScale, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }} allowFontScaling={false}>Arrival</Text>
-              <Text style={{ color: line.color, fontSize: 26 * effectiveScale, fontWeight: '800' }} allowFontScaling={false}>{status.minutes}</Text>
-              <Text style={{ color: colors.muted, fontSize: 12 * effectiveScale }} allowFontScaling={false}>min</Text>
-              <View style={{ width: 80 * effectiveScale, height: 6 * effectiveScale, backgroundColor: colors.border, borderRadius: 3, overflow: 'hidden', marginTop: 6 }}>
-                <View style={{ width: `${status.progress * 100}%`, height: '100%', backgroundColor: line.color, borderRadius: 3 }} />
-              </View>
-            </View>
-          </View>
-        )}
+        <StopArrivalPicker line={line} now={now} />
       </View>
     </Card>
   );
@@ -446,7 +323,7 @@ export default function LiveTrainsScreen() {
     return () => clearInterval(interval);
   }, []);
 
-  const lineStatuses = useMemo(() => LINES.map((line) => getLineStatus(line, now)), [now]);
+  const phoenixNow = toPhoenixTime(now);
 
   return (
     <Screen>
@@ -458,14 +335,14 @@ export default function LiveTrainsScreen() {
           alignItems: 'stretch',
         }}
       >
-        <BrandHeader subtitle={`Train Schedule · ${formatTime(now)} · ${dayLabel(dayType(now))}`} />
+        <BrandHeader subtitle={`Train Schedule · ${formatTime(phoenixNow)} · ${dayLabel(dayType(phoenixNow))}`} />
 
         <GlassCard>
-          <SectionTitle title="Current trains" subtitle="Next stop and estimated arrival" />
+          <SectionTitle title="Train schedules" subtitle="Pick a stop to see the next scheduled arrival" />
           <View style={{ flexDirection: compact ? 'column' : 'row', flexWrap: compact ? undefined : 'wrap', gap: 14, justifyContent: compact ? 'flex-start' : 'space-between', alignItems: compact ? 'stretch' : 'stretch' }}>
-            {LINES.map((line, index) => (
+            {LINES.map((line) => (
               <View key={lineKey(line)} style={{ flex: compact ? undefined : 1, flexBasis: compact ? 'auto' : 0, minWidth: compact ? '100%' : 280, width: compact ? '100%' : undefined, maxWidth: compact ? '100%' : undefined }}>
-                <LineCard line={line} status={lineStatuses[index]} compact={compact} />
+                <LineCard line={line} compact={compact} now={phoenixNow} />
               </View>
             ))}
           </View>

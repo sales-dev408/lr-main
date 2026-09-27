@@ -15,7 +15,13 @@ import { StopPicker } from '@/components/StopPicker';
 import { compareStops, findStop, getStops } from '@/lib/stops';
 import type { VendorListItem } from '@/lib/types';
 
-const TYPE_OPTIONS = ['All', 'Bars & Restaurants', 'Restaurant', 'Bar', 'Cafe'] as const;
+const TYPE_OPTIONS = ['All', 'Restaurant', 'Bar', 'Cafe', 'Boutique Shops', 'Beauty'] as const;
+// 'Bars & Restaurants' is no longer shown as a filter pill but remains a valid
+// deep-link value (the Home screen button still navigates with it).
+const ACCEPTED_TYPE_PARAMS = new Set<string>([...TYPE_OPTIONS, 'Bars & Restaurants']);
+
+const LINE_OPTIONS = ['All lines', 'A Line', 'B Line'] as const;
+type LineOption = (typeof LINE_OPTIONS)[number];
 
 function distanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371;
@@ -65,7 +71,7 @@ export default function BrowseScreen() {
   const { favorites, toggle: toggleFavorite, isFavorite } = useFavorites();
   const searchParams = useLocalSearchParams<{ type?: string }>();
   const [vendors, setVendors] = useState<VendorListItem[]>([]);
-  const [typeFilter, setTypeFilter] = useState<(typeof TYPE_OPTIONS)[number]>('All');
+  const [typeFilter, setTypeFilter] = useState<string>('All');
   const [cuisineFilter, setCuisineFilter] = useState<string>('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -76,6 +82,8 @@ export default function BrowseScreen() {
   const [locationPermission, setLocationPermission] = useState<boolean | null>(null);
   const [region, setRegion] = useState<Region | null>(null);
   const [sortByFavorites, setSortByFavorites] = useState(false);
+  const [lineFilter, setLineFilter] = useState<LineOption>('All lines');
+  const [bLineFirst, setBLineFirst] = useState(false);
   const [collapsedStations, setCollapsedStations] = useState<Set<string>>(new Set());
   const [cuisinePickerOpen, setCuisinePickerOpen] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
@@ -103,8 +111,8 @@ export default function BrowseScreen() {
   useFocusEffect(
     useCallback(() => {
       const type = searchParams.type;
-      if (typeof type === 'string' && (TYPE_OPTIONS as readonly string[]).includes(type)) {
-        setTypeFilter(type as (typeof TYPE_OPTIONS)[number]);
+      if (typeof type === 'string' && ACCEPTED_TYPE_PARAMS.has(type)) {
+        setTypeFilter(type);
         setCuisineFilter('');
       }
       let active = true;
@@ -169,14 +177,19 @@ export default function BrowseScreen() {
     });
     if (typeFilter === 'Bars & Restaurants') {
       list = list.filter((v) => ['bar', 'restaurant'].includes((v.vendorType ?? '').toLowerCase()));
+    } else if (typeFilter === 'Boutique Shops') {
+      list = list.filter((v) => (v.vendorType ?? '').toLowerCase() === 'boutique');
     } else if (typeFilter !== 'All') {
       list = list.filter((v) => (v.vendorType ?? '').toLowerCase() === typeFilter.toLowerCase());
     }
     if (cuisineFilter) {
       list = list.filter((v) => (v.cuisine ?? '').toLowerCase() === cuisineFilter.toLowerCase());
     }
+    if (lineFilter !== 'All lines') {
+      list = list.filter((v) => findStop(v.station)?.line === lineFilter);
+    }
     return list;
-  }, [vendors, search, typeFilter, cuisineFilter]);
+  }, [vendors, search, typeFilter, cuisineFilter, lineFilter]);
 
   const groupedVendors = useMemo(() => {
     const groups = new Map<string, VendorListItem[]>();
@@ -200,8 +213,15 @@ export default function BrowseScreen() {
         return a.name.localeCompare(b.name);
       });
     }
-    return new Map([...groups.entries()].sort((a, b) => compareStops(a[0], b[0])));
-  }, [filteredVendors, sortByFavorites, favorites]);
+    const lineRank = (station: string) => {
+      const line = findStop(station)?.line;
+      const rank = line === 'A Line' ? 0 : line === 'B Line' ? 1 : 2;
+      return bLineFirst && rank < 2 ? 1 - rank : rank;
+    };
+    return new Map(
+      [...groups.entries()].sort((a, b) => lineRank(a[0]) - lineRank(b[0]) || compareStops(a[0], b[0])),
+    );
+  }, [filteredVendors, sortByFavorites, favorites, bLineFirst]);
 
   const stopEntries = useMemo(() => {
     const counts = new Map<string, number>();
@@ -408,6 +428,17 @@ export default function BrowseScreen() {
               ) : null}
             </View>
           ) : null}
+          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+            {LINE_OPTIONS.map((value) => (
+              <AppButton
+                key={value}
+                variant={lineFilter === value ? 'primary' : 'secondary'}
+                onPress={() => setLineFilter(value)}
+              >
+                {value}
+              </AppButton>
+            ))}
+          </View>
           <FieldInput placeholder="Search name, stop, cuisine…" value={search} onChangeText={setSearch} />
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}>
             <Text style={{ color: colors.ink, fontSize: 14 * effectiveScale }} allowFontScaling={false}>
@@ -419,6 +450,18 @@ export default function BrowseScreen() {
               trackColor={{ false: colors.border, true: colors.brand }}
               thumbColor="#fff"
               accessibilityLabel="Sort favorites first"
+            />
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}>
+            <Text style={{ color: colors.ink, fontSize: 14 * effectiveScale }} allowFontScaling={false}>
+              Show B Line stops first
+            </Text>
+            <Switch
+              value={bLineFirst}
+              onValueChange={setBLineFirst}
+              trackColor={{ false: colors.border, true: colors.brand }}
+              thumbColor="#fff"
+              accessibilityLabel="Show B Line stops first"
             />
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}>
@@ -479,6 +522,7 @@ export default function BrowseScreen() {
 
         {Array.from(groupedVendors.entries()).map(([station, items]) => {
           const collapsed = collapsedStations.has(station);
+          const stationLine = findStop(station)?.line ?? null;
           return (
           <View
             key={station}
@@ -486,7 +530,7 @@ export default function BrowseScreen() {
           >
             <SectionTitle
               title={station}
-              subtitle={`${items.length} business${items.length === 1 ? '' : 'es'}`}
+              subtitle={`${stationLine ? `${stationLine} · ` : ''}${items.length} business${items.length === 1 ? '' : 'es'}`}
               onPress={() => toggleStation(station)}
               right={<Text style={{ color: colors.muted, fontSize: 18 * effectiveScale }} allowFontScaling={false}>{collapsed ? '▶' : '▼'}</Text>}
             />
@@ -501,6 +545,7 @@ export default function BrowseScreen() {
                       ? distanceKm(location.coords.latitude, location.coords.longitude, vendor.latitude, vendor.longitude)
                       : null;
                   const favorite = isFavorite(vendor.id);
+                  const vendorLine = findStop(vendor.station)?.line ?? null;
                   return (
                     <Pressable
                       key={vendor.id}
@@ -537,6 +582,7 @@ export default function BrowseScreen() {
                         ) : null}
                         <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
                           <Pill tone="success">{vendor.discount.label}</Pill>
+                          {vendorLine ? <Pill tone="neutral">{vendorLine}</Pill> : null}
                           {vendor.cuisine ? <Pill tone="neutral">{vendor.cuisine}</Pill> : null}
                           {remaining ? <Pill tone="warning">{remaining}</Pill> : null}
                           {dist != null ? <Pill tone="neutral">{formatDistance(dist)}</Pill> : null}

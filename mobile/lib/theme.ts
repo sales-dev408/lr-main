@@ -108,6 +108,7 @@ export const DEFAULT_THEME_SETTINGS: ThemeSettings = {
     { key: 'browse', label: 'Browse', color: '#f43f5e', gradient: ['#fb7185', '#e11d48'] },
     { key: 'events', label: 'Events', color: '#8b5cf6', gradient: ['#a78bfa', '#7c3aed'] },
     { key: 'apartments', label: 'Apartments', color: '#f59e0b', gradient: ['#fbbf24', '#d97706'] },
+    { key: 'hotels', label: 'Hotels', color: '#f97316', gradient: ['#fb923c', '#ea580c'] },
     { key: 'discover', label: 'Discover', color: '#10b981', gradient: ['#34d399', '#059669'] },
     { key: 'sports', label: 'Sports', color: '#0ea5e9', gradient: ['#38bdf8', '#0284c7'] },
     { key: 'more', label: 'More', color: '#64748b', gradient: ['#94a3b8', '#475569'] },

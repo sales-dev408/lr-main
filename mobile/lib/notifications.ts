@@ -14,8 +14,26 @@ const Notifications: NotificationsModule | null =
     : // eslint-disable-next-line @typescript-eslint/no-require-imports
       (require('expo-notifications') as NotificationsModule);
 
+const DEAL_NOTIFICATION_PREFIX = 'deal-';
+const EVENT_NOTIFICATION_PREFIX = 'event-';
+
+async function cancelScheduledNotifications(prefix: string) {
+  if (Platform.OS === 'web' || !Notifications) return;
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  for (const n of scheduled) {
+    if (n.identifier.startsWith(prefix)) {
+      await Notifications.cancelScheduledNotificationAsync(n.identifier);
+    }
+  }
+}
+
 export async function initPushNotifications(): Promise<string | null> {
   if (Platform.OS === 'web' || !Notifications) return null;
+
+  // Automatic local-event and deal notifications are disabled. Purge anything
+  // scheduled by older app versions so queued notifications stop firing.
+  await cancelScheduledNotifications(EVENT_NOTIFICATION_PREFIX).catch(() => undefined);
+  await cancelScheduledNotifications(DEAL_NOTIFICATION_PREFIX).catch(() => undefined);
 
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -50,19 +68,6 @@ export function listenForNotifications() {
     // Notifications are handled by the system UI; analytics/logging can go here.
   });
   return () => sub.remove();
-}
-
-const DEAL_NOTIFICATION_PREFIX = 'deal-';
-const EVENT_NOTIFICATION_PREFIX = 'event-';
-
-async function cancelScheduledNotifications(prefix: string) {
-  if (Platform.OS === 'web' || !Notifications) return;
-  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-  for (const n of scheduled) {
-    if (n.identifier.startsWith(prefix)) {
-      await Notifications.cancelScheduledNotificationAsync(n.identifier);
-    }
-  }
 }
 
 export async function scheduleDealNotifications(cards: CardSummary[], prefs?: PushPreferences): Promise<void> {

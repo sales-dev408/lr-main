@@ -22,6 +22,7 @@ const TAB_GLYPHS: Record<string, string> = {
   browse: '◆',
   events: '★',
   apartments: '🏠',
+  hotels: '🏨',
   discover: '✦',
   sports: '🏀',
   more: '⋯',

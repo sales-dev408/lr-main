@@ -259,6 +259,7 @@ export interface StopRecord {
 export interface ApartmentRecord {
   id: string;
   name: string;
+  listing_type: 'apartment' | 'hotel';
   section: string | null;
   station: string | null;
   address: string | null;

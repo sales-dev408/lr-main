@@ -310,6 +310,7 @@ export interface ErrorShape {
 export interface ApartmentRecord {
   id: string;
   name: string;
+  listingType: 'apartment' | 'hotel';
   section: string | null;
   station: string | null;
   address: string | null;

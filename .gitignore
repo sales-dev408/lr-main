@@ -7,3 +7,8 @@ coverage
 *.tsbuildinfo
 local-postgres/
 supabase/.temp/
+
+# IDE + import staging artifacts
+.idea/
+mobile/.idea/
+scripts/out/

@@ -4,6 +4,7 @@ import { z } from 'npm:zod';
 export interface ApartmentRecord {
   id: string;
   name: string;
+  listing_type: 'apartment' | 'hotel';
   section: string | null;
   station: string | null;
   address: string | null;
@@ -22,6 +23,7 @@ export interface ApartmentRecord {
 
 export const apartmentSchema = z.object({
   name: z.string().min(1),
+  listing_type: z.enum(['apartment', 'hotel']).optional().nullable(),
   section: z.string().optional().nullable(),
   station: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
@@ -34,7 +36,7 @@ export const apartmentSchema = z.object({
   longitude: z.number().optional().nullable(),
 });
 
-const COLUMNS = 'id, name, section, station, address, city, state, zip, phone, website, latitude, longitude, near_rail, distance_miles, created_at, updated_at';
+const COLUMNS = 'id, name, listing_type, section, station, address, city, state, zip, phone, website, latitude, longitude, near_rail, distance_miles, created_at, updated_at';
 
 const MILES_PER_METER = 0.000621371;
 
@@ -101,10 +103,10 @@ export async function createApartment(input: z.infer<typeof apartmentSchema>): P
     distanceMiles = proximity.distanceMiles;
   }
   const rows = await dbQuery<ApartmentRecord>(
-    `INSERT INTO apartments_hotels (name, section, station, address, city, state, zip, phone, website, latitude, longitude, near_rail, distance_miles)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+    `INSERT INTO apartments_hotels (name, listing_type, section, station, address, city, state, zip, phone, website, latitude, longitude, near_rail, distance_miles)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
      RETURNING ${COLUMNS}`,
-    [input.name, input.section ?? null, station, input.address ?? null, input.city ?? null, input.state ?? null, input.zip ?? null, input.phone ?? null, input.website ?? null, input.latitude ?? null, input.longitude ?? null, nearRail, distanceMiles],
+    [input.name, input.listing_type ?? 'apartment', input.section ?? null, station, input.address ?? null, input.city ?? null, input.state ?? null, input.zip ?? null, input.phone ?? null, input.website ?? null, input.latitude ?? null, input.longitude ?? null, nearRail, distanceMiles],
   );
   return rows[0]!;
 }
@@ -130,22 +132,23 @@ export async function updateApartment(
   const rows = await dbQuery<ApartmentRecord>(
     `UPDATE apartments_hotels
      SET name = COALESCE($2, name),
-         section = COALESCE($3, section),
-         station = COALESCE($4, station),
-         address = COALESCE($5, address),
-         city = COALESCE($6, city),
-         state = COALESCE($7, state),
-         zip = COALESCE($8, zip),
-         phone = COALESCE($9, phone),
-         website = COALESCE($10, website),
-         latitude = COALESCE($11, latitude),
-         longitude = COALESCE($12, longitude),
-         near_rail = COALESCE($13, near_rail),
-         distance_miles = COALESCE($14, distance_miles),
+         listing_type = COALESCE($3, listing_type),
+         section = COALESCE($4, section),
+         station = COALESCE($5, station),
+         address = COALESCE($6, address),
+         city = COALESCE($7, city),
+         state = COALESCE($8, state),
+         zip = COALESCE($9, zip),
+         phone = COALESCE($10, phone),
+         website = COALESCE($11, website),
+         latitude = COALESCE($12, latitude),
+         longitude = COALESCE($13, longitude),
+         near_rail = COALESCE($14, near_rail),
+         distance_miles = COALESCE($15, distance_miles),
          updated_at = now()
      WHERE id = $1
      RETURNING ${COLUMNS}`,
-    [id, input.name ?? null, input.section ?? null, station, input.address ?? null, input.city ?? null, input.state ?? null, input.zip ?? null, input.phone ?? null, input.website ?? null, input.latitude ?? null, input.longitude ?? null, nearRail, distanceMiles],
+    [id, input.name ?? null, input.listing_type ?? null, input.section ?? null, station, input.address ?? null, input.city ?? null, input.state ?? null, input.zip ?? null, input.phone ?? null, input.website ?? null, input.latitude ?? null, input.longitude ?? null, nearRail, distanceMiles],
   );
   return rows[0] ?? null;
 }

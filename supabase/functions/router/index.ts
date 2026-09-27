@@ -192,7 +192,9 @@ const adminVendorCreateSchema = z
     name: z.string().min(1),
     ownerName: z.string().optional(),
     address: z.string().optional(),
-    category: z.enum(['Sports', 'Dining', 'Entertainment']),
+    city: z.string().optional().nullable(),
+    station: z.string().optional().nullable(),
+    category: z.string().min(1),
     email: z.string().email().optional(),
     phone: z.string().optional(),
     discountType: z.enum(['fixed', 'percent', 'bogo']).default('percent'),
@@ -217,7 +219,9 @@ const adminVendorUpdateSchema = z
     name: z.string().min(1).optional(),
     ownerName: z.string().optional(),
     address: z.string().optional(),
-    category: z.enum(['Sports', 'Dining', 'Entertainment']).optional(),
+    city: z.string().optional().nullable(),
+    station: z.string().optional().nullable(),
+    category: z.string().optional(),
     email: z.string().email().optional(),
     phone: z.string().optional(),
     discountType: z.enum(['fixed', 'percent', 'bogo']).optional(),
@@ -1386,6 +1390,8 @@ Deno.serve(async (request) => {
         name: body.name,
         ownerName: body.ownerName ?? null,
         address: body.address ?? null,
+        city: body.city ?? null,
+        station: body.station ?? null,
         category: body.category,
         email: body.email ?? null,
         phone: body.phone ?? null,
@@ -1419,8 +1425,8 @@ Deno.serve(async (request) => {
       const vendorType = body.category !== undefined ? inferVendorType(body.category) : null;
       const cuisine = body.category !== undefined ? inferCuisine(body.category, vendorType) : null;
       const rows = await dbQuery(
-        `UPDATE vendors SET name = COALESCE($2, name), owner_name = COALESCE($3, owner_name), location = COALESCE($4, location), address = COALESCE($4, address), category = COALESCE($5, category), email = COALESCE($6, email), phone = COALESCE($7, phone), status = COALESCE($8, status), latitude = COALESCE($9, latitude), longitude = COALESCE($10, longitude), discount_terms = COALESCE($11, discount_terms), vendor_type = COALESCE($12, vendor_type), cuisine = COALESCE($13, cuisine), updated_at = now() WHERE id = $1 RETURNING *`,
-        [id, body.name ?? null, body.ownerName ?? null, body.address ?? null, body.category ?? null, body.email ?? null, body.phone ?? null, body.status ?? null, body.latitude ?? null, body.longitude ?? null, body.discountTerms ?? null, vendorType, cuisine],
+        `UPDATE vendors SET name = COALESCE($2, name), owner_name = COALESCE($3, owner_name), location = COALESCE($4, location), address = COALESCE($4, address), category = COALESCE($5, category), email = COALESCE($6, email), phone = COALESCE($7, phone), status = COALESCE($8, status), latitude = COALESCE($9, latitude), longitude = COALESCE($10, longitude), discount_terms = COALESCE($11, discount_terms), vendor_type = COALESCE($12, vendor_type), cuisine = COALESCE($13, cuisine), station = COALESCE($14, station), city = COALESCE($15, city), updated_at = now() WHERE id = $1 RETURNING *`,
+        [id, body.name ?? null, body.ownerName ?? null, body.address ?? null, body.category ?? null, body.email ?? null, body.phone ?? null, body.status ?? null, body.latitude ?? null, body.longitude ?? null, body.discountTerms ?? null, vendorType, cuisine, body.station ?? null, body.city ?? null],
       );
       if (body.discountType !== undefined || body.discountValue !== undefined || body.discountDescription !== undefined || body.discountStartsAt !== undefined || body.discountEndsAt !== undefined || body.boosted !== undefined) {
         if (body.discountType !== undefined || body.discountValue !== undefined) {

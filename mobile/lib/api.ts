@@ -68,7 +68,9 @@ export function inferVendorType(value: unknown): string | null {
   const raw = value.trim();
   if (!raw) return null;
   const lower = raw.toLowerCase();
-  if (lower === 'restaurant' || lower === 'bar' || lower === 'cafe' || lower === 'other') return lower;
+  if (lower === 'restaurant' || lower === 'bar' || lower === 'cafe' || lower === 'other' || lower === 'beauty' || lower === 'boutique') return lower;
+  if (/(beauty|barber|salon|nail|lash|brow|spa\b|hair)/i.test(raw)) return 'beauty';
+  if (/boutique/i.test(raw)) return 'boutique';
   if (/(bar|pub|brew|tavern|lounge|cocktail|wine|beer|rooftop|live music)/i.test(raw)) return 'bar';
   if (/(caf|coffee)/i.test(raw)) return 'cafe';
   if (/(convenience|market|store|retail|shop|sport|entertainment|music)/i.test(raw)) return 'other';
@@ -283,9 +285,11 @@ function normalizeVendor(input: Record<string, unknown>): VendorListItem {
 }
 
 function normalizeApartment(input: Record<string, unknown>): ApartmentRecord {
+  const rawType = input.listingType ?? input.listing_type;
   return {
     id: String(input.id),
     name: String(input.name),
+    listingType: rawType === 'hotel' ? 'hotel' : 'apartment',
     section: (input.section as string | null | undefined) ?? null,
     station: (input.station as string | null | undefined) ?? null,
     address: (input.address as string | null | undefined) ?? null,
