@@ -4,7 +4,7 @@ import { AdminProvider } from '@/lib/admin';
 import { AppThemeProvider } from '@/lib/appTheme';
 import { AuthProvider } from '@/lib/auth';
 import { ColorSchemeProvider } from '@/lib/colorScheme';
-import { OnboardingProvider } from '@/lib/onboarding';
+import { LegalAcceptanceProvider } from '@/lib/legalAcceptance';
 import { DynamicTypeProvider } from '@/lib/dynamicType';
 
 export default function RootLayout() {
@@ -13,12 +13,12 @@ export default function RootLayout() {
       <AuthProvider>
         <AdminProvider>
           <AppThemeProvider>
-            <OnboardingProvider>
+            <LegalAcceptanceProvider>
               <DynamicTypeProvider>
                 <StatusBar style="auto" />
                 <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="index" />
-                <Stack.Screen name="onboard" />
+                <Stack.Screen name="legal" />
                 <Stack.Screen name="auth" />
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="admin/content" />
@@ -26,7 +26,7 @@ export default function RootLayout() {
                 <Stack.Screen name="discount" />
               </Stack>
               </DynamicTypeProvider>
-            </OnboardingProvider>
+            </LegalAcceptanceProvider>
           </AppThemeProvider>
         </AdminProvider>
       </AuthProvider>

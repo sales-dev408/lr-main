@@ -417,6 +417,14 @@ export default function AuthScreen() {
                 Switch to {mode === 'login' ? 'register' : 'sign in'}
               </AppButton>
             )}
+            <AppButton
+              variant="ghost"
+              onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+              disabled={loading}
+              style={{ width: '100%', maxWidth: 340, paddingVertical: 13 }}
+            >
+              Continue browsing without an account
+            </AppButton>
           </View>
         </Card>
 

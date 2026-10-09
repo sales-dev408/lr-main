@@ -30,7 +30,7 @@ export interface RedeemTokenResult {
   error?: string;
 }
 
-export async function createRedemptionToken(client: PoolClient, userId: string, vendorId: string, baseUrl?: string): Promise<RedemptionTokenPayload> {
+export async function createRedemptionToken(client: PoolClient, userId: string | null, vendorId: string, baseUrl?: string): Promise<RedemptionTokenPayload> {
   const membership = await client.query<{ id: string; name: string }>(
     'SELECT id, name FROM cards WHERE is_membership = true AND status = $1 LIMIT 1',
     ['active'],
@@ -50,6 +50,7 @@ export async function createRedemptionToken(client: PoolClient, userId: string, 
     active: boolean;
     max_uses_total: number | null;
     uses_count: number;
+    members_only: boolean;
   }>(
     'SELECT * FROM discounts WHERE card_id = $1 AND vendor_id = $2 AND active = true LIMIT 1',
     [cardId, vendorId],
@@ -57,6 +58,11 @@ export async function createRedemptionToken(client: PoolClient, userId: string, 
   const discount = discountRows.rows[0];
   if (!discount) {
     throw new Error('No active discount for this vendor');
+  }
+  if (discount.members_only && !userId) {
+    const err = new Error('Sign in to redeem this members-only deal');
+    (err as { status?: number }).status = 403;
+    throw err;
   }
 
   const token = generateOpaqueToken(18);
@@ -107,7 +113,7 @@ export async function redeemByToken(token: string, ip?: string | null): Promise<
     await client.query('BEGIN');
     try {
       const tokenRows = await client.query<{
-        user_id: string;
+        user_id: string | null;
         card_id: string;
         vendor_id: string;
         discount_id: string;
@@ -129,7 +135,7 @@ export async function redeemByToken(token: string, ip?: string | null): Promise<
       }
 
       const result = await redeemDiscountWithClient(client, {
-        userId: row.user_id,
+        userId: row.user_id ?? undefined,
         cardId: row.card_id,
         vendorId: row.vendor_id,
         discountId: row.discount_id,
@@ -144,13 +150,15 @@ export async function redeemByToken(token: string, ip?: string | null): Promise<
         return { ok: false, error: result.reason ?? 'Unable to apply discount' };
       }
 
-      const memberRows = await client.query<{ full_name: string; serial_number: string | null }>(
-        `SELECT u.full_name, p.serial_number
-         FROM users u
-         LEFT JOIN passes p ON p.user_id = u.id AND p.card_id = $2
-         WHERE u.id = $1`,
-        [row.user_id, row.card_id],
-      );
+      const memberRows = row.user_id
+        ? await client.query<{ full_name: string; serial_number: string | null }>(
+            `SELECT u.full_name, p.serial_number
+             FROM users u
+             LEFT JOIN passes p ON p.user_id = u.id AND p.card_id = $2
+             WHERE u.id = $1`,
+            [row.user_id, row.card_id],
+          )
+        : { rows: [] };
       const member = memberRows.rows[0];
 
       await client.query(
@@ -165,8 +173,8 @@ export async function redeemByToken(token: string, ip?: string | null): Promise<
         discount: result.discount,
         amountApplied: result.amountApplied,
         redemptionId: result.redemptionId,
-        memberName: member?.full_name ?? 'Member',
-        memberId: member?.serial_number ?? row.user_id,
+        memberName: member?.full_name ?? (row.user_id ? 'Member' : 'Guest'),
+        memberId: member?.serial_number ?? row.user_id ?? undefined,
       };
     } catch (error) {
       await client.query('ROLLBACK');
@@ -175,12 +183,12 @@ export async function redeemByToken(token: string, ip?: string | null): Promise<
   });
 }
 
-export async function affirmRedemptionToken(token: string, userId: string, affirmationName: string, ip?: string | null): Promise<RedeemTokenResult> {
+export async function affirmRedemptionToken(token: string, userId: string | null, affirmationName: string, ip?: string | null): Promise<RedeemTokenResult> {
   return await withDbClient(async (client) => {
     await client.query('BEGIN');
     try {
       const tokenRows = await client.query<{
-        user_id: string;
+        user_id: string | null;
         card_id: string;
         vendor_id: string;
         discount_id: string;
@@ -195,7 +203,9 @@ export async function affirmRedemptionToken(token: string, userId: string, affir
         await client.query('COMMIT');
         return { ok: false, error: 'Invalid or expired redemption code' };
       }
-      if (row.user_id !== userId) {
+      // Account-bound tokens can only be affirmed by their owner. Anonymous
+      // tokens (NULL user_id) are affirmed by whoever holds the opaque token.
+      if (row.user_id && row.user_id !== userId) {
         await client.query('COMMIT');
         return { ok: false, error: 'This code does not belong to your account' };
       }
@@ -206,7 +216,7 @@ export async function affirmRedemptionToken(token: string, userId: string, affir
       }
 
       const result = await redeemDiscountWithClient(client, {
-        userId: row.user_id,
+        userId: row.user_id ?? undefined,
         cardId: row.card_id,
         vendorId: row.vendor_id,
         discountId: row.discount_id,

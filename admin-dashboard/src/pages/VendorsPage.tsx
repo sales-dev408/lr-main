@@ -46,6 +46,8 @@ const blankVendor = {
   longitude: '',
   email: '',
   phone: '',
+  website: '',
+  membersOnly: false,
   category: 'Dining' as VendorCategory,
   discountKind: 'percent' as DiscountKind,
   discountValue: '',
@@ -456,6 +458,7 @@ export function VendorsPage() {
         category: form.category,
         email: form.email || undefined,
         phone: form.phone || undefined,
+        website: form.website.trim() || null,
         discountType: form.discountKind,
         discountValue: needsValue ? value : 0,
         discountDescription: form.discountDescription.trim() || null,
@@ -463,6 +466,7 @@ export function VendorsPage() {
         discountStartsAt: form.discountStartsAt ? new Date(form.discountStartsAt).toISOString() : null,
         discountEndsAt: form.discountEndsAt ? new Date(form.discountEndsAt).toISOString() : null,
         boosted: form.boosted,
+        membersOnly: form.membersOnly,
         ...(form.iconDataUrl ? { iconDataUrl: form.iconDataUrl } : {}),
       });
       setForm(blankVendor);
@@ -497,6 +501,7 @@ export function VendorsPage() {
         category: (editing.category as VendorCategory | null) ?? undefined,
         email: editing.email ?? undefined,
         phone: editing.phone ?? undefined,
+        website: editing.website?.trim() || null,
         status: editing.status,
         ...(editing.discount_type || value !== null ? { discountType: kind } : {}),
         ...(needsValue && value !== null ? { discountValue: value } : {}),
@@ -505,6 +510,7 @@ export function VendorsPage() {
         discountStartsAt: editing.discount_starts_at ? new Date(editing.discount_starts_at).toISOString() : null,
         discountEndsAt: editing.discount_ends_at ? new Date(editing.discount_ends_at).toISOString() : null,
         boosted: editing.boosted ?? false,
+        membersOnly: editing.discount_members_only ?? false,
       });
       setEditing(null);
       await load();
@@ -741,6 +747,10 @@ export function VendorsPage() {
               <Input type="tel" placeholder="(602) 555-1234" value={form.phone} onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))} />
             </label>
             <label>
+              Website
+              <Input type="url" placeholder="https://…" value={form.website} onChange={(e) => setForm((prev) => ({ ...prev, website: e.target.value }))} />
+            </label>
+            <label>
               Discount amount
               <div className="inline-row">
                 <Select value={form.discountKind} onChange={(e) => setForm((prev) => ({ ...prev, discountKind: e.target.value as DiscountKind }))}>
@@ -783,6 +793,10 @@ export function VendorsPage() {
             <label className="inline-row" style={{ alignItems: 'center', gap: 8 }}>
               <input type="checkbox" checked={form.boosted} onChange={(e) => setForm((prev) => ({ ...prev, boosted: e.target.checked }))} />
               Boost this deal
+            </label>
+            <label className="inline-row" style={{ alignItems: 'center', gap: 8 }}>
+              <input type="checkbox" checked={form.membersOnly} onChange={(e) => setForm((prev) => ({ ...prev, membersOnly: e.target.checked }))} />
+              Members-only deal (requires sign-in in the app)
             </label>
             <label>
               Icon
@@ -948,6 +962,10 @@ export function VendorsPage() {
               <Input type="tel" value={editing.phone ?? ''} onChange={(e) => setEditing({ ...editing, phone: e.target.value })} />
             </label>
             <label>
+              Website
+              <Input type="url" placeholder="https://…" value={editing.website ?? ''} onChange={(e) => setEditing({ ...editing, website: e.target.value })} />
+            </label>
+            <label>
               Status
               <Select value={editing.status} onChange={(e) => setEditing({ ...editing, status: e.target.value as VendorRecord['status'] })}>
                 <option value="pending">Pending</option>
@@ -1000,6 +1018,10 @@ export function VendorsPage() {
             <label className="inline-row" style={{ alignItems: 'center', gap: 8 }}>
               <input type="checkbox" checked={Boolean(editing.boosted)} onChange={(e) => setEditing({ ...editing, boosted: e.target.checked })} />
               Boost this deal
+            </label>
+            <label className="inline-row" style={{ alignItems: 'center', gap: 8 }}>
+              <input type="checkbox" checked={Boolean(editing.discount_members_only)} onChange={(e) => setEditing({ ...editing, discount_members_only: e.target.checked })} />
+              Members-only deal (requires sign-in in the app)
             </label>
             <Button type="submit" disabled={readOnly}>Save</Button>
           </form>

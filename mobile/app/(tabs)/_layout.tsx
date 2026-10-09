@@ -1,26 +1,31 @@
+import { View } from 'react-native';
 import { Tabs } from 'expo-router';
-import { GradientTabBar } from '@/components/GradientTabBar';
+import { CollapsibleSidebar } from '@/components/CollapsibleSidebar';
 
+// All app navigation lives in the collapsible sidebar — the bottom tab bar is
+// completely hidden (tabBar renders nothing) and every route stays hidden from
+// the native tab UI. The sidebar overlay sits above the navigator.
 export default function TabLayout() {
   return (
-    <Tabs
-      initialRouteName="index"
-      screenOptions={{ headerShown: false, tabBarShowLabel: false }}
-      tabBar={(props) => <GradientTabBar {...props} />}
-    >
-      <Tabs.Screen name="index" options={{ title: 'Home' }} />
-      <Tabs.Screen name="browse" options={{ title: 'Browse' }} />
-      <Tabs.Screen name="events" options={{ title: 'Events' }} />
-      <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
-      <Tabs.Screen name="more" options={{ title: 'More' }} />
-      {/* These screens stay routable (reachable from the More tab) but are
-          hidden from the bottom tab bar via href: null. */}
-      <Tabs.Screen name="live" options={{ title: 'Train Schedule', href: null }} />
-      <Tabs.Screen name="az-events" options={{ title: 'Events Around Arizona', href: null }} />
-      <Tabs.Screen name="apartments" options={{ title: 'Apartments', href: null }} />
-      <Tabs.Screen name="hotels" options={{ title: 'Hotels', href: null }} />
-      <Tabs.Screen name="sports" options={{ title: 'Sports', href: null }} />
-      <Tabs.Screen name="discover" options={{ title: 'Discover', href: null }} />
-    </Tabs>
+    <View style={{ flex: 1 }}>
+      <Tabs
+        initialRouteName="index"
+        screenOptions={{ headerShown: false, tabBarShowLabel: false }}
+        tabBar={() => null}
+      >
+        <Tabs.Screen name="index" options={{ title: 'Home' }} />
+        <Tabs.Screen name="restaurants" options={{ title: 'Restaurants & Bars' }} />
+        <Tabs.Screen name="shopping" options={{ title: 'Shopping' }} />
+        <Tabs.Screen name="hotels" options={{ title: 'Hotels' }} />
+        <Tabs.Screen name="sports" options={{ title: 'Sports' }} />
+        <Tabs.Screen name="events" options={{ title: 'Events' }} />
+        <Tabs.Screen name="live" options={{ title: 'Train Times' }} />
+        <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
+        <Tabs.Screen name="discover" options={{ title: 'Discover' }} />
+        <Tabs.Screen name="az-events" options={{ title: 'Events Around Arizona' }} />
+        <Tabs.Screen name="apartments" options={{ title: 'Apartments' }} />
+      </Tabs>
+      <CollapsibleSidebar />
+    </View>
   );
 }

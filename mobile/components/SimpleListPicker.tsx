@@ -20,6 +20,7 @@ export function SimpleListPicker({
   label,
   itemNoun = 'item',
   allLabel = 'All',
+  showAll = true,
 }: {
   entries: SimpleListPickerEntry[];
   selected: string;
@@ -27,6 +28,7 @@ export function SimpleListPicker({
   label: string;
   itemNoun?: string;
   allLabel?: string;
+  showAll?: boolean;
 }) {
   const colors = useThemeColors();
   const { effectiveScale } = useDynamicType();
@@ -53,27 +55,29 @@ export function SimpleListPicker({
         </Text>
       </View>
       <ScrollView contentContainerStyle={{ paddingBottom: 12 }}>
-        <Pressable
-          onPress={() => select('')}
-          accessibilityRole="button"
-          accessibilityLabel={allLabel}
-          style={({ pressed }) => ({
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 12,
-            paddingHorizontal: 16,
-            paddingVertical: 12,
-            backgroundColor: pressed || selected === '' ? colors.brand + '12' : 'transparent',
-          })}
-        >
-          <Text style={{ color: colors.ink, fontSize: 15 * effectiveScale, flex: 1, fontWeight: selected === '' ? '700' : '400' }} allowFontScaling={false}>
-            {allLabel}
-          </Text>
-          <Text style={{ color: colors.muted, fontSize: 13 * effectiveScale }} allowFontScaling={false}>
-            {total}
-          </Text>
-        </Pressable>
+        {showAll ? (
+          <Pressable
+            onPress={() => select('')}
+            accessibilityRole="button"
+            accessibilityLabel={allLabel}
+            style={({ pressed }) => ({
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              backgroundColor: pressed || selected === '' ? colors.brand + '12' : 'transparent',
+            })}
+          >
+            <Text style={{ color: colors.ink, fontSize: 15 * effectiveScale, flex: 1, fontWeight: selected === '' ? '700' : '400' }} allowFontScaling={false}>
+              {allLabel}
+            </Text>
+            <Text style={{ color: colors.muted, fontSize: 13 * effectiveScale }} allowFontScaling={false}>
+              {total}
+            </Text>
+          </Pressable>
+        ) : null}
         {entries.map((entry) => (
           <Pressable
             key={entry.value}

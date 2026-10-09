@@ -1,16 +1,35 @@
 import { Alert, Linking, ScrollView, Switch, Text, View } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { Link, useRouter, useFocusEffect } from 'expo-router';
 import { Picker } from '@react-native-picker/picker';
 import { useCallback, useMemo, useState } from 'react';
 import { AppButton, Banner, BrandHeader, Card, Screen, SectionTitle } from '@/components/Ui';
 import { AdBanner } from '@/components/AdBanner';
 import { useAuth } from '@/lib/auth';
 import { getMyAnalytics, listVendors } from '@/lib/api';
+import { getLocalRedemptions, toLocalAnalytics } from '@/lib/localStats';
 import { useAppColorScheme } from '@/lib/colorScheme';
 import { PRIVACY_URL, TERMS_URL, EULA_URL, WEBSITE_URL } from '@/lib/theme';
 import { useThemeColors } from '@/lib/useThemeColors';
 import { useDynamicType, TEXT_SCALE_OPTIONS } from '@/lib/dynamicType';
 import type { UserAnalytics, VendorListItem } from '@/lib/types';
+
+const IMAGE_CREDITS = [
+  {
+    image: 'Downtown Phoenix skyline at night',
+    screen: 'Splash screen & Home hero',
+    credit: 'Alan Stark — CC BY-SA 2.0 (via Wikimedia Commons / Flickr)',
+  },
+  {
+    image: 'Valley Metro rail line maps (A Line, B Line, streetcar)',
+    screen: 'Train Times',
+    credit: 'Valley Metro — used for trip planning reference',
+  },
+  {
+    image: 'Light Rail Deals logo & icons',
+    screen: 'Throughout the app',
+    credit: 'Light Rail Deals',
+  },
+];
 
 export default function ProfileScreen() {
   const colors = useThemeColors();
@@ -23,6 +42,7 @@ export default function ProfileScreen() {
   const [vendors, setVendors] = useState<VendorListItem[]>([]);
 
   const [profileError, setProfileError] = useState<string | null>(null);
+  const signedIn = Boolean(auth.token);
 
   const cities = useMemo(() => {
     const set = new Set<string>();
@@ -35,19 +55,24 @@ export default function ProfileScreen() {
   const load = useCallback(async () => {
     try {
       setAnalyticsError(null);
-      setAnalytics(await getMyAnalytics());
+      // Signed-in members get server-side analytics; anonymous users see
+      // stats tracked locally on-device (redemptions still work without an
+      // account).
+      if (auth.token) {
+        setAnalytics(await getMyAnalytics());
+      } else {
+        setAnalytics(toLocalAnalytics(await getLocalRedemptions()));
+      }
       setVendors(await listVendors());
     } catch (err) {
       setAnalyticsError(err instanceof Error ? err.message : 'Unable to load profile data');
     }
-  }, []);
+  }, [auth.token]);
 
   useFocusEffect(
     useCallback(() => {
-      if (auth.token) {
-        void load();
-      }
-    }, [auth.token, load]),
+      void load();
+    }, [load]),
   );
 
   async function handleCityChange(next: string) {
@@ -70,9 +95,9 @@ export default function ProfileScreen() {
         <AdBanner slot={5} />
 
         <Card>
-          <SectionTitle title="Profile" subtitle="Signed-in customer details" />
+          <SectionTitle title="Profile" subtitle={signedIn ? 'Signed-in member details' : 'Browsing without an account'} />
           {profileError ? <Banner tone="error">{profileError}</Banner> : null}
-          {auth.profile ? (
+          {auth.profile && signedIn ? (
             <View style={{ gap: 10 }}>
               <View>
                 <Text style={sectionLabel}>Name</Text>
@@ -111,8 +136,42 @@ export default function ProfileScreen() {
               </View>
             </View>
           ) : (
-            <Banner tone="info">No customer profile is signed in.</Banner>
+            <View style={{ gap: 10 }}>
+              <Text style={valueLabel}>
+                You&apos;re using the app anonymously — everything works except favorites and member-exclusive deals.
+              </Text>
+              <Link href="/auth" asChild>
+                <AppButton>Sign In / Create Account</AppButton>
+              </Link>
+            </View>
           )}
+        </Card>
+
+        <Card>
+          <SectionTitle title="My Stats" subtitle={signedIn ? 'Membership usage at a glance' : 'Activity tracked on this device'} />
+          {analyticsError ? <Banner tone="error">{analyticsError}</Banner> : null}
+          {!analytics && !analyticsError ? (
+            <Banner tone="info">Loading activity…</Banner>
+          ) : null}
+          {analytics ? (
+            <View style={{ gap: 8 }}>
+              <Text style={{ color: colors.ink, fontSize: 18 * effectiveScale, fontWeight: '700' }} allowFontScaling={false}>
+                {analytics.totalRedemptions} total redemption{analytics.totalRedemptions === 1 ? '' : 's'}
+              </Text>
+              {analytics.byVendor.length > 0 ? (
+                <>
+                  <Text style={{ color: colors.muted, fontSize: 14 * effectiveScale }} allowFontScaling={false}>By business:</Text>
+                  {analytics.byVendor.map((item) => (
+                    <Text key={item.vendorId} style={{ color: colors.muted, fontSize: 14 * effectiveScale }} allowFontScaling={false}>
+                      {item.vendorName}: {item.redemptions}
+                    </Text>
+                  ))}
+                </>
+              ) : (
+                <Text style={{ color: colors.muted, fontSize: 14 * effectiveScale }} allowFontScaling={false}>No redemptions yet — redeem a deal to see it here.</Text>
+              )}
+            </View>
+          ) : null}
         </Card>
 
         <Card>
@@ -140,33 +199,6 @@ export default function ProfileScreen() {
         </Card>
 
         <Card>
-          <SectionTitle title="My activity" subtitle="Membership usage at a glance" />
-          {analyticsError ? <Banner tone="error">{analyticsError}</Banner> : null}
-          {!analytics && !analyticsError ? (
-            <Banner tone="info">Loading activity…</Banner>
-          ) : null}
-          {analytics ? (
-            <View style={{ gap: 8 }}>
-              <Text style={{ color: colors.ink, fontSize: 18 * effectiveScale, fontWeight: '700' }} allowFontScaling={false}>
-                {analytics.totalRedemptions} total redemption{analytics.totalRedemptions === 1 ? '' : 's'}
-              </Text>
-              {analytics.byVendor.length > 0 ? (
-                <>
-                  <Text style={{ color: colors.muted, fontSize: 14 * effectiveScale }} allowFontScaling={false}>By business:</Text>
-                  {analytics.byVendor.map((item) => (
-                    <Text key={item.vendorId} style={{ color: colors.muted, fontSize: 14 * effectiveScale }} allowFontScaling={false}>
-                      {item.vendorName}: {item.redemptions}
-                    </Text>
-                  ))}
-                </>
-              ) : (
-                <Text style={{ color: colors.muted, fontSize: 14 * effectiveScale }} allowFontScaling={false}>No redemptions yet.</Text>
-              )}
-            </View>
-          ) : null}
-        </Card>
-
-        <Card>
           <SectionTitle title="Text & icon size" subtitle="Adjust for readability" />
           <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
             {TEXT_SCALE_OPTIONS.map((option) => (
@@ -186,8 +218,15 @@ export default function ProfileScreen() {
           <SectionTitle title="Membership" subtitle="Status and activity" />
           {auth.profile?.status === 'active' ? (
             <Banner tone="success">Your membership is active.</Banner>
-          ) : (
+          ) : signedIn ? (
             <Banner tone="info">No active membership plan.</Banner>
+          ) : (
+            <View style={{ gap: 10 }}>
+              <Text style={valueLabel}>Members get favorites plus access to exclusive deals.</Text>
+              <Link href="/auth" asChild>
+                <AppButton variant="secondary">Learn more & sign up</AppButton>
+              </Link>
+            </View>
           )}
         </Card>
 
@@ -207,35 +246,54 @@ export default function ProfileScreen() {
           </AppButton>
         </Card>
 
-        <Card>
-          <SectionTitle title="Session" subtitle="Account access" />
-          <AppButton
-            variant="danger"
-            onPress={() => {
-              void auth.logout().then(() => router.replace('/auth'));
-            }}
-          >
-            Log out
-          </AppButton>
-          <AppButton
-            variant="ghost"
-            onPress={() =>
-              Alert.alert('Delete account', 'This permanently deletes your account and cannot be undone.', [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Delete',
-                  style: 'destructive',
-                  onPress: () => {
-                    void auth.deleteAccount()
-                      .then(() => router.replace('/auth'))
-                      .catch((err) => Alert.alert('Error', err instanceof Error ? err.message : 'Unable to delete account'));
+        {signedIn ? (
+          <Card>
+            <SectionTitle title="Session" subtitle="Account access" />
+            <AppButton
+              variant="danger"
+              onPress={() => {
+                void auth.logout().then(() => router.replace('/'));
+              }}
+            >
+              Log out
+            </AppButton>
+            <AppButton
+              variant="ghost"
+              onPress={() =>
+                Alert.alert('Delete account', 'This permanently deletes your account and cannot be undone.', [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: () => {
+                      void auth.deleteAccount()
+                        .then(() => router.replace('/'))
+                        .catch((err) => Alert.alert('Error', err instanceof Error ? err.message : 'Unable to delete account'));
+                    },
                   },
-                },
-              ])
-            }
-          >
-            Delete account
-          </AppButton>
+                ])
+              }
+            >
+              Delete account
+            </AppButton>
+          </Card>
+        ) : null}
+
+        <Card>
+          <SectionTitle title="Credits" subtitle="Images and where they appear" />
+          {IMAGE_CREDITS.map((item) => (
+            <View key={item.image} style={{ gap: 2, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+              <Text style={{ color: colors.ink, fontSize: 14 * effectiveScale, fontWeight: '600' }} allowFontScaling={false}>
+                {item.image}
+              </Text>
+              <Text style={{ color: colors.muted, fontSize: 13 * effectiveScale }} allowFontScaling={false}>
+                {item.screen}
+              </Text>
+              <Text style={{ color: colors.subtle, fontSize: 12 * effectiveScale }} allowFontScaling={false}>
+                {item.credit}
+              </Text>
+            </View>
+          ))}
         </Card>
       </ScrollView>
     </Screen>

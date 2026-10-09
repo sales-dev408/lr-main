@@ -66,6 +66,7 @@ export interface CreateVendorInput {
   category: VendorCategory;
   email?: string | null;
   phone?: string | null;
+  website?: string | null;
   discountType: DiscountType;
   discountValue: number;
   discountDescription?: string | null;
@@ -73,6 +74,7 @@ export interface CreateVendorInput {
   discountStartsAt?: string | null;
   discountEndsAt?: string | null;
   boosted?: boolean;
+  membersOnly?: boolean;
   latitude?: number | null;
   longitude?: number | null;
   iconDataUrl?: string | null;
@@ -135,9 +137,9 @@ export async function createVendorWithDiscount(input: CreateVendorInput): Promis
       
       const vendorType = inferVendorType(input.category);
       const vendorRows = await client.query<{ id: string }>(
-        `INSERT INTO vendors (name, owner_name, location, address, city, station, category, vendor_type, cuisine, pos_type, pos_system, email, phone, password_hash, status, latitude, longitude, discount_terms)
-         VALUES ($1, $2, $3, $4, $14, $5, $6, $12, $13, NULL, NULL, $7, $8, NULL, 'approved', $9, $10, $11) RETURNING id`,
-        [input.name, input.ownerName ?? null, input.address ?? null, input.address ?? null, input.station ?? null, input.category, input.email ?? null, input.phone ?? null, latitude ?? null, longitude ?? null, discountTerms, vendorType, inferCuisine(input.category, vendorType), input.city ?? null],
+        `INSERT INTO vendors (name, owner_name, location, address, city, station, category, vendor_type, cuisine, pos_type, pos_system, email, phone, website, password_hash, status, latitude, longitude, discount_terms)
+         VALUES ($1, $2, $3, $4, $14, $5, $6, $12, $13, NULL, NULL, $7, $8, $15, NULL, 'approved', $9, $10, $11) RETURNING id`,
+        [input.name, input.ownerName ?? null, input.address ?? null, input.address ?? null, input.station ?? null, input.category, input.email ?? null, input.phone ?? null, latitude ?? null, longitude ?? null, discountTerms, vendorType, inferCuisine(input.category, vendorType), input.city ?? null, input.website ?? null],
       );
       const vendorId = vendorRows.rows[0]!.id;
 
@@ -159,11 +161,11 @@ export async function createVendorWithDiscount(input: CreateVendorInput): Promis
 
       await client.query('INSERT INTO card_vendors (card_id, vendor_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [membership.id, vendorId]);
       const discountRows = await client.query<{ id: string }>(
-        `INSERT INTO discounts (card_id, vendor_id, type, value, discount_code, description, active, starts_at, ends_at, boosted)
-         VALUES ($1, $2, $3, $4, $5, $6, true, $7, $8, $9)
-         ON CONFLICT (card_id, vendor_id) DO UPDATE SET type = EXCLUDED.type, value = EXCLUDED.value, discount_code = COALESCE(discounts.discount_code, EXCLUDED.discount_code), description = EXCLUDED.description, active = true, starts_at = EXCLUDED.starts_at, ends_at = EXCLUDED.ends_at, boosted = EXCLUDED.boosted, updated_at = now()
+        `INSERT INTO discounts (card_id, vendor_id, type, value, discount_code, description, active, starts_at, ends_at, boosted, members_only)
+         VALUES ($1, $2, $3, $4, $5, $6, true, $7, $8, $9, $10)
+         ON CONFLICT (card_id, vendor_id) DO UPDATE SET type = EXCLUDED.type, value = EXCLUDED.value, discount_code = COALESCE(discounts.discount_code, EXCLUDED.discount_code), description = EXCLUDED.description, active = true, starts_at = EXCLUDED.starts_at, ends_at = EXCLUDED.ends_at, boosted = EXCLUDED.boosted, members_only = EXCLUDED.members_only, updated_at = now()
          RETURNING id`,
-        [membership.id, vendorId, input.discountType, input.discountValue, discountCode, discountDescription, input.discountStartsAt ?? null, input.discountEndsAt ?? null, input.boosted ?? false],
+        [membership.id, vendorId, input.discountType, input.discountValue, discountCode, discountDescription, input.discountStartsAt ?? null, input.discountEndsAt ?? null, input.boosted ?? false, input.membersOnly ?? false],
       );
       const discountId = discountRows.rows[0]!.id;
 
@@ -222,6 +224,9 @@ export interface VendorDirectoryItem {
   posSystem: string | null;
   iconUrl: string | null;
   logoUrl: string | null;
+  phone: string | null;
+  website: string | null;
+  membersOnly: boolean;
   discountTerms: string | null;
   discount: {
     type: 'fixed' | 'percent' | 'bogo';
@@ -266,10 +271,14 @@ export async function getVendorDirectory(vendorId?: string): Promise<VendorDirec
     starts_at: string | null;
     ends_at: string | null;
     boosted: boolean;
+    phone: string | null;
+    website: string | null;
+    members_only: boolean;
     card_icon: string | null;
     card_logo: string | null;
   }>(
     `SELECT v.id, v.name, v.address, v.city, v.location, v.category, v.vendor_type, v.cuisine, v.station, v.latitude, v.longitude, v.pos_system, v.icon_url, v.logo_url, v.discount_terms,
+            v.phone, v.website, d.members_only,
             d.type AS discount_type, d.value AS discount_value, d.discount_code, d.description AS discount_description,
             d.starts_at, d.ends_at, d.boosted, c.id AS card_id, c.icon_url AS card_icon, c.logo_url AS card_logo
      FROM vendors v
@@ -302,6 +311,9 @@ export async function getVendorDirectory(vendorId?: string): Promise<VendorDirec
       posSystem: row.pos_system,
       iconUrl: row.icon_url ?? row.card_icon,
       logoUrl: row.logo_url ?? row.card_logo,
+      phone: row.phone,
+      website: row.website,
+      membersOnly: row.members_only,
       discountTerms: row.discount_terms ?? 'Cannot be applied with any other offer\nNot redeemable for cash\nCan be used 1 time per week',
       discount: {
         type,
@@ -327,10 +339,10 @@ export async function getVendorDirectory(vendorId?: string): Promise<VendorDirec
 export async function getAdminVendorById(id: string): Promise<Record<string, unknown> | null> {
   const rows = await dbQuery<Record<string, unknown>>(
     `SELECT v.*, d.type AS discount_type, d.value AS discount_value, d.discount_code, d.description AS discount_description,
-            d.starts_at AS discount_starts_at, d.ends_at AS discount_ends_at, d.boosted AS discount_boosted
+            d.starts_at AS discount_starts_at, d.ends_at AS discount_ends_at, d.boosted AS discount_boosted, d.members_only AS discount_members_only
      FROM vendors v
      LEFT JOIN LATERAL (
-       SELECT d.type, d.value, d.discount_code, d.description, d.starts_at, d.ends_at, d.boosted
+       SELECT d.type, d.value, d.discount_code, d.description, d.starts_at, d.ends_at, d.boosted, d.members_only
        FROM discounts d
        JOIN cards c ON c.id = d.card_id AND c.is_membership = true
        WHERE d.vendor_id = v.id

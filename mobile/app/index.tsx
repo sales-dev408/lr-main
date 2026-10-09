@@ -2,19 +2,21 @@ import { Redirect } from 'expo-router';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { useAuth } from '@/lib/auth';
 import { useAppTheme } from '@/lib/appTheme';
-import { useOnboarding } from '@/lib/onboarding';
+import { useLegalAcceptance } from '@/lib/legalAcceptance';
 
 export default function IndexScreen() {
   const auth = useAuth();
   const appTheme = useAppTheme();
-  const onboarding = useOnboarding();
+  const legal = useLegalAcceptance();
 
-  if (auth.loading || appTheme.loading || onboarding.loading) {
+  if (auth.loading || appTheme.loading || legal.loading) {
     return <LoadingScreen />;
   }
 
-  if (!auth.token) {
-    return <Redirect href="/onboard" />;
+  // First launch only: Terms / Privacy / EULA acceptance. Everything else in
+  // the app works anonymously — authentication is opt-in from the sidebar.
+  if (!legal.accepted) {
+    return <Redirect href="/legal" />;
   }
 
   return <Redirect href="/(tabs)" />;

@@ -1,8 +1,10 @@
 import { useCallback, useRef, useState } from 'react';
 import { Image, ScrollView, Text, useWindowDimensions, View } from 'react-native';
-import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { Link, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { AppButton, Banner, Card, FieldInput, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { affirmRedemptionToken, createRedemptionToken, type RedemptionToken } from '@/lib/api';
+import { recordLocalRedemption } from '@/lib/localStats';
+import { useAuth } from '@/lib/auth';
 import { qrCodeUrl } from '@/lib/qr';
 import { useThemeColors } from '@/lib/useThemeColors';
 import { useDynamicType } from '@/lib/dynamicType';
@@ -21,6 +23,7 @@ export default function DiscountScreen() {
   const { effectiveScale } = useDynamicType();
   const { width } = useWindowDimensions();
   const { vendorId } = useLocalSearchParams<{ vendorId?: string }>();
+  const auth = useAuth();
 
   const [token, setToken] = useState<RedemptionToken | null>(null);
   const [loading, setLoading] = useState(true);
@@ -47,6 +50,12 @@ export default function DiscountScreen() {
           const data = await createRedemptionToken(vendorId);
           if (!active) return;
           setToken(data);
+          // Anonymous discount tracking: when signed in the backend records
+          // this against the member account; without an account we track it
+          // on-device so My Stats keeps working.
+          if (!auth.token) {
+            void recordLocalRedemption({ id: vendorId, name: data.vendorName }).catch(() => undefined);
+          }
         } catch (err) {
           if (!active) return;
           setError(err instanceof Error ? err.message : 'Unable to load discount QR code');
@@ -57,7 +66,7 @@ export default function DiscountScreen() {
       return () => {
         active = false;
       };
-    }, [vendorId]),
+    }, [vendorId, auth.token]),
   );
 
   async function submitAffirmation() {
@@ -92,6 +101,11 @@ export default function DiscountScreen() {
       <ScrollView contentContainerStyle={{ gap: 14, paddingBottom: 24 }}>
         {loading ? <Spinner /> : null}
         {error ? <Banner tone="error">{error}</Banner> : null}
+        {error && !auth.token ? (
+          <Link href="/auth" asChild>
+            <AppButton>Sign In / Create Account</AppButton>
+          </Link>
+        ) : null}
 
         {approved ? (
           <Card>

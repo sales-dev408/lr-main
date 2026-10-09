@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { Pressable, SectionList, Text, View } from 'react-native';
+import { Link } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Screen, SectionTitle } from '@/components/Ui';
 import {
   AZ_ADMISSION_COLORS,
@@ -74,6 +75,9 @@ export default function AzEventsScreen() {
   const header = (
     <View style={{ gap: 14, paddingBottom: 4 }}>
       <BrandHeader subtitle="Events around Arizona" />
+      <Link href="/events" asChild>
+        <AppButton variant="secondary">← Back to Events</AppButton>
+      </Link>
       <SectionTitle title="Arizona Master Events Calendar" subtitle="September 2026 – August 2027 · statewide" />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
         {LEGEND.map((entry) => (

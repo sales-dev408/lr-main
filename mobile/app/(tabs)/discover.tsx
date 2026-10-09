@@ -124,7 +124,13 @@ export default function DiscoverScreen() {
             ) : null}
             {item.body ? <Text style={{ color: colors.muted, lineHeight: 20 * effectiveScale, fontSize: 14 * effectiveScale }} allowFontScaling={false}>{item.body}</Text> : null}
             {item.url && item.kind !== 'image' ? (
-              <AppButton variant="secondary" onPress={() => void Linking.openURL(item.url as string)}>
+              <AppButton
+                variant="secondary"
+                onPress={() => {
+                  const url = item.url as string;
+                  void Linking.openURL(url.includes('://') ? url : `https://${url}`);
+                }}
+              >
                 {item.kind === 'file' ? 'Open file' : 'Open link'}
               </AppButton>
             ) : null}

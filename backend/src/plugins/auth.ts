@@ -6,6 +6,7 @@ import type { Role, JwtClaims } from '../types.js';
 declare module 'fastify' {
   interface FastifyInstance {
     authenticate: (request: import('fastify').FastifyRequest, reply: FastifyReply) => Promise<void>;
+    authenticateOptional: (request: import('fastify').FastifyRequest) => Promise<void>;
     requireRole: (roles: Role[]) => (request: import('fastify').FastifyRequest, reply: FastifyReply) => Promise<void>;
   }
 
@@ -15,6 +16,21 @@ declare module 'fastify' {
 }
 
 async function authPlugin(fastify: FastifyInstance): Promise<void> {
+  // Populates request.user when a valid Bearer token is present, but never
+  // rejects the request — used by endpoints that work for anonymous users.
+  fastify.decorate('authenticateOptional', async (request) => {
+    const authHeader = request.headers.authorization;
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) {
+      return;
+    }
+    try {
+      request.user = verifyJwt(token);
+    } catch {
+      // Treat invalid tokens the same as no token.
+    }
+  });
+
   fastify.decorate('authenticate', async (request, reply) => {
     const authHeader = request.headers.authorization;
     const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;

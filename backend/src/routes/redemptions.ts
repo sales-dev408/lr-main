@@ -1,16 +1,29 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { withDbClient } from '../db/pool.js';
+import { dbQuery, withDbClient } from '../db/pool.js';
 import { createRedemptionToken, redeemByToken, affirmRedemptionToken } from '../services/redemptionTokens.js';
 import { humanDiscountLabel } from '../services/discounts.js';
 
 export async function registerRedemptionRoutes(fastify: FastifyInstance): Promise<void> {
+  // Redemption tokens work for anonymous users: a valid customer JWT attaches
+  // the token to their account; without one the token is created with a NULL
+  // user_id (anonymous redemptions are still tracked in the redemptions table).
   fastify.post(
     '/api/discounts/tokens',
-    { preHandler: fastify.requireRole(['customer']), config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
+    { preHandler: fastify.authenticateOptional, config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
     async (request, reply) => {
       const body = z.object({ vendorId: z.string().uuid() }).parse(request.body);
-      const userId = request.user!.sub;
+      const userId = request.user?.role === 'customer' ? request.user.sub : null;
+      // Members-only discounts require a signed-in account.
+      const gate = await dbQuery<{ members_only: boolean }>(
+        `SELECT d.members_only FROM discounts d
+         JOIN cards c ON c.id = d.card_id AND c.is_membership = true
+         WHERE d.vendor_id = $1 AND d.active = true LIMIT 1`,
+        [body.vendorId],
+      );
+      if (gate[0]?.members_only && !userId) {
+        return reply.code(403).send({ error: 'Sign in to redeem this members-only deal' });
+      }
       const payload = await withDbClient((client) => createRedemptionToken(client, userId, body.vendorId));
       return reply.send(payload);
     },
@@ -18,11 +31,11 @@ export async function registerRedemptionRoutes(fastify: FastifyInstance): Promis
 
   fastify.post(
     '/api/discounts/tokens/:token/affirm',
-    { preHandler: fastify.requireRole(['customer']), config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
+    { preHandler: fastify.authenticateOptional, config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
     async (request, reply) => {
       const token = (request.params as { token: string }).token;
       const body = z.object({ affirmationName: z.string().min(1) }).parse(request.body);
-      const userId = request.user!.sub;
+      const userId = request.user?.role === 'customer' ? request.user.sub : null;
       const result = await affirmRedemptionToken(token, userId, body.affirmationName, request.ip);
       if (!result.ok) {
         return reply.code(409).send({ error: result.error ?? 'Unable to apply discount' });

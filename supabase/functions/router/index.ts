@@ -27,7 +27,7 @@ import {
   saveTheme,
   updateContentBlock,
 } from './lib/content.ts';
-import { getAppStatus, getAppVersion, getLatestAppSnapshot, publishApp } from './lib/appPublish.ts';
+import { buildLiveAppState, getAppStatus, getLatestAppSnapshot, getLiveAppVersion, publishApp } from './lib/appPublish.ts';
 import {
   fetchPublicEvents,
   getEventsRssUrls,
@@ -197,6 +197,7 @@ const adminVendorCreateSchema = z
     category: z.string().min(1),
     email: z.string().email().optional(),
     phone: z.string().optional(),
+    website: z.string().optional().nullable(),
     discountType: z.enum(['fixed', 'percent', 'bogo']).default('percent'),
     discountValue: z.number().min(0),
     discountDescription: z.string().optional().nullable(),
@@ -204,6 +205,7 @@ const adminVendorCreateSchema = z
     discountStartsAt: z.string().datetime().optional().nullable(),
     discountEndsAt: z.string().datetime().optional().nullable(),
     boosted: z.boolean().optional(),
+    membersOnly: z.boolean().optional(),
     latitude: z.number().optional(),
     longitude: z.number().optional(),
     iconDataUrl: z.string().optional(),
@@ -224,6 +226,7 @@ const adminVendorUpdateSchema = z
     category: z.string().optional(),
     email: z.string().email().optional(),
     phone: z.string().optional(),
+    website: z.string().optional().nullable(),
     discountType: z.enum(['fixed', 'percent', 'bogo']).optional(),
     discountValue: z.number().min(0).optional(),
     discountDescription: z.string().optional().nullable(),
@@ -231,6 +234,7 @@ const adminVendorUpdateSchema = z
     discountStartsAt: z.string().datetime().optional().nullable(),
     discountEndsAt: z.string().datetime().optional().nullable(),
     boosted: z.boolean().optional(),
+    membersOnly: z.boolean().optional(),
     latitude: z.number().optional(),
     longitude: z.number().optional(),
     status: z.enum(['pending', 'approved', 'rejected', 'suspended']).optional(),
@@ -1376,7 +1380,7 @@ Deno.serve(async (request) => {
       const auth = requireRole(request, ['admin']);
       if (auth instanceof Response) return auth;
       const q = queryObject(url);
-      return json(request, await dbQuery(`SELECT v.*, d.type AS discount_type, d.value AS discount_value, d.discount_code, d.starts_at AS discount_starts_at, d.ends_at AS discount_ends_at, d.boosted AS discount_boosted FROM vendors v LEFT JOIN LATERAL (SELECT d.type, d.value, d.discount_code, d.starts_at, d.ends_at, d.boosted FROM discounts d JOIN cards c ON c.id = d.card_id AND c.is_membership = true WHERE d.vendor_id = v.id ORDER BY d.created_at DESC LIMIT 1) d ON true WHERE ($1::text IS NULL OR v.status = $1) AND ($2::text IS NULL OR v.city = $2) AND ($3::text IS NULL OR v.category = $3) ORDER BY v.created_at DESC`, [
+      return json(request, await dbQuery(`SELECT v.*, d.type AS discount_type, d.value AS discount_value, d.discount_code, d.starts_at AS discount_starts_at, d.ends_at AS discount_ends_at, d.boosted AS discount_boosted, d.members_only AS discount_members_only FROM vendors v LEFT JOIN LATERAL (SELECT d.type, d.value, d.discount_code, d.starts_at, d.ends_at, d.boosted, d.members_only FROM discounts d JOIN cards c ON c.id = d.card_id AND c.is_membership = true WHERE d.vendor_id = v.id ORDER BY d.created_at DESC LIMIT 1) d ON true WHERE ($1::text IS NULL OR v.status = $1) AND ($2::text IS NULL OR v.city = $2) AND ($3::text IS NULL OR v.category = $3) ORDER BY v.created_at DESC`, [
         q.status ?? null,
         q.city ?? null,
         q.category ?? null,
@@ -1395,6 +1399,7 @@ Deno.serve(async (request) => {
         category: body.category,
         email: body.email ?? null,
         phone: body.phone ?? null,
+        website: body.website ?? null,
         discountType: body.discountType,
         discountValue: body.discountValue,
         discountDescription: body.discountDescription ?? null,
@@ -1402,6 +1407,7 @@ Deno.serve(async (request) => {
         discountStartsAt: body.discountStartsAt ?? null,
         discountEndsAt: body.discountEndsAt ?? null,
         boosted: body.boosted ?? false,
+        membersOnly: body.membersOnly ?? false,
         latitude: body.latitude ?? null,
         longitude: body.longitude ?? null,
         iconDataUrl: body.iconDataUrl ?? null,
@@ -1425,10 +1431,10 @@ Deno.serve(async (request) => {
       const vendorType = body.category !== undefined ? inferVendorType(body.category) : null;
       const cuisine = body.category !== undefined ? inferCuisine(body.category, vendorType) : null;
       const rows = await dbQuery(
-        `UPDATE vendors SET name = COALESCE($2, name), owner_name = COALESCE($3, owner_name), location = COALESCE($4, location), address = COALESCE($4, address), category = COALESCE($5, category), email = COALESCE($6, email), phone = COALESCE($7, phone), status = COALESCE($8, status), latitude = COALESCE($9, latitude), longitude = COALESCE($10, longitude), discount_terms = COALESCE($11, discount_terms), vendor_type = COALESCE($12, vendor_type), cuisine = COALESCE($13, cuisine), station = COALESCE($14, station), city = COALESCE($15, city), updated_at = now() WHERE id = $1 RETURNING *`,
-        [id, body.name ?? null, body.ownerName ?? null, body.address ?? null, body.category ?? null, body.email ?? null, body.phone ?? null, body.status ?? null, body.latitude ?? null, body.longitude ?? null, body.discountTerms ?? null, vendorType, cuisine, body.station ?? null, body.city ?? null],
+        `UPDATE vendors SET name = COALESCE($2, name), owner_name = COALESCE($3, owner_name), location = COALESCE($4, location), address = COALESCE($4, address), category = COALESCE($5, category), email = COALESCE($6, email), phone = COALESCE($7, phone), status = COALESCE($8, status), latitude = COALESCE($9, latitude), longitude = COALESCE($10, longitude), discount_terms = COALESCE($11, discount_terms), vendor_type = COALESCE($12, vendor_type), cuisine = COALESCE($13, cuisine), station = COALESCE($14, station), city = COALESCE($15, city), website = COALESCE($16, website), updated_at = now() WHERE id = $1 RETURNING *`,
+        [id, body.name ?? null, body.ownerName ?? null, body.address ?? null, body.category ?? null, body.email ?? null, body.phone ?? null, body.status ?? null, body.latitude ?? null, body.longitude ?? null, body.discountTerms ?? null, vendorType, cuisine, body.station ?? null, body.city ?? null, body.website ?? null],
       );
-      if (body.discountType !== undefined || body.discountValue !== undefined || body.discountDescription !== undefined || body.discountStartsAt !== undefined || body.discountEndsAt !== undefined || body.boosted !== undefined) {
+      if (body.discountType !== undefined || body.discountValue !== undefined || body.discountDescription !== undefined || body.discountStartsAt !== undefined || body.discountEndsAt !== undefined || body.boosted !== undefined || body.membersOnly !== undefined) {
         if (body.discountType !== undefined || body.discountValue !== undefined) {
           // Upsert so vendors without a membership discount row get one created;
           // a plain UPDATE would silently affect zero rows.
@@ -1442,8 +1448,8 @@ Deno.serve(async (request) => {
               value: body.discountValue ?? 0,
             });
             await dbQuery(
-              `INSERT INTO discounts (card_id, vendor_id, type, value, discount_code, description, active, starts_at, ends_at, boosted)
-               VALUES ($2, $1, COALESCE($3, 'percent'), COALESCE($4, 0), $5, $6, true, $7, $8, $9)
+              `INSERT INTO discounts (card_id, vendor_id, type, value, discount_code, description, active, starts_at, ends_at, boosted, members_only)
+               VALUES ($2, $1, COALESCE($3, 'percent'), COALESCE($4, 0), $5, $6, true, $7, $8, $9, COALESCE($10, false))
                ON CONFLICT (card_id, vendor_id) DO UPDATE SET
                  type = COALESCE($3, discounts.type),
                  value = COALESCE($4, discounts.value),
@@ -1452,15 +1458,16 @@ Deno.serve(async (request) => {
                  starts_at = COALESCE($7, discounts.starts_at),
                  ends_at = COALESCE($8, discounts.ends_at),
                  boosted = COALESCE($9, discounts.boosted),
+                 members_only = COALESCE($10, discounts.members_only),
                  active = true,
                  updated_at = now()`,
-              [id, membershipId, body.discountType ?? null, body.discountValue ?? null, discountCode, body.discountDescription ?? null, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? null],
+              [id, membershipId, body.discountType ?? null, body.discountValue ?? null, discountCode, body.discountDescription ?? null, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? null, body.membersOnly ?? null],
             );
           }
         } else {
           await dbQuery(
-            `UPDATE discounts SET type = COALESCE($2, type), value = COALESCE($3, value), description = COALESCE($4, description), starts_at = COALESCE($5, starts_at), ends_at = COALESCE($6, ends_at), boosted = COALESCE($7, boosted), updated_at = now() WHERE vendor_id = $1 AND card_id = (SELECT id FROM cards WHERE is_membership = true LIMIT 1)`,
-            [id, body.discountType ?? null, body.discountValue ?? null, body.discountDescription ?? null, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? null],
+            `UPDATE discounts SET type = COALESCE($2, type), value = COALESCE($3, value), description = COALESCE($4, description), starts_at = COALESCE($5, starts_at), ends_at = COALESCE($6, ends_at), boosted = COALESCE($7, boosted), members_only = COALESCE($8, members_only), updated_at = now() WHERE vendor_id = $1 AND card_id = (SELECT id FROM cards WHERE is_membership = true LIMIT 1)`,
+            [id, body.discountType ?? null, body.discountValue ?? null, body.discountDescription ?? null, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? null, body.membersOnly ?? null],
           );
         }
       }
@@ -1792,17 +1799,24 @@ Deno.serve(async (request) => {
       return json(request, await saveTheme(body));
     }
 
-    // ---- Full app publishing ------------------------------------------------
-    // Public: atomic snapshot of the currently published app state (vendors,
-    // apartments, events, content, theme). The mobile app downloads this once
-    // and caches it locally.
+    // ---- Full app state -----------------------------------------------------
+    // Public: live snapshot of the public app state (vendors, apartments,
+    // events, content, theme). Built fresh from the tables on every request so
+    // admin edits reach devices immediately — the manual publish step is no
+    // longer required. Falls back to the last published snapshot if the live
+    // build fails (e.g. a transient DB issue).
     if (path === '/api/app' && request.method === 'GET') {
-      const snapshot = await getLatestAppSnapshot();
-      if (!snapshot) return json(request, { error: 'No published app state' }, { status: 404 });
-      return json(request, snapshot);
+      try {
+        return json(request, await buildLiveAppState());
+      } catch (err) {
+        console.error('[app] live state build failed, falling back to snapshot:', err);
+        const snapshot = await getLatestAppSnapshot();
+        if (!snapshot) return json(request, { error: 'No published app state' }, { status: 404 });
+        return json(request, snapshot);
+      }
     }
     if (path === '/api/app/version' && request.method === 'GET') {
-      return json(request, await getAppVersion());
+      return json(request, await getLiveAppVersion());
     }
     if (path === '/api/admin/app/status' && request.method === 'GET') {
       const auth = requireRole(request, ['admin']);
@@ -2212,20 +2226,30 @@ Deno.serve(async (request) => {
       return Response.redirect(qrCodeUrl(lookupToken, 300), 302);
     }
 
+    // Redemption tokens work anonymously: a customer JWT binds the token to
+    // the member account; without one the token is created with NULL user_id.
     if (path === '/api/discounts/tokens' && request.method === 'POST') {
-      const auth = requireRole(request, ['customer']);
-      if (auth instanceof Response) return auth;
+      const claims = authenticate(request);
+      const userId = claims?.role === 'customer' ? claims.sub : null;
       const body = z.object({ vendorId: z.string().uuid() }).parse(await readJsonBody(request, {}));
       const fallbackBase = `${url.origin}/functions/v1/router`;
-      const payload = await withDbClient((client) => createRedemptionToken(client, auth.sub, body.vendorId, fallbackBase));
-      return json(request, payload);
+      try {
+        const payload = await withDbClient((client) => createRedemptionToken(client, userId, body.vendorId, fallbackBase));
+        return json(request, payload);
+      } catch (error) {
+        const status = (error as { status?: number }).status;
+        if (status === 403) {
+          return json(request, { error: (error as Error).message }, { status: 403 });
+        }
+        throw error;
+      }
     }
     if (/^\/api\/discounts\/tokens\/[^/]+\/affirm$/.test(path) && request.method === 'POST') {
-      const auth = requireRole(request, ['customer']);
-      if (auth instanceof Response) return auth;
+      const claims = authenticate(request);
+      const userId = claims?.role === 'customer' ? claims.sub : null;
       const token = path.split('/').slice(-2)[0]!;
       const body = z.object({ affirmationName: z.string().min(1) }).parse(await readJsonBody(request, {}));
-      const result = await affirmRedemptionToken(token, auth.sub, body.affirmationName, getIp(request));
+      const result = await affirmRedemptionToken(token, userId, body.affirmationName, getIp(request));
       if (!result.ok) {
         return json(request, { error: result.error ?? 'Unable to apply discount' }, { status: 409 });
       }

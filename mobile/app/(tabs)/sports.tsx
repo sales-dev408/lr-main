@@ -341,21 +341,20 @@ export default function SportsScreen() {
     <Screen>
       <BrandHeader subtitle="Arizona Sports" />
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ flexGrow: 0 }}
-        contentContainerStyle={{ gap: 8 }}
-      >
-        {SUB_TABS.map((tab) => (
-          <Chip
-            key={tab.id}
-            label={tab.label}
-            active={activeTab === tab.id}
-            onPress={() => setActiveTab(tab.id)}
-          />
-        ))}
-      </ScrollView>
+      {/* Dropdown selector replaces the old horizontal chip scroller — teams
+          with more upcoming games are easier to scan in a list. */}
+      <SimpleListPicker
+        entries={SUB_TABS.map((tab): SimpleListPickerEntry => {
+          if (tab.id === 'scores') return { value: tab.id, label: tab.label, count: filteredGames.length };
+          const team = TEAM_SCHEDULES.find((t) => t.id === tab.id);
+          return { value: tab.id, label: tab.label, count: team ? upcomingEvents(team.events, 'all', now).length : 0 };
+        })}
+        selected={activeTab}
+        onSelect={(value) => setActiveTab(value as SportsTab)}
+        label="Team"
+        itemNoun="game"
+        showAll={false}
+      />
 
       {activeTab === 'scores' ? (
         <ScrollView

@@ -1,32 +1,33 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Image, ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import { Image, ImageBackground, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { Link, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AdBanner } from '@/components/AdBanner';
-import { AppButton, Banner, Card, GlassCard, Screen, SectionTitle, Spinner } from '@/components/Ui';
+import { AppButton, Banner, Card, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { useAuth } from '@/lib/auth';
-import { getMyAnalytics, listVendors } from '@/lib/api';
+import { listVendors } from '@/lib/api';
 import { useThemeColors } from '@/lib/useThemeColors';
 import { useDynamicType } from '@/lib/dynamicType';
-import type { UserAnalytics, VendorListItem } from '@/lib/types';
+import type { VendorListItem } from '@/lib/types';
 
-function StatPill({ label, value, color }: { label: string; value: string | number; color: string }) {
+function QuickAction({ label, href, emoji }: { label: string; href: `/${string}`; emoji: string }) {
   const colors = useThemeColors();
   const { effectiveScale } = useDynamicType();
   return (
-    <View style={{ flex: 1, alignItems: 'center', gap: 4, padding: 16, backgroundColor: colors.panel, borderRadius: 16, borderWidth: 1, borderColor: colors.border }}>
-      <Text style={{ fontSize: 28 * effectiveScale, fontWeight: '800', color }} allowFontScaling={false}>{value}</Text>
-      <Text style={{ fontSize: 13 * effectiveScale, fontWeight: '600', color: colors.muted, textAlign: 'center' }} allowFontScaling={false}>{label}</Text>
-    </View>
+    <Link href={href as never} asChild>
+      <AppButton variant="secondary" style={{ width: '100%', minHeight: 62 * effectiveScale, justifyContent: 'center' }}>
+        <Text style={{ fontSize: 18 * effectiveScale }} allowFontScaling={false}>
+          {emoji} <Text style={{ color: colors.ink, fontWeight: '700', fontSize: 14 * effectiveScale }} allowFontScaling={false}>{label}</Text>
+        </Text>
+      </AppButton>
+    </Link>
   );
 }
 
 export default function HomeScreen() {
-  const colors = useThemeColors();
   const { width } = useWindowDimensions();
   const { effectiveScale } = useDynamicType();
   const auth = useAuth();
-  const [analytics, setAnalytics] = useState<UserAnalytics | null>(null);
   const [vendors, setVendors] = useState<VendorListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,9 +35,7 @@ export default function HomeScreen() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [analyticsData, vendorsData] = await Promise.all([getMyAnalytics(), listVendors()]);
-      setAnalytics(analyticsData);
-      setVendors(vendorsData);
+      setVendors(await listVendors());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load home data');
     }
@@ -57,94 +56,95 @@ export default function HomeScreen() {
 
   const greeting = useMemo(() => {
     const name = auth.profile?.fullName?.split(' ')[0];
-    return name ? `Welcome back, ${name}` : 'Welcome to Light Rail Deals';
+    return name ? `Welcome back, ${name}` : 'Explore the Valley Metro';
   }, [auth.profile?.fullName]);
 
-  const activeDeals = useMemo(() => vendors.filter((v) => v.discount.label && (!v.endsAt || new Date(v.endsAt) > new Date())).length, [vendors]);
-  const topVendor = useMemo(() => analytics?.byVendor[0], [analytics]);
+  const activeDeals = useMemo(
+    () => vendors.filter((v) => v.discount.label && (!v.endsAt || new Date(v.endsAt) > new Date())).length,
+    [vendors],
+  );
+
+  const heroHeight = Math.min(280, Math.max(200, width * 0.55));
 
   return (
     <Screen>
       <ScrollView contentContainerStyle={{ gap: 18, paddingBottom: 32, paddingTop: 4 }}>
-        <LinearGradient
-          colors={['#0d9488', '#6366f1', '#e11d48']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ borderRadius: 24, padding: 24, gap: 8 }}
+        <ImageBackground
+          source={require('@/assets/images/phoenix-skyline.jpg')}
+          style={{ height: heroHeight, borderRadius: 24, overflow: 'hidden', justifyContent: 'flex-end' }}
+          imageStyle={{ borderRadius: 24 }}
+          accessibilityLabel="Downtown Phoenix skyline at night"
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Image source={require('@/assets/images/logo.png')} style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: '#fff' }} resizeMode="contain" />
-            <Text style={{ color: '#fff', fontSize: 22 * effectiveScale, fontWeight: '800' }} allowFontScaling={false}>Light Rail Deals</Text>
-          </View>
-          <Text style={{ color: '#fff', fontSize: 16 * effectiveScale, fontWeight: '600', opacity: 0.9 }} allowFontScaling={false}>{greeting}</Text>
-        </LinearGradient>
+          <LinearGradient
+            colors={['rgba(23, 20, 18, 0.05)', 'rgba(23, 20, 18, 0.72)']}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={{ flex: 1, justifyContent: 'flex-end', padding: 20, gap: 8 }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Image source={require('@/assets/images/logo.png')} style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: '#fff' }} resizeMode="contain" />
+              <Text style={{ color: '#fff', fontSize: 20 * effectiveScale, fontWeight: '800' }} allowFontScaling={false}>
+                Light Rail Deals
+              </Text>
+            </View>
+            <Text style={{ color: '#fff', fontSize: 24 * effectiveScale, fontWeight: '800' }} allowFontScaling={false}>
+              {greeting}
+            </Text>
+            <Text style={{ color: 'rgba(255,255,255,0.88)', fontSize: 14 * effectiveScale }} allowFontScaling={false}>
+              {loading ? 'Finding deals along the light rail…' : `${activeDeals} deals at ${vendors.length} businesses along the light rail.`}
+            </Text>
+          </LinearGradient>
+        </ImageBackground>
 
         {loading ? <Spinner /> : null}
         {error ? <Banner tone="error">{error}</Banner> : null}
 
-        {!loading && analytics ? (
-          <GlassCard>
-            <SectionTitle title="Your stats" subtitle="Membership activity at a glance" />
-            <View style={{ flexDirection: width < 360 ? 'column' : 'row', gap: 12 }}>
-              <StatPill label="Total redemptions" value={analytics.totalRedemptions} color={colors.success} />
-              <StatPill label="Active deals" value={activeDeals} color={colors.accent} />
-            </View>
-            {topVendor ? (
-              <Text style={{ color: colors.muted, textAlign: 'center', fontSize: 14 * effectiveScale }} allowFontScaling={false}>
-                Favorite spot: <Text style={{ fontWeight: '700', color: colors.ink }} allowFontScaling={false}>{topVendor.vendorName}</Text> ({topVendor.redemptions})
-              </Text>
-            ) : null}
-          </GlassCard>
-        ) : null}
-
         <Card>
-          <SectionTitle title="Quick actions" subtitle="Jump to the most used features" />
+          <SectionTitle title="Explore" subtitle="Dining, shopping, events, and more" />
           <View style={{ gap: 10 }}>
-            {/* Fixed height keeps all four boxes identical — the longer labels
-                wrap to two lines instead of making taller buttons. */}
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <View style={{ flex: 1 }}>
-                <Link href="/(tabs)/events" asChild>
-                  <AppButton style={{ width: '100%', height: 64 * effectiveScale }}>Events</AppButton>
-                </Link>
+                <QuickAction label="Restaurants & Bars" emoji="🍽" href="/restaurants" />
               </View>
               <View style={{ flex: 1 }}>
-                <Link href={{ pathname: '/(tabs)/browse', params: { type: 'Bars & Restaurants' } }} asChild>
-                  <AppButton style={{ width: '100%', height: 64 * effectiveScale }}>Bars & Restaurants</AppButton>
-                </Link>
+                <QuickAction label="Shopping" emoji="🛍" href="/shopping" />
               </View>
             </View>
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <View style={{ flex: 1 }}>
-                <Link href="/(tabs)/browse" asChild>
-                  <AppButton style={{ width: '100%', height: 64 * effectiveScale }}>Browse Deals</AppButton>
-                </Link>
+                <QuickAction label="Events" emoji="★" href="/events" />
               </View>
               <View style={{ flex: 1 }}>
-                <Link href="/(tabs)/apartments" asChild>
-                  <AppButton style={{ width: '100%', height: 64 * effectiveScale }}>Apartments</AppButton>
-                </Link>
+                <QuickAction label="Hotels" emoji="🏨" href="/hotels" />
               </View>
             </View>
-            <Link href="/(tabs)/hotels" asChild>
-              <AppButton style={{ width: '100%', height: 64 * effectiveScale }}>Hotels</AppButton>
-            </Link>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View style={{ flex: 1 }}>
+                <QuickAction label="Sports" emoji="🏀" href="/sports" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <QuickAction label="Train Times" emoji="⚡" href="/live" />
+              </View>
+            </View>
           </View>
         </Card>
 
         <AdBanner slot={1} />
 
         <Card>
-          <SectionTitle title="More" subtitle="Events, settings, and curated content" />
+          <SectionTitle title="Around the Valley" subtitle="More guides and your account" />
           <View style={{ gap: 10 }}>
-            <Link href="/(tabs)/events" asChild>
-              <AppButton variant="secondary">Local events</AppButton>
+            <Link href="/apartments" asChild>
+              <AppButton variant="secondary">Apartments near the rail</AppButton>
             </Link>
-            <Link href="/(tabs)/discover" asChild>
-              <AppButton variant="secondary">Discover content</AppButton>
+            <Link href="/az-events" asChild>
+              <AppButton variant="secondary">Events Around Arizona</AppButton>
             </Link>
-            <Link href="/(tabs)/profile" asChild>
-              <AppButton variant="secondary">Profile / Settings</AppButton>
+            <Link href="/discover" asChild>
+              <AppButton variant="secondary">Discover</AppButton>
+            </Link>
+            <Link href="/profile" asChild>
+              <AppButton variant="secondary">Profile & settings</AppButton>
             </Link>
           </View>
         </Card>

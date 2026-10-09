@@ -264,6 +264,9 @@ function normalizeVendor(input: Record<string, unknown>): VendorListItem {
     posSystem: (input.posSystem as string | null | undefined) ?? null,
     iconUrl: (input.iconUrl as string | null | undefined) ?? null,
     logoUrl: (input.logoUrl as string | null | undefined) ?? null,
+    phone: (input.phone as string | null | undefined) ?? null,
+    website: (input.website as string | null | undefined) ?? null,
+    membersOnly: Boolean(input.membersOnly),
     discount: {
       type: normalizeDiscountType(discount.type),
       value: toNumber(discount.value),

@@ -5,7 +5,7 @@ import { applyCityRules, computeDiscountAmount, normalizeNumber, toAppliedDiscou
 export interface RedeemInput {
   lookupToken?: string;
   cardId?: string;
-  userId?: string;
+  userId?: string | null;
   vendorId?: string;
   discountCode?: string;
   discountId?: string;

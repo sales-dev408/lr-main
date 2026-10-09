@@ -1,7 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Image, Linking, Platform, RefreshControl, Text, useWindowDimensions, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { Link, useFocusEffect } from 'expo-router';
 import { AppButton, Banner, BrandHeader, GlassCard, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
+import { LinkifiedText } from '@/components/LinkifiedText';
 import { SimpleListPicker } from '@/components/SimpleListPicker';
 import { getEvents } from '@/lib/api';
 // Automatic event notifications disabled - only admin can manually trigger push notifications
@@ -101,6 +102,7 @@ export default function EventsScreen() {
   const [sportFilter, setSportFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('all');
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const gap = 16;
   // Screen padding mirrors Ui.tsx: responsive to width AND scaled by the
@@ -213,69 +215,83 @@ export default function EventsScreen() {
   }, [items, cityFilter, sportFilter, typeFilter, viewMode]);
 
   const hasActiveFilters = !!(cityFilter || sportFilter || typeFilter);
+  const activeFilterCount = (cityFilter ? 1 : 0) + (sportFilter ? 1 : 0) + (typeFilter ? 1 : 0);
 
   const header = useMemo(
     () => (
       <View style={{ gap: 14, paddingBottom: 12 }}>
         <BrandHeader subtitle="Local events & happenings" />
+        <Link href="/az-events" asChild>
+          <AppButton variant="secondary">🌵 Events Around Arizona →</AppButton>
+        </Link>
         <GlassCard>
-          <SectionTitle title="Filter events" subtitle="Narrow down by city, sport, or event type" />
-          <View style={{ gap: 10 }}>
-            {/* 2x2 grid: a single wrapping row squeezed the buttons at larger
-                text scales and covered the Month label. */}
-            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-              {(['all', 'day', 'week', 'month'] as ViewMode[]).map((mode) => (
-                <AppButton
-                  key={mode}
-                  variant={viewMode === mode ? 'primary' : 'secondary'}
-                  onPress={() => setViewMode(mode)}
-                  style={{ flexBasis: '45%', flexGrow: 1 }}
-                >
-                  {mode.charAt(0).toUpperCase() + mode.slice(1)}
-                </AppButton>
-              ))}
-            </View>
-            <SimpleListPicker
-              entries={cityOptions}
-              selected={cityFilter}
-              onSelect={setCityFilter}
-              label="City"
-              itemNoun="event"
-              allLabel="All cities"
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <SectionTitle
+              title="Filter events"
+              subtitle={activeFilterCount > 0 ? `${activeFilterCount} filter${activeFilterCount === 1 ? '' : 's'} active` : 'Narrow down the list'}
             />
-            <SimpleListPicker
-              entries={sportOptions}
-              selected={sportFilter}
-              onSelect={setSportFilter}
-              label="Sport"
-              itemNoun="event"
-              allLabel="All sports"
-            />
-            <SimpleListPicker
-              entries={typeOptions}
-              selected={typeFilter}
-              onSelect={setTypeFilter}
-              label="Event type"
-              itemNoun="event"
-              allLabel="All event types"
-            />
-            {hasActiveFilters ? (
-              <AppButton
-                variant="ghost"
-                onPress={() => {
-                  setCityFilter('');
-                  setSportFilter('');
-                  setTypeFilter('');
-                }}
-              >
-                Clear filters
-              </AppButton>
-            ) : null}
+            <AppButton variant={filtersOpen ? 'primary' : 'secondary'} onPress={() => setFiltersOpen((v) => !v)}>
+              {filtersOpen ? 'Done' : 'Filters'}
+            </AppButton>
           </View>
+          {/* 2x2 grid: a single wrapping row squeezed the buttons at larger
+              text scales and covered the Month label. */}
+          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+            {(['all', 'day', 'week', 'month'] as ViewMode[]).map((mode) => (
+              <AppButton
+                key={mode}
+                variant={viewMode === mode ? 'primary' : 'secondary'}
+                onPress={() => setViewMode(mode)}
+                style={{ flexBasis: '45%', flexGrow: 1 }}
+              >
+                {mode.charAt(0).toUpperCase() + mode.slice(1)}
+              </AppButton>
+            ))}
+          </View>
+          {filtersOpen ? (
+            <View style={{ gap: 10 }}>
+              <SimpleListPicker
+                entries={cityOptions}
+                selected={cityFilter}
+                onSelect={setCityFilter}
+                label="City"
+                itemNoun="event"
+                allLabel="All cities"
+              />
+              <SimpleListPicker
+                entries={sportOptions}
+                selected={sportFilter}
+                onSelect={setSportFilter}
+                label="Sport"
+                itemNoun="event"
+                allLabel="All sports"
+              />
+              <SimpleListPicker
+                entries={typeOptions}
+                selected={typeFilter}
+                onSelect={setTypeFilter}
+                label="Event type"
+                itemNoun="event"
+                allLabel="All event types"
+              />
+              {hasActiveFilters ? (
+                <AppButton
+                  variant="ghost"
+                  onPress={() => {
+                    setCityFilter('');
+                    setSportFilter('');
+                    setTypeFilter('');
+                  }}
+                >
+                  Clear filters
+                </AppButton>
+              ) : null}
+            </View>
+          ) : null}
         </GlassCard>
       </View>
     ),
-    [cityOptions, sportOptions, typeOptions, cityFilter, sportFilter, typeFilter, hasActiveFilters, viewMode],
+    [cityOptions, sportOptions, typeOptions, cityFilter, sportFilter, typeFilter, hasActiveFilters, activeFilterCount, viewMode, filtersOpen],
   );
 
   const renderItem = useCallback(
@@ -306,12 +322,12 @@ export default function EventsScreen() {
                 {item.sport ? <Pill tone="neutral">{item.sport}</Pill> : null}
               </View>
               {item.description ? (
-                <Text
+                <LinkifiedText
+                  text={item.description}
                   style={{ color: colors.muted, lineHeight: 20 * effectiveScale, fontSize: 14 * effectiveScale }}
+                  linkStyle={{ fontWeight: '600' }}
                   allowFontScaling={false}
-                >
-                  {item.description}
-                </Text>
+                />
               ) : null}
               {item.phone ? (
                 <Text

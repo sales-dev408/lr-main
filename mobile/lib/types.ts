@@ -151,6 +151,9 @@ export interface VendorListItem {
   posSystem: string | null;
   iconUrl: string | null;
   logoUrl: string | null;
+  phone: string | null;
+  website: string | null;
+  membersOnly: boolean;
   discount: { type: DiscountType; value: number; label: string; description?: string | null };
   discountCode: string | null;
   discountTerms: string;

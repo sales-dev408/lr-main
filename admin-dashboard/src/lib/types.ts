@@ -85,6 +85,7 @@ export interface VendorRecord {
   logo_url: string | null;
   email: string | null;
   phone: string | null;
+  website?: string | null;
   discount_code?: string | null;
   discount_type?: 'fixed' | 'percent' | 'bogo' | null;
   discount_value?: number | string | null;
@@ -92,6 +93,7 @@ export interface VendorRecord {
   discount_terms?: string | null;
   discount_starts_at?: string | null;
   discount_ends_at?: string | null;
+  discount_members_only?: boolean | null;
   boosted?: boolean | null;
   status: VendorStatus;
   created_at?: string;

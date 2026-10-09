@@ -302,53 +302,6 @@ export function AppButton({
   );
 }
 
-/**
- * Small circular button with a down arrow, shown once a vendor/listing is
- * selected so the user can jump straight to its details section below.
- */
-// Rendered as a sibling of the ScrollView (not inside it) so it floats at a
-// fixed spot in the viewport and stays tappable while the user scrolls.
-export function JumpToDetailsButton({ onPress, accessibilityLabel = 'Jump to details' }: { onPress: () => void; accessibilityLabel?: string }) {
-  const colors = useThemeColors();
-  const { effectiveScale } = useDynamicType();
-
-  return (
-    <View
-      pointerEvents="box-none"
-      style={{
-        position: 'absolute',
-        bottom: 12,
-        right: 4,
-        zIndex: 20,
-      }}
-    >
-      <Pressable
-        onPress={onPress}
-        accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel}
-        style={({ pressed }) => [
-          {
-            width: 44 * effectiveScale,
-            height: 44 * effectiveScale,
-            borderRadius: 22 * effectiveScale,
-            backgroundColor: colors.brand,
-            alignItems: 'center',
-            justifyContent: 'center',
-            ...(Platform.OS === 'web'
-              ? { boxShadow: `0 6px 16px ${colors.ink}33` }
-              : { shadowColor: colors.ink, shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 6 }),
-          },
-          pressed && { opacity: 0.85, transform: [{ scale: 0.96 }] },
-        ]}
-      >
-        <Text style={{ color: '#fff', fontSize: 20 * effectiveScale, fontWeight: '800' }} allowFontScaling={false}>
-          ↓
-        </Text>
-      </Pressable>
-    </View>
-  );
-}
-
 export function FieldInput(props: TextInputProps) {
   const styles = useUiStyles();
   const placeholder = props.placeholder;

@@ -65,6 +65,7 @@ const vendorSchema = z.object({
   posSystem: z.string().optional(),
   email: z.string().email().optional(),
   phone: z.string().optional(),
+  website: z.string().optional().nullable(),
   password: z.string().min(8).optional(),
   status: z.enum(['pending', 'approved', 'rejected', 'suspended']).optional(),
   discountType: z.enum(['fixed', 'percent', 'bogo']).optional(),
@@ -72,6 +73,7 @@ const vendorSchema = z.object({
   discountStartsAt: z.string().datetime().optional().nullable(),
   discountEndsAt: z.string().datetime().optional().nullable(),
   boosted: z.boolean().optional(),
+  membersOnly: z.boolean().optional(),
   discountTerms: z.string().optional(),
   discountDescription: z.string().optional(),
   latitude: z.number().optional(),
@@ -141,10 +143,10 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
     const rows = await dbQuery(
       `
         SELECT v.*, d.type AS discount_type, d.value AS discount_value, d.discount_code, d.description AS discount_description,
-               d.starts_at AS discount_starts_at, d.ends_at AS discount_ends_at, d.boosted AS discount_boosted
+               d.starts_at AS discount_starts_at, d.ends_at AS discount_ends_at, d.boosted AS discount_boosted, d.members_only AS discount_members_only
         FROM vendors v
         LEFT JOIN LATERAL (
-          SELECT d.type, d.value, d.discount_code, d.description, d.starts_at, d.ends_at, d.boosted
+          SELECT d.type, d.value, d.discount_code, d.description, d.starts_at, d.ends_at, d.boosted, d.members_only
           FROM discounts d
           JOIN cards c ON c.id = d.card_id AND c.is_membership = true
           WHERE d.vendor_id = v.id
@@ -166,10 +168,10 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
     const rows = await dbQuery(
       `
         SELECT v.*, d.type AS discount_type, d.value AS discount_value, d.discount_code, d.description AS discount_description,
-               d.starts_at AS discount_starts_at, d.ends_at AS discount_ends_at, d.boosted AS discount_boosted
+               d.starts_at AS discount_starts_at, d.ends_at AS discount_ends_at, d.boosted AS discount_boosted, d.members_only AS discount_members_only
         FROM vendors v
         LEFT JOIN LATERAL (
-          SELECT d.type, d.value, d.discount_code, d.description, d.starts_at, d.ends_at, d.boosted
+          SELECT d.type, d.value, d.discount_code, d.description, d.starts_at, d.ends_at, d.boosted, d.members_only
           FROM discounts d
           JOIN cards c ON c.id = d.card_id AND c.is_membership = true
           WHERE d.vendor_id = v.id
@@ -327,14 +329,15 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
             icon_url = COALESCE($13, icon_url),
             logo_url = COALESCE($14, logo_url),
             discount_terms = COALESCE($15, discount_terms),
+            website = COALESCE($16, website),
             updated_at = now()
         WHERE id = $1
         RETURNING *
       `,
-      [id, body.name ?? null, body.ownerName ?? null, address ?? null, body.city ?? null, body.station ?? null, body.category ?? null, body.email ?? null, body.phone ?? null, body.status ?? null, body.latitude ?? null, body.longitude ?? null, body.iconDataUrl ?? null, body.logoDataUrl ?? null, body.discountTerms ?? null],
+      [id, body.name ?? null, body.ownerName ?? null, address ?? null, body.city ?? null, body.station ?? null, body.category ?? null, body.email ?? null, body.phone ?? null, body.status ?? null, body.latitude ?? null, body.longitude ?? null, body.iconDataUrl ?? null, body.logoDataUrl ?? null, body.discountTerms ?? null, body.website ?? null],
     );
 
-    if (body.discountType !== undefined || body.discountValue !== undefined || body.discountStartsAt !== undefined || body.discountEndsAt !== undefined || body.boosted !== undefined || body.discountDescription !== undefined) {
+    if (body.discountType !== undefined || body.discountValue !== undefined || body.discountStartsAt !== undefined || body.discountEndsAt !== undefined || body.boosted !== undefined || body.membersOnly !== undefined || body.discountDescription !== undefined) {
       const discountDescription = body.discountDescription?.trim();
       if (body.discountType !== undefined || body.discountValue !== undefined) {
         // Upsert so vendors without a membership discount row get one created;
@@ -350,8 +353,8 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
           });
           await dbQuery(
             `
-              INSERT INTO discounts (card_id, vendor_id, type, value, discount_code, description, active, starts_at, ends_at, boosted)
-              VALUES ($2, $1, COALESCE($3, 'percent'), COALESCE($4, 0), $5, $6, true, $7, $8, $9)
+              INSERT INTO discounts (card_id, vendor_id, type, value, discount_code, description, active, starts_at, ends_at, boosted, members_only)
+              VALUES ($2, $1, COALESCE($3, 'percent'), COALESCE($4, 0), $5, $6, true, $7, $8, $9, COALESCE($10, false))
               ON CONFLICT (card_id, vendor_id) DO UPDATE SET
                 type = COALESCE($3, discounts.type),
                 value = COALESCE($4, discounts.value),
@@ -360,10 +363,11 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
                 starts_at = COALESCE($7, discounts.starts_at),
                 ends_at = COALESCE($8, discounts.ends_at),
                 boosted = COALESCE($9, discounts.boosted),
+                members_only = COALESCE($10, discounts.members_only),
                 active = true,
                 updated_at = now()
             `,
-            [id, membershipId, body.discountType ?? null, body.discountValue ?? null, discountCode, discountDescription ?? null, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? null],
+            [id, membershipId, body.discountType ?? null, body.discountValue ?? null, discountCode, discountDescription ?? null, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? null, body.membersOnly ?? null],
           );
         }
       } else {
@@ -376,10 +380,11 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
                 starts_at = COALESCE($5, starts_at),
                 ends_at = COALESCE($6, ends_at),
                 boosted = COALESCE($7, boosted),
+                members_only = COALESCE($8, members_only),
                 updated_at = now()
             WHERE vendor_id = $1 AND card_id = (SELECT id FROM cards WHERE is_membership = true LIMIT 1)
           `,
-          [id, body.discountType ?? null, body.discountValue ?? null, discountDescription ?? null, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? null],
+          [id, body.discountType ?? null, body.discountValue ?? null, discountDescription ?? null, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? null, body.membersOnly ?? null],
         );
       }
     }

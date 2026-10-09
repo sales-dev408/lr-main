@@ -1,13 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Image, Platform, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, ImageBackground, Platform, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppColorScheme } from '@/lib/colorScheme';
-import { useAppTheme } from '@/lib/appTheme';
 import { useThemeColors } from '@/lib/useThemeColors';
 
-export function LoadingScreen({ message = 'Loading your deals…' }: { message?: string }) {
+export function LoadingScreen({ message = 'Loading your guide…' }: { message?: string }) {
   const { scheme } = useAppColorScheme();
-  const { theme } = useAppTheme();
   const colors = useThemeColors();
 
   const isDark = scheme === 'dark';
@@ -88,28 +86,35 @@ export function LoadingScreen({ message = 'Loading your deals…' }: { message?:
   };
 
   return (
-    <LinearGradient colors={theme.primaryGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill}>
-      <View style={styles.content}>
-        <View style={styles.stage}>
-          {renderRipple(ripple1, 0)}
-          {renderRipple(ripple2, 1)}
-          {renderRipple(ripple3, 2)}
-          <Animated.View
-            style={[
-              styles.logoPanel,
-              { backgroundColor: logoBg, opacity: logoOpacity, transform: [{ scale: logoScale }] },
-              logoShadow,
-            ]}
-          >
-            <Image source={require('@/assets/images/logo.png')} style={styles.logo} resizeMode="contain" />
-          </Animated.View>
-        </View>
+    // Downtown Phoenix skyline splash — the logo animation is unchanged.
+    <ImageBackground
+      source={require('@/assets/images/phoenix-skyline.jpg')}
+      style={StyleSheet.absoluteFill}
+      accessibilityLabel="Downtown Phoenix skyline at night"
+    >
+      <LinearGradient colors={['rgba(23,20,18,0.35)', 'rgba(23,20,18,0.78)']} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={StyleSheet.absoluteFill}>
+        <View style={styles.content}>
+          <View style={styles.stage}>
+            {renderRipple(ripple1, 0)}
+            {renderRipple(ripple2, 1)}
+            {renderRipple(ripple3, 2)}
+            <Animated.View
+              style={[
+                styles.logoPanel,
+                { backgroundColor: logoBg, opacity: logoOpacity, transform: [{ scale: logoScale }] },
+                logoShadow,
+              ]}
+            >
+              <Image source={require('@/assets/images/logo.png')} style={styles.logo} resizeMode="contain" />
+            </Animated.View>
+          </View>
 
-        <Animated.Text style={[styles.title, { opacity: logoOpacity }]}>Light Rail Deals</Animated.Text>
-        <Animated.Text style={[styles.subtitle, { opacity: logoOpacity }]}>{message}</Animated.Text>
-        <ActivityIndicator color="rgba(255,255,255,0.9)" style={styles.spinner} />
-      </View>
-    </LinearGradient>
+          <Animated.Text style={[styles.title, { opacity: logoOpacity }]}>Light Rail Deals</Animated.Text>
+          <Animated.Text style={[styles.subtitle, { opacity: logoOpacity }]}>{message}</Animated.Text>
+          <ActivityIndicator color="rgba(255,255,255,0.9)" style={styles.spinner} />
+        </View>
+      </LinearGradient>
+    </ImageBackground>
   );
 }
 

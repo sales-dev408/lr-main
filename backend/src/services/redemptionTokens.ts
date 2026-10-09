@@ -20,7 +20,7 @@ export interface RedemptionTokenPayload {
   expiresAt: string;
 }
 
-export async function createRedemptionToken(client: PoolClient, userId: string, vendorId: string): Promise<RedemptionTokenPayload> {
+export async function createRedemptionToken(client: PoolClient, userId: string | null, vendorId: string): Promise<RedemptionTokenPayload> {
   const membership = await client.query<{ id: string; name: string }>(
     'SELECT id, name FROM cards WHERE is_membership = true AND status = $1 LIMIT 1',
     ['active'],
@@ -35,8 +35,9 @@ export async function createRedemptionToken(client: PoolClient, userId: string, 
     type: 'fixed' | 'percent' | 'bogo';
     value: string;
     description: string | null;
+    members_only: boolean;
   }>(
-    `SELECT d.id, d.type, d.value, d.description
+    `SELECT d.id, d.type, d.value, d.description, d.members_only
      FROM discounts d
      JOIN cards c ON c.id = d.card_id AND c.is_membership = true
      WHERE d.vendor_id = $1 AND d.card_id = $2 AND d.active = true
@@ -48,6 +49,9 @@ export async function createRedemptionToken(client: PoolClient, userId: string, 
   const discount = discountRows.rows[0];
   if (!discount) {
     throw new Error('No active discount found for this vendor');
+  }
+  if (discount.members_only && !userId) {
+    throw new Error('Sign in to redeem this members-only deal');
   }
 
   const token = generateOpaqueToken(18);
@@ -93,7 +97,7 @@ export async function createRedemptionToken(client: PoolClient, userId: string, 
 
 interface TokenRow {
   token: string;
-  user_id: string;
+  user_id: string | null;
   card_id: string;
   vendor_id: string;
   discount_id: string;
@@ -183,23 +187,26 @@ export async function redeemByToken(token: string, ip?: string | null): Promise<
       return result;
     }
 
-    const memberRows = await client.query<{ full_name: string; serial_number: string | null }>(
-      `SELECT u.full_name, p.serial_number
-       FROM users u
-       LEFT JOIN passes p ON p.user_id = u.id AND p.card_id = $2
-       WHERE u.id = $1`,
-      [row.user_id, row.card_id],
-    );
+    const memberRows = row.user_id
+      ? await client.query<{ full_name: string; serial_number: string | null }>(
+          `SELECT u.full_name, p.serial_number
+           FROM users u
+           LEFT JOIN passes p ON p.user_id = u.id AND p.card_id = $2
+           WHERE u.id = $1`,
+          [row.user_id, row.card_id],
+        )
+      : { rows: [] };
     const member = memberRows.rows[0];
-    result.memberName = member?.full_name ?? 'Member';
-    result.memberId = member?.serial_number ?? row.user_id;
+    result.memberName = member?.full_name ?? (row.user_id ? 'Member' : 'Guest');
+    const memberId = member?.serial_number ?? row.user_id;
+    if (memberId) result.memberId = memberId;
 
     await markTokenUsed(client, token, result.redemptionId!);
     return result;
   });
 }
 
-export async function affirmRedemptionToken(token: string, userId: string, affirmationName: string, ip?: string | null): Promise<RedeemTokenResult> {
+export async function affirmRedemptionToken(token: string, userId: string | null, affirmationName: string, ip?: string | null): Promise<RedeemTokenResult> {
   if (!affirmationName.trim()) {
     return { ok: false, error: 'Please sign your name to confirm you used the discount' };
   }
@@ -209,7 +216,9 @@ export async function affirmRedemptionToken(token: string, userId: string, affir
     if (!row) {
       return { ok: false, error: 'Invalid or expired discount' };
     }
-    if (row.user_id !== userId) {
+    // Account-bound tokens can only be affirmed by their owner. Anonymous
+    // tokens (NULL user_id) are affirmed by whoever holds the opaque token.
+    if (row.user_id && row.user_id !== userId) {
       return { ok: false, error: 'This discount does not belong to you' };
     }
     if (row.status !== 'pending' || isExpired(row.expires_at)) {
@@ -217,7 +226,7 @@ export async function affirmRedemptionToken(token: string, userId: string, affir
       return { ok: false, error: 'This discount has already been used or expired' };
     }
 
-    const result = await redeemTokenRow(client, row, 'customer', userId, ip);
+    const result = await redeemTokenRow(client, row, 'customer', row.user_id ?? userId ?? 'anonymous', ip);
     if (!result.ok) {
       await revertToken(client, token);
       return result;

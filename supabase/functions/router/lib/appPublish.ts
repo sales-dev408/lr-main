@@ -77,6 +77,34 @@ export async function getAppVersion(): Promise<{ version: number; publishedAt: s
   return { version: rows[0]?.version ?? 0, publishedAt: rows[0]?.published_at ?? null };
 }
 
+// Live fingerprint of the public data set. The app polls this version and
+// re-downloads /api/app whenever it changes — which removes the old
+// requirement that an admin click "Publish" before edits reach devices.
+// Folds row counts and last-modified epochs across every table that feeds the
+// snapshot into a single monotonically-changing number.
+async function tableFingerprint(table: string, extraWhere = ''): Promise<number> {
+  try {
+    const rows = await dbQuery<{ n: string | number }>(
+      `SELECT (COUNT(*) + COALESCE(EXTRACT(EPOCH FROM MAX(updated_at))::bigint, 0))::bigint AS n FROM ${table} ${extraWhere}`,
+    );
+    return Number(rows[0]?.n ?? 0);
+  } catch {
+    return 0;
+  }
+}
+
+export async function getLiveAppVersion(): Promise<{ version: number; publishedAt: string | null }> {
+  const parts = await Promise.all([
+    tableFingerprint('vendors', "WHERE status = 'approved'"),
+    tableFingerprint('apartments_hotels', 'WHERE near_rail = true'),
+    tableFingerprint('content_blocks', 'WHERE published = true'),
+    tableFingerprint('admin_events'),
+    tableFingerprint('stops'),
+    tableFingerprint('app_settings'),
+  ]);
+  return { version: parts.reduce((sum, n) => sum + n, 0), publishedAt: new Date().toISOString() };
+}
+
 export interface AppStatus {
   currentVersion: number;
   publishedAt: string | null;
@@ -180,7 +208,9 @@ function toPublicStop(row: StopRecord): PublicStop {
   };
 }
 
-export async function publishApp(): Promise<{ version: number; publishedAt: string }> {
+// Assembles the full public app state directly from the live tables. Served
+// by GET /api/app so admin edits reach devices immediately — no publish step.
+export async function buildLiveAppState(): Promise<AppState> {
   const [content, vendors, apartments, events, theme, stops] = await Promise.all([
     listContentBlocks({ publishedOnly: true }),
     getVendorDirectory(),
@@ -193,10 +223,9 @@ export async function publishApp(): Promise<{ version: number; publishedAt: stri
     listStops().then((rows) => rows.map(toPublicStop)),
   ]);
 
-  const publishedAt = new Date().toISOString();
-  const payload: AppState = {
+  return {
     version: 0,
-    publishedAt,
+    publishedAt: new Date().toISOString(),
     content,
     vendors,
     apartments,
@@ -204,6 +233,11 @@ export async function publishApp(): Promise<{ version: number; publishedAt: stri
     theme,
     stops,
   };
+}
+
+export async function publishApp(): Promise<{ version: number; publishedAt: string }> {
+  const publishedAt = new Date().toISOString();
+  const payload = { ...(await buildLiveAppState()), publishedAt };
 
   const result = await dbQuery<{ version: number; published_at: string }>(
     `INSERT INTO app_published (version, published_at, payload)

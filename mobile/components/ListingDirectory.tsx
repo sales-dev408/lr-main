@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, Platform, Pressable, RefreshControl, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { Linking, Modal, Platform, Pressable, RefreshControl, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { AppButton, Banner, BrandHeader, Card, FieldInput, JumpToDetailsButton, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
+import { AppButton, Banner, BrandHeader, Card, FieldInput, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { clearVersionCache, listApartments } from '@/lib/api';
 import { useThemeColors } from '@/lib/useThemeColors';
 import { useDynamicType } from '@/lib/dynamicType';
@@ -9,6 +9,17 @@ import MapView, { Marker, type Region } from '@/components/MapView';
 import { StopPicker } from '@/components/StopPicker';
 import { compareStops, getStops } from '@/lib/stops';
 import type { ApartmentRecord } from '@/lib/types';
+
+function normalizeWebsite(url: string): string {
+  const trimmed = url.trim();
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
+function formatPhoneForDisplay(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  return phone;
+}
 
 function initialRegion(apartments: ApartmentRecord[]): Region {
   const withCoords = apartments.filter((a) => a.latitude != null && a.longitude != null);
@@ -34,8 +45,6 @@ export function ListingDirectory({ kind }: { kind: 'apartment' | 'hotel' }) {
   const scrollRef = useRef<ScrollView>(null);
   const stationOffsets = useRef<Map<string, number>>(new Map());
   const jumpIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const detailsOffsetRef = useRef<number | null>(null);
-  const detailsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const nounPlural = kind === 'hotel' ? 'hotels' : 'apartments';
 
@@ -144,29 +153,7 @@ export function ListingDirectory({ kind }: { kind: 'apartment' | 'hotel' }) {
       if (jumpIntervalRef.current) {
         clearInterval(jumpIntervalRef.current);
       }
-      if (detailsIntervalRef.current) {
-        clearInterval(detailsIntervalRef.current);
-      }
     };
-  }, []);
-
-  const scrollToDetails = useCallback(() => {
-    if (detailsIntervalRef.current) {
-      clearInterval(detailsIntervalRef.current);
-    }
-    let attempts = 0;
-    const id = setInterval(() => {
-      attempts++;
-      if (detailsOffsetRef.current != null) {
-        scrollRef.current?.scrollTo({ y: Math.max(detailsOffsetRef.current - 8, 0), animated: true });
-        clearInterval(id);
-        detailsIntervalRef.current = null;
-      } else if (attempts >= 20) {
-        clearInterval(id);
-        detailsIntervalRef.current = null;
-      }
-    }, 75);
-    detailsIntervalRef.current = id;
   }, []);
 
   const mapped = useMemo(() => filtered.filter((a) => a.latitude != null && a.longitude != null), [filtered]);
@@ -287,59 +274,118 @@ export function ListingDirectory({ kind }: { kind: 'apartment' | 'hotel' }) {
           </View>
         ))}
 
-        {selected ? (
-          <View onLayout={(event) => { detailsOffsetRef.current = event.nativeEvent.layout.y; }}>
-            <Card>
-            <SectionTitle title={selected.name} subtitle={selected.station ?? selected.section ?? undefined} />
-            {selected.distanceMiles != null ? (
-              selected.distanceMiles > 0.5 ? (
-                <View style={{ alignSelf: 'flex-start' }}>
-                  <Pill tone="warning">{`${selected.distanceMiles.toFixed(2)} miles from the light rail`}</Pill>
-                </View>
-              ) : (
-                <Text style={{ color: colors.muted, fontSize: 14 * effectiveScale }} allowFontScaling={false}>
-                  {selected.distanceMiles.toFixed(2)} miles from the light rail
-                </Text>
-              )
-            ) : null}
-            {selected.address ? (
-              <Text style={{ color: colors.muted, fontSize: 14 * effectiveScale }} allowFontScaling={false}>
-                {[selected.address, selected.city].filter(Boolean).join(', ')}
-              </Text>
-            ) : null}
-            {selected.phone ? (
-              <Text style={{ color: colors.muted, fontSize: 14 * effectiveScale }} allowFontScaling={false}>
-                {selected.phone}
-              </Text>
-            ) : null}
-            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-              {selected.address ? (
-                <AppButton
-                  variant="secondary"
-                  onPress={() =>
-                    void Linking.openURL(
-                      Platform.select({
-                        ios: `maps:?q=${encodeURIComponent(selected.address!)}`,
-                        android: `geo:0,0?q=${encodeURIComponent(selected.address!)}`,
-                        default: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selected.address!)}`,
-                      }) ?? '',
-                    )
-                  }
-                >
-                  Get directions
-                </AppButton>
-              ) : null}
-              {selected.website ? (
-                <AppButton variant="secondary" onPress={() => void Linking.openURL(selected.website!)}>
-                  Visit website
-                </AppButton>
-              ) : null}
-            </View>
-            </Card>
-          </View>
-        ) : null}
       </ScrollView>
-      {selected ? <JumpToDetailsButton onPress={scrollToDetails} /> : null}
+
+      {/* Tappable listing detail modal — replaces the old bottom-of-list
+          details card so users don't have to hunt for it. */}
+      <Modal
+        visible={selected != null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedId(null)}
+      >
+        <Pressable
+          onPress={() => setSelectedId(null)}
+          accessibilityLabel="Close details"
+          style={{ flex: 1, backgroundColor: '#0b1a2c99', justifyContent: 'flex-end' }}
+        >
+          {selected ? (
+            <Pressable onPress={() => undefined} style={{ borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' }}>
+              <View style={{ backgroundColor: colors.panel, padding: 20, paddingBottom: 32, gap: 10, borderTopWidth: 1, borderColor: colors.border }}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: colors.ink, fontSize: 20 * effectiveScale, fontWeight: '800' }} allowFontScaling={false}>
+                      {selected.name}
+                    </Text>
+                    {selected.station || selected.section ? (
+                      <Text style={{ color: colors.muted, fontSize: 14 * effectiveScale, marginTop: 2 }} allowFontScaling={false}>
+                        {selected.station ?? selected.section}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Pressable
+                    onPress={() => setSelectedId(null)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Close"
+                    hitSlop={10}
+                    style={{ padding: 4 }}
+                  >
+                    <Text style={{ color: colors.muted, fontSize: 22 * effectiveScale, fontWeight: '600' }} allowFontScaling={false}>✕</Text>
+                  </Pressable>
+                </View>
+
+                {selected.distanceMiles != null ? (
+                  selected.distanceMiles > 0.5 ? (
+                    <View style={{ alignSelf: 'flex-start' }}>
+                      <Pill tone="warning">{`${selected.distanceMiles.toFixed(2)} miles from the light rail`}</Pill>
+                    </View>
+                  ) : (
+                    <Text style={{ color: colors.muted, fontSize: 14 * effectiveScale }} allowFontScaling={false}>
+                      {selected.distanceMiles.toFixed(2)} miles from the light rail
+                    </Text>
+                  )
+                ) : null}
+                {selected.address ? (
+                  <Text style={{ color: colors.muted, fontSize: 14 * effectiveScale }} allowFontScaling={false}>
+                    {[selected.address, selected.city].filter(Boolean).join(', ')}
+                  </Text>
+                ) : null}
+                {selected.phone ? (
+                  <Text
+                    onPress={() => void Linking.openURL(`tel:${selected.phone!.replace(/[^\d+]/g, '')}`)}
+                    accessibilityRole="link"
+                    accessibilityLabel={`Call ${selected.name}`}
+                    accessibilityHint="Opens your phone app"
+                    style={{ color: colors.brand, fontSize: 14 * effectiveScale, fontWeight: '600', textDecorationLine: 'underline' }}
+                    allowFontScaling={false}
+                  >
+                    📞 {formatPhoneForDisplay(selected.phone)}
+                  </Text>
+                ) : null}
+                {selected.website ? (
+                  <Text
+                    onPress={() => void Linking.openURL(normalizeWebsite(selected.website!))}
+                    accessibilityRole="link"
+                    accessibilityLabel={`Open ${selected.name} website`}
+                    style={{ color: colors.brand, fontSize: 14 * effectiveScale, fontWeight: '600', textDecorationLine: 'underline' }}
+                    allowFontScaling={false}
+                  >
+                    🌐 {selected.website.replace(/^https?:\/\//i, '')}
+                  </Text>
+                ) : null}
+                <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+                  {selected.address ? (
+                    <AppButton
+                      variant="secondary"
+                      onPress={() =>
+                        void Linking.openURL(
+                          Platform.select({
+                            ios: `maps:?q=${encodeURIComponent([selected.address, selected.city].filter(Boolean).join(', '))}`,
+                            android: `geo:0,0?q=${encodeURIComponent([selected.address, selected.city].filter(Boolean).join(', '))}`,
+                            default: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([selected.address, selected.city].filter(Boolean).join(', '))}`,
+                          }) ?? '',
+                        )
+                      }
+                    >
+                      Get directions
+                    </AppButton>
+                  ) : null}
+                  {selected.website ? (
+                    <AppButton variant="secondary" onPress={() => void Linking.openURL(normalizeWebsite(selected.website!))}>
+                      Visit website
+                    </AppButton>
+                  ) : null}
+                  {selected.phone ? (
+                    <AppButton variant="secondary" onPress={() => void Linking.openURL(`tel:${selected.phone!.replace(/[^\d+]/g, '')}`)}>
+                      Call
+                    </AppButton>
+                  ) : null}
+                </View>
+              </View>
+            </Pressable>
+          ) : null}
+        </Pressable>
+      </Modal>
     </Screen>
   );
 }
