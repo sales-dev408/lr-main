@@ -2,7 +2,7 @@
   "expo": {
     "name": "Light Rail Deals",
     "slug": "mobile",
-    "version": "1.0.3",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/appstore.png",
     "scheme": "lrcard",

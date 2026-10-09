@@ -1,11 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Image, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, Platform, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useAppColorScheme } from '@/lib/colorScheme';
 import { useThemeColors } from '@/lib/useThemeColors';
+
+// havasu-falls.jpg is 1080x1626. When the screen is proportionally taller than
+// the photo, `contain` leaves bars top and bottom; on wide screens the bars
+// move to the sides.
+const SPLASH_IMG_ASPECT = 1080 / 1626;
 
 export function LoadingScreen({ message = 'Loading your guide…', ready = false, onContinue }: { message?: string; ready?: boolean; onContinue?: () => void }) {
   const { scheme } = useAppColorScheme();
   const colors = useThemeColors();
+  const { width: winW, height: winH } = useWindowDimensions();
+  const horizontalBars = winW / winH < SPLASH_IMG_ASPECT;
 
   const isDark = scheme === 'dark';
   const logoBg = isDark ? colors.ink : colors.panel;
@@ -42,7 +49,8 @@ export function LoadingScreen({ message = 'Loading your guide…', ready = false
       Animated.sequence([
         Animated.timing(logoScale, { toValue: 1.08, duration: 900, useNativeDriver }),
         Animated.timing(logoScale, { toValue: 1, duration: 900, useNativeDriver }),
-      ])
+      ]),
+      { iterations: 2 }
     );
 
     const ripple = (value: Animated.Value, delay: number) =>
@@ -85,10 +93,10 @@ export function LoadingScreen({ message = 'Loading your guide…', ready = false
   };
 
   return (
-    // Havasu Falls splash. The sharp image uses `contain` so the whole photo is
-    // always visible with no cropping and no overlay filter; a blurred copy of
-    // the same photo fills the letterbox space behind it. Once `ready`, any tap
-    // calls onContinue.
+    // Havasu Falls splash. The image uses `contain` so the whole photo is
+    // always visible with no cropping and no overlay filter; flat panels
+    // sampled from the photo's own top and bottom edges fill the space
+    // above and below it. Once `ready`, any tap calls onContinue.
     <Pressable
       style={StyleSheet.absoluteFill}
       onPress={ready ? onContinue : undefined}
@@ -97,13 +105,17 @@ export function LoadingScreen({ message = 'Loading your guide…', ready = false
       accessibilityLabel={ready ? 'Tap anywhere to open the app' : 'Loading'}
     >
       <View style={StyleSheet.absoluteFill}>
-        <Image
-          source={require('@/assets/images/havasu-falls.jpg')}
-          style={StyleSheet.absoluteFill}
-          resizeMode="cover"
-          blurRadius={50}
-          accessibilityElementsHidden
-        />
+        {horizontalBars ? (
+          <>
+            <View style={styles.fillTop} />
+            <View style={styles.fillBottom} />
+          </>
+        ) : (
+          <>
+            <View style={styles.fillLeft} />
+            <View style={styles.fillRight} />
+          </>
+        )}
         <Image
           source={require('@/assets/images/havasu-falls.jpg')}
           style={StyleSheet.absoluteFill}
@@ -136,6 +148,38 @@ export function LoadingScreen({ message = 'Loading your guide…', ready = false
 }
 
 const styles = StyleSheet.create({
+  fillTop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '50%',
+    backgroundColor: '#a2795f',
+  },
+  fillBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '50%',
+    backgroundColor: '#5e655d',
+  },
+  fillLeft: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: '50%',
+    backgroundColor: '#8f7661',
+  },
+  fillRight: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    right: 0,
+    width: '50%',
+    backgroundColor: '#a86350',
+  },
   content: {
     flex: 1,
     alignItems: 'center',
