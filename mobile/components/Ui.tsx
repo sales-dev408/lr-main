@@ -240,10 +240,9 @@ export function SectionTitle({
   right?: ReactNode;
 }) {
   const styles = useUiStyles();
-  const colors = useThemeColors();
   const content = (
     <View style={styles.sectionHeader} accessibilityRole="header" accessibilityLabel={title}>
-      <View style={{ flex: 1, borderLeftWidth: 3, borderLeftColor: colors.accent, paddingLeft: 8 }}>
+      <View style={{ flex: 1 }}>
         <Text style={styles.sectionTitle} allowFontScaling={false}>{title}</Text>
         {subtitle ? <Text style={styles.sectionSubtitle} allowFontScaling={false}>{subtitle}</Text> : null}
       </View>

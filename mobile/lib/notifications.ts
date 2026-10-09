@@ -1,6 +1,12 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
-import { registerPushToken } from './api';
+import { registerPushToken, unregisterPushToken } from './api';
+import {
+  addToInbox,
+  hydrateNotificationInbox,
+  isNotificationsMuted,
+  setNotificationsMutedLocal,
+} from './notificationInbox';
 import type { CardSummary, PushPreferences, RssEvent } from './types';
 
 type NotificationsModule = typeof import('expo-notifications');
@@ -35,14 +41,13 @@ export async function initPushNotifications(): Promise<string | null> {
   await cancelScheduledNotifications(EVENT_NOTIFICATION_PREFIX).catch(() => undefined);
   await cancelScheduledNotifications(DEAL_NOTIFICATION_PREFIX).catch(() => undefined);
 
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowBanner: true,
-      shouldShowList: true,
-      shouldPlaySound: true,
-      shouldSetBadge: true,
-    }),
-  });
+  installNotificationHandler();
+
+  if (isNotificationsMuted()) {
+    // Muted users still keep OS permission but get no token server-side, so
+    // nothing is delivered to begin with.
+    return null;
+  }
 
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
@@ -62,12 +67,55 @@ export async function initPushNotifications(): Promise<string | null> {
   }
 }
 
+function installNotificationHandler() {
+  if (!Notifications) return;
+  Notifications.setNotificationHandler({
+    handleNotification: async () => {
+      const suppressed = isNotificationsMuted();
+      return {
+        shouldShowBanner: !suppressed,
+        shouldShowList: !suppressed,
+        shouldPlaySound: !suppressed,
+        shouldSetBadge: !suppressed,
+      };
+    },
+  });
+}
+
+// Call once at app start (root layout). Mirrors every received notification
+// into the local inbox used by the Notifications screen, and installs the
+// mute-aware display handler even for anonymous users.
 export function listenForNotifications() {
+  void hydrateNotificationInbox();
   if (Platform.OS === 'web' || !Notifications) return () => {};
-  const sub = Notifications.addNotificationReceivedListener(() => {
-    // Notifications are handled by the system UI; analytics/logging can go here.
+  installNotificationHandler();
+  const sub = Notifications.addNotificationReceivedListener((notification) => {
+    const content = notification.request.content;
+    addToInbox({
+      title: content.title ?? 'Notification',
+      body: content.body ?? '',
+      data: (content.data ?? {}) as Record<string, unknown>,
+    });
   });
   return () => sub.remove();
+}
+
+// Mute stops system banners/sounds locally and clears the server-side push
+// token so the backend stops delivering to this device entirely (signed-in
+// users only — anonymous users never have a server token). Unmuting
+// re-registers the token.
+export async function setNotificationsMuted(mutedValue: boolean, signedIn: boolean): Promise<void> {
+  setNotificationsMutedLocal(mutedValue);
+  if (!signedIn) return;
+  try {
+    if (mutedValue) {
+      await unregisterPushToken();
+    } else {
+      await initPushNotifications();
+    }
+  } catch {
+    // Local mute still applies even if the server update fails.
+  }
 }
 
 export async function scheduleDealNotifications(cards: CardSummary[], prefs?: PushPreferences): Promise<void> {

@@ -619,6 +619,10 @@ export async function registerPushToken(token: string, city?: string | null) {
   return apiRequest('/me/push-token', { method: 'POST', body: JSON.stringify({ token, city }) });
 }
 
+export async function unregisterPushToken() {
+  return apiRequest('/me/push-token', { method: 'POST', body: JSON.stringify({ token: null }) });
+}
+
 export async function getMe(): Promise<UserProfile> {
   return fetchCached('me', () => apiRequest<UserProfile>('/me'), 60 * 1000);
 }

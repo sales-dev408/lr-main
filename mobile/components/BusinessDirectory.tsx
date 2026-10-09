@@ -13,6 +13,7 @@ import { useDynamicType } from '@/lib/dynamicType';
 import { useFavorites } from '@/lib/favorites';
 import MapView, { Marker, type Region } from '@/components/MapView';
 import { StopPicker } from '@/components/StopPicker';
+import { ScrollToTopButton } from '@/components/ScrollToTopButton';
 import { compareStops, findStop, getStops } from '@/lib/stops';
 import type { VendorListItem } from '@/lib/types';
 
@@ -98,6 +99,9 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
   const [cuisineFilter, setCuisineFilter] = useState<string>('');
   const [selectedVendor, setSelectedVendor] = useState<VendorListItem | null>(null);
   const [search, setSearch] = useState('');
+  // The applied term — only updates when the user submits the search so
+  // typing doesn't re-filter the list on every keystroke.
+  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -115,6 +119,8 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
   const scrollRef = useRef<ScrollView>(null);
   const stationOffsets = useRef<Map<string, number>>(new Map());
   const jumpIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pendingJumpStation = useRef<string | null>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   const signedIn = Boolean(auth.token);
   const pageVendorTypes = useMemo(() => new Set(config.vendorTypes.map((t) => t.toLowerCase())), [config.vendorTypes]);
@@ -205,7 +211,7 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
   }, [pageVendors]);
 
   const filteredVendors = useMemo(() => {
-    const term = search.trim().toLowerCase();
+    const term = searchTerm.trim().toLowerCase();
     let list = pageVendors.filter((v) => {
       if (!term) return true;
       const hay = [v.name, v.cuisine, v.station, v.address, v.city, v.category].filter(Boolean).join(' ').toLowerCase();
@@ -222,7 +228,7 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
       list = list.filter((v) => findStop(v.station)?.line === lineFilter);
     }
     return list;
-  }, [pageVendors, search, activeTypeOption, cuisineFilter, lineFilter]);
+  }, [pageVendors, searchTerm, activeTypeOption, cuisineFilter, lineFilter]);
 
   const groupedVendors = useMemo(() => {
     const groups = new Map<string, VendorListItem[]>();
@@ -345,6 +351,7 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
     if (jumpIntervalRef.current) {
       clearInterval(jumpIntervalRef.current);
     }
+    pendingJumpStation.current = station;
     // Poll until onLayout reports the section's y position after it expands.
     let attempts = 0;
     const id = setInterval(() => {
@@ -353,8 +360,9 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
       if (offset != null) {
         clearInterval(id);
         jumpIntervalRef.current = null;
+        pendingJumpStation.current = null;
         scrollRef.current?.scrollTo({ y: Math.max(offset - 8, 0), animated: false });
-      } else if (attempts >= 20) {
+      } else if (attempts >= 40) {
         clearInterval(id);
         jumpIntervalRef.current = null;
       }
@@ -406,6 +414,21 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
         ref={scrollRef}
         contentContainerStyle={{ gap: 18, paddingBottom: 32, paddingTop: 4 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+        onScroll={(e) => setShowScrollTop(e.nativeEvent.contentOffset.y > 400)}
+        scrollEventThrottle={200}
+        onContentSizeChange={() => {
+          // Content can finish laying out after the poll ends (e.g. a
+          // just-revealed empty stop section) — retry the pending jump so
+          // "Jump to a stop" still lands on the selected stop.
+          const target = pendingJumpStation.current;
+          if (target) {
+            const offset = stationOffsets.current.get(target);
+            if (offset != null) {
+              pendingJumpStation.current = null;
+              scrollRef.current?.scrollTo({ y: Math.max(offset - 8, 0), animated: false });
+            }
+          }
+        }}
       >
         <BrandHeader subtitle={subtitle} />
 
@@ -451,7 +474,27 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
               {filtersOpen ? 'Done' : 'Filters'}
             </AppButton>
           </View>
-          <FieldInput placeholder={`Search ${title.toLowerCase()}…`} value={search} onChangeText={setSearch} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <FieldInput
+                placeholder={`Search ${title.toLowerCase()}…`}
+                value={search}
+                onChangeText={(text) => {
+                  setSearch(text);
+                  // Clearing the field resets an applied search so users can
+                  // get back to the full list without an empty "no results".
+                  if (!text.trim()) setSearchTerm('');
+                }}
+                onSubmitEditing={() => setSearchTerm(search.trim())}
+                returnKeyType="search"
+                autoCorrect={false}
+                autoCapitalize="none"
+              />
+            </View>
+            <AppButton variant="primary" onPress={() => setSearchTerm(search.trim())}>
+              Search
+            </AppButton>
+          </View>
           <View style={{ marginTop: 4 }}>
             <StopPicker entries={stopEntries} onSelect={jumpToStation} label="Jump to a stop" itemNoun="business" />
           </View>
@@ -665,6 +708,7 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
       );
     })}
       </ScrollView>
+      <ScrollToTopButton visible={showScrollTop} onPress={() => scrollRef.current?.scrollTo({ y: 0, animated: true })} />
       <BusinessModal vendor={selectedVendor} onClose={() => setSelectedVendor(null)} />
     </Screen>
   );

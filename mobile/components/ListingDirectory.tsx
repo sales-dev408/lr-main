@@ -7,7 +7,8 @@ import { useThemeColors } from '@/lib/useThemeColors';
 import { useDynamicType } from '@/lib/dynamicType';
 import MapView, { Marker, type Region } from '@/components/MapView';
 import { StopPicker } from '@/components/StopPicker';
-import { compareStops, getStops } from '@/lib/stops';
+import { ScrollToTopButton } from '@/components/ScrollToTopButton';
+import { compareStops, findStop, getStops } from '@/lib/stops';
 import type { ApartmentRecord } from '@/lib/types';
 
 function normalizeWebsite(url: string): string {
@@ -42,9 +43,15 @@ export function ListingDirectory({ kind }: { kind: 'apartment' | 'hotel' }) {
   const [region, setRegion] = useState<Region | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  // Applied term — only updates when the user submits the search.
+  const [searchTerm, setSearchTerm] = useState('');
+  // Stops jumped to that have no listings — rendered as empty sections.
+  const [revealedStops, setRevealedStops] = useState<Set<string>>(new Set());
   const scrollRef = useRef<ScrollView>(null);
   const stationOffsets = useRef<Map<string, number>>(new Map());
   const jumpIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pendingJumpStation = useRef<string | null>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   const nounPlural = kind === 'hotel' ? 'hotels' : 'apartments';
 
@@ -81,13 +88,13 @@ export function ListingDirectory({ kind }: { kind: 'apartment' | 'hotel' }) {
   }
 
   const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase();
+    const term = searchTerm.trim().toLowerCase();
     if (!term) return apartments;
     return apartments.filter((a) => {
       const hay = [a.name, a.station, a.address, a.city, a.section].filter(Boolean).join(' ').toLowerCase();
       return hay.includes(term);
     });
-  }, [apartments, search]);
+  }, [apartments, searchTerm]);
 
   const grouped = useMemo(() => {
     const groups = new Map<string, ApartmentRecord[]>();
@@ -104,8 +111,12 @@ export function ListingDirectory({ kind }: { kind: 'apartment' | 'hotel' }) {
         return a.name.localeCompare(b.name);
       });
     }
+    // Empty sections for stops the user jumped to with no listings.
+    for (const stop of revealedStops) {
+      if (!groups.has(stop)) groups.set(stop, []);
+    }
     return new Map([...groups.entries()].sort((a, b) => compareStops(a[0], b[0])));
-  }, [filtered]);
+  }, [filtered, revealedStops]);
 
   const stopEntries = useMemo(() => {
     const counts = new Map<string, number>();
@@ -129,9 +140,22 @@ export function ListingDirectory({ kind }: { kind: 'apartment' | 'hotel' }) {
   }, [apartments]);
 
   const jumpToStation = useCallback((station: string) => {
+    // Reveal an empty section for stops with no listings so the jump always
+    // lands on real content.
+    setRevealedStops((prev) => {
+      if (prev.has(station)) return prev;
+      const next = new Set(prev);
+      next.add(station);
+      return next;
+    });
+    const stop = findStop(station);
+    if (stop?.latitude != null && stop?.longitude != null) {
+      setRegion({ latitude: stop.latitude, longitude: stop.longitude, latitudeDelta: 0.02, longitudeDelta: 0.02 });
+    }
     if (jumpIntervalRef.current) {
       clearInterval(jumpIntervalRef.current);
     }
+    pendingJumpStation.current = station;
     let attempts = 0;
     const id = setInterval(() => {
       attempts++;
@@ -139,8 +163,9 @@ export function ListingDirectory({ kind }: { kind: 'apartment' | 'hotel' }) {
       if (offset != null) {
         clearInterval(id);
         jumpIntervalRef.current = null;
+        pendingJumpStation.current = null;
         scrollRef.current?.scrollTo({ y: Math.max(offset - 8, 0), animated: false });
-      } else if (attempts >= 20) {
+      } else if (attempts >= 40) {
         clearInterval(id);
         jumpIntervalRef.current = null;
       }
@@ -174,6 +199,18 @@ export function ListingDirectory({ kind }: { kind: 'apartment' | 'hotel' }) {
         ref={scrollRef}
         contentContainerStyle={{ gap: 18, paddingBottom: 32, paddingTop: 4 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+        onScroll={(e) => setShowScrollTop(e.nativeEvent.contentOffset.y > 400)}
+        scrollEventThrottle={200}
+        onContentSizeChange={() => {
+          const target = pendingJumpStation.current;
+          if (target) {
+            const offset = stationOffsets.current.get(target);
+            if (offset != null) {
+              pendingJumpStation.current = null;
+              scrollRef.current?.scrollTo({ y: Math.max(offset - 8, 0), animated: false });
+            }
+          }
+        }}
       >
         <BrandHeader subtitle={`${kind === 'hotel' ? 'Hotels' : 'Apartments'} within 1/2 mile of the light rail`} />
 
@@ -208,7 +245,25 @@ export function ListingDirectory({ kind }: { kind: 'apartment' | 'hotel' }) {
 
         <Card>
           <SectionTitle title="Find a place" subtitle="Search by name, stop, or address" />
-          <FieldInput placeholder="Search…" value={search} onChangeText={setSearch} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <FieldInput
+                placeholder="Search…"
+                value={search}
+                onChangeText={(text) => {
+                  setSearch(text);
+                  if (!text.trim()) setSearchTerm('');
+                }}
+                onSubmitEditing={() => setSearchTerm(search.trim())}
+                returnKeyType="search"
+                autoCorrect={false}
+                autoCapitalize="none"
+              />
+            </View>
+            <AppButton variant="primary" onPress={() => setSearchTerm(search.trim())}>
+              Search
+            </AppButton>
+          </View>
           <StopPicker entries={stopEntries} onSelect={jumpToStation} label="Jump to a stop" itemNoun="listing" />
         </Card>
 
@@ -218,6 +273,13 @@ export function ListingDirectory({ kind }: { kind: 'apartment' | 'hotel' }) {
             onLayout={(event) => stationOffsets.current.set(station, event.nativeEvent.layout.y)}
           >
             <SectionTitle title={station} subtitle={`${items.length} listing${items.length === 1 ? '' : 's'}`} />
+            {items.length === 0 ? (
+              <Card>
+                <Text style={{ color: colors.muted, fontSize: 14 * effectiveScale }} allowFontScaling={false}>
+                  {`No ${nounPlural} listed at this stop yet.`}
+                </Text>
+              </Card>
+            ) : (
             <Card>
               <View style={{ gap: 10 }}>
                 {items.map((apt) => {
@@ -271,10 +333,12 @@ export function ListingDirectory({ kind }: { kind: 'apartment' | 'hotel' }) {
                 })}
               </View>
             </Card>
+            )}
           </View>
         ))}
 
       </ScrollView>
+      <ScrollToTopButton visible={showScrollTop} onPress={() => scrollRef.current?.scrollTo({ y: 0, animated: true })} />
 
       {/* Tappable listing detail modal — replaces the old bottom-of-list
           details card so users don't have to hunt for it. */}

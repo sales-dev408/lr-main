@@ -1,7 +1,7 @@
 {
   "name": "mobile",
   "main": "expo-router/entry",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "dependencies": {
     "@bacons/apple-targets": "^5.0.0",
     "@callstack/liquid-glass": "^0.8.1",

@@ -15,7 +15,7 @@ import type { UserAnalytics, VendorListItem } from '@/lib/types';
 
 const IMAGE_CREDITS = [
   {
-    image: 'Downtown Phoenix skyline at night',
+    image: 'Downtown Phoenix skyline during the day',
     screen: 'Splash screen & Home hero',
     credit: 'Alan Stark — CC BY-SA 2.0 (via Wikimedia Commons / Flickr)',
   },

@@ -7,12 +7,14 @@ import {
   AZ_ADMISSION_LABELS,
   AZ_EVENT_MONTHS,
   azEventMatchesMode,
+  azEventRange,
   type AzAdmission,
   type AzEvent,
   type AzViewMode,
 } from '@/lib/azEvents';
 import { useThemeColors } from '@/lib/useThemeColors';
 import { useDynamicType } from '@/lib/dynamicType';
+import { ScrollToTopButton } from '@/components/ScrollToTopButton';
 
 interface MonthSection {
   title: string;
@@ -49,18 +51,24 @@ export default function AzEventsScreen() {
   const listRef = useRef<SectionList<AzEvent, MonthSection>>(null);
   const pendingSection = useRef<number | null>(null);
   const [viewMode, setViewMode] = useState<AzViewMode>('all');
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
-  const sections = useMemo<MonthSection[]>(
-    () =>
-      AZ_EVENT_MONTHS.map((m) => ({
-        title: m.month,
-        index: 0,
-        data: m.events.filter((event) => azEventMatchesMode(event, m.month, viewMode)),
-      }))
-        .filter((s) => s.data.length > 0)
-        .map((s, index) => ({ ...s, index })),
-    [viewMode],
-  );
+  const sections = useMemo<MonthSection[]>(() => {
+    // Past events drop off automatically once their last day has ended.
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return AZ_EVENT_MONTHS.map((m) => ({
+      title: m.month,
+      index: 0,
+      data: m.events.filter((event) => {
+        const range = azEventRange(event.date, m.month);
+        if (range && range.end.getTime() < today.getTime()) return false;
+        return azEventMatchesMode(event, m.month, viewMode);
+      }),
+    }))
+      .filter((s) => s.data.length > 0)
+      .map((s, index) => ({ ...s, index }));
+  }, [viewMode]);
 
   function scrollToMonth(index: number) {
     pendingSection.current = index;
@@ -139,6 +147,8 @@ export default function AzEventsScreen() {
         stickySectionHeadersEnabled
         ListHeaderComponent={header}
         contentContainerStyle={{ paddingBottom: 32 }}
+        onScroll={(e) => setShowScrollTop(e.nativeEvent.contentOffset.y > 400)}
+        scrollEventThrottle={200}
         onScrollToIndexFailed={() => {
           const target = pendingSection.current;
           if (target != null) {
@@ -178,6 +188,10 @@ export default function AzEventsScreen() {
             </View>
           </View>
         )}
+      />
+      <ScrollToTopButton
+        visible={showScrollTop}
+        onPress={() => listRef.current?.scrollToLocation({ sectionIndex: 0, itemIndex: 0, viewOffset: 0, animated: true })}
       />
     </Screen>
   );

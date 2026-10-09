@@ -2,7 +2,7 @@
   "expo": {
     "name": "Light Rail Deals",
     "slug": "mobile",
-    "version": "1.0.1",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/appstore.png",
     "scheme": "lrcard",
@@ -159,7 +159,7 @@
         {
           "image": "./assets/images/splash-icon.png",
           "resizeMode": "contain",
-          "backgroundColor": "#171412"
+          "backgroundColor": "#b8ccd8"
         }
       ],
       "expo-location",

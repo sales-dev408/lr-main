@@ -10,7 +10,7 @@ interface ExpoMessage {
   sound?: 'default' | null;
 }
 
-export async function savePushToken(userId: string, token: string, city?: string | null): Promise<void> {
+export async function savePushToken(userId: string, token: string | null, city?: string | null): Promise<void> {
   await dbQuery(
     'UPDATE users SET expo_push_token = $2, city = COALESCE($3, city) WHERE id = $1',
     [userId, token, city ?? null],

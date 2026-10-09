@@ -73,7 +73,7 @@ export default function HomeScreen() {
           source={require('@/assets/images/phoenix-skyline.jpg')}
           style={{ height: heroHeight, borderRadius: 24, overflow: 'hidden', justifyContent: 'flex-end' }}
           imageStyle={{ borderRadius: 24 }}
-          accessibilityLabel="Downtown Phoenix skyline at night"
+          accessibilityLabel="Downtown Phoenix skyline during the day"
         >
           <LinearGradient
             colors={['rgba(23, 20, 18, 0.05)', 'rgba(23, 20, 18, 0.72)']}

@@ -90,7 +90,7 @@ export function LoadingScreen({ message = 'Loading your guide…' }: { message?:
     <ImageBackground
       source={require('@/assets/images/phoenix-skyline.jpg')}
       style={StyleSheet.absoluteFill}
-      accessibilityLabel="Downtown Phoenix skyline at night"
+      accessibilityLabel="Downtown Phoenix skyline during the day"
     >
       <LinearGradient colors={['rgba(23,20,18,0.35)', 'rgba(23,20,18,0.78)']} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={StyleSheet.absoluteFill}>
         <View style={styles.content}>

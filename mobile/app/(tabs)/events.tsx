@@ -1,8 +1,9 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { FlatList, Image, Linking, Platform, RefreshControl, Text, useWindowDimensions, View } from 'react-native';
 import { Link, useFocusEffect } from 'expo-router';
 import { AppButton, Banner, BrandHeader, GlassCard, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { LinkifiedText } from '@/components/LinkifiedText';
+import { ScrollToTopButton } from '@/components/ScrollToTopButton';
 import { SimpleListPicker } from '@/components/SimpleListPicker';
 import { getEvents } from '@/lib/api';
 // Automatic event notifications disabled - only admin can manually trigger push notifications
@@ -103,6 +104,8 @@ export default function EventsScreen() {
   const [typeFilter, setTypeFilter] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('all');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const listRef = useRef<FlatList<RssEvent>>(null);
 
   const gap = 16;
   // Screen padding mirrors Ui.tsx: responsive to width AND scaled by the
@@ -373,6 +376,7 @@ export default function EventsScreen() {
         </Banner>
       ) : null}
       <FlatList
+        ref={listRef}
         data={filteredItems}
         key={columns}
         numColumns={columns}
@@ -382,6 +386,12 @@ export default function EventsScreen() {
         columnWrapperStyle={columns > 1 ? { gap } : undefined}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
         ListHeaderComponent={header}
+        onScroll={(e) => setShowScrollTop(e.nativeEvent.contentOffset.y > 400)}
+        scrollEventThrottle={200}
+      />
+      <ScrollToTopButton
+        visible={showScrollTop}
+        onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })}
       />
     </Screen>
   );

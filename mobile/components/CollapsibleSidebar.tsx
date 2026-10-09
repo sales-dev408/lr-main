@@ -32,6 +32,7 @@ const PRIMARY_ITEMS: NavItem[] = [
 
 const SECONDARY_ITEMS: NavItem[] = [
   { key: 'profile', label: 'Profile', icon: '●', href: '/profile' },
+  { key: 'notifications', label: 'Notifications', icon: '🔔', href: '/notifications' },
   { key: 'discover', label: 'Discover', icon: '✦', href: '/discover' },
   { key: 'az-events', label: 'Events Around Arizona', icon: '🌵', href: '/az-events' },
 ];
@@ -119,7 +120,7 @@ export function CollapsibleSidebar() {
           Light Rail Deals
         </Text>
         <Text style={{ color: colors.muted, fontSize: 12 * effectiveScale }} allowFontScaling={false}>
-          Your guide to the Valley Metro
+          Your guide to the Valley Metro Area
         </Text>
       </View>
 

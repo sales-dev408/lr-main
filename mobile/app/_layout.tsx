@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AdminProvider } from '@/lib/admin';
@@ -6,8 +7,12 @@ import { AuthProvider } from '@/lib/auth';
 import { ColorSchemeProvider } from '@/lib/colorScheme';
 import { LegalAcceptanceProvider } from '@/lib/legalAcceptance';
 import { DynamicTypeProvider } from '@/lib/dynamicType';
+import { listenForNotifications } from '@/lib/notifications';
 
 export default function RootLayout() {
+  // Mirror received push notifications into the local inbox for the
+  // Notifications tab, starting as early as possible in the app lifecycle.
+  useEffect(() => listenForNotifications(), []);
   return (
     <ColorSchemeProvider>
       <AuthProvider>

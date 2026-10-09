@@ -189,10 +189,11 @@ export async function registerUserRoutes(fastify: FastifyInstance): Promise<void
     '/api/me/push-token',
     { preHandler: fastify.requireRole(['customer']), config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
     async (request, reply) => {
-      const body = request.body as { token?: string; city?: string | null };
-      if (!body.token) {
-        return reply.code(400).send({ error: 'Push token is required' });
+      const body = request.body as { token?: string | null; city?: string | null };
+      if (body.token === undefined) {
+        return reply.code(400).send({ error: 'Push token field is required' });
       }
+      // token: null clears the stored token (notification mute).
       await savePushToken(request.user!.sub, body.token, body.city);
       return { registered: true };
     },

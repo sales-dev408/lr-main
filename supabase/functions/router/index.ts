@@ -125,7 +125,8 @@ const themeSchema = z.object({
 });
 
 const pushTokenSchema = z.object({
-  token: z.string().min(1),
+  // null clears the stored token (notification mute).
+  token: z.string().min(1).nullable(),
   city: z.string().optional(),
 });
 
