@@ -413,4 +413,32 @@ export async function registerAuthRoutes(fastify: FastifyInstance): Promise<void
     const profile: AdminProfile = { id: admin.id, email: admin.email, role: admin.role as AdminProfile['role'] };
     return reply.send({ token, expiresIn: '7d', profile });
   });
+
+  // Public: record first-run acceptance of Terms/Privacy/EULA with the request
+  // IP and timestamp. Works anonymously — request.user is populated only when
+  // a valid Bearer token is present.
+  fastify.post(
+    '/api/legal/acceptance',
+    { preHandler: fastify.authenticateOptional, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const body = (request.body ?? {}) as { platform?: string };
+      const platform = typeof body.platform === 'string' ? body.platform.slice(0, 50) : null;
+      const userAgent = (request.headers['user-agent'] ?? '').slice(0, 500) || null;
+      await dbQuery('INSERT INTO legal_acceptances (user_id, platform, ip, user_agent) VALUES ($1, $2, $3::inet, $4)', [
+        request.user?.sub ?? null,
+        platform,
+        request.ip,
+        userAgent,
+      ]);
+      if (request.user?.sub) {
+        await dbQuery(
+          `UPDATE users SET terms_accepted_at = COALESCE(terms_accepted_at, now()),
+             privacy_accepted_at = COALESCE(privacy_accepted_at, now()),
+             eula_accepted_at = COALESCE(eula_accepted_at, now()) WHERE id = $1`,
+          [request.user.sub],
+        );
+      }
+      return reply.send({ recorded: true });
+    },
+  );
 }

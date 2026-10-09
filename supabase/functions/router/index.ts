@@ -882,6 +882,30 @@ Deno.serve(async (request) => {
       return json(request, { status: 'ok', db });
     }
 
+    // Public: record first-run acceptance of Terms/Privacy/EULA with the
+    // request IP and timestamp. Works anonymously — the bearer token is used
+    // only to link the row to an account when one exists.
+    if (path === '/api/legal/acceptance' && request.method === 'POST') {
+      const body = await readJsonBody<{ platform?: string }>(request, {});
+      const claims = authenticate(request);
+      const ip = getIp(request);
+      const userAgent = request.headers.get('user-agent')?.slice(0, 500) ?? null;
+      const platform = typeof body.platform === 'string' ? body.platform.slice(0, 50) : null;
+      await dbQuery(
+        'INSERT INTO legal_acceptances (user_id, platform, ip, user_agent) VALUES ($1, $2, $3::inet, $4)',
+        [claims?.sub ?? null, platform, ip, userAgent],
+      );
+      if (claims?.sub) {
+        await dbQuery(
+          `UPDATE users SET terms_accepted_at = COALESCE(terms_accepted_at, now()),
+             privacy_accepted_at = COALESCE(privacy_accepted_at, now()),
+             eula_accepted_at = COALESCE(eula_accepted_at, now()) WHERE id = $1`,
+          [claims.sub],
+        );
+      }
+      return json(request, { recorded: true });
+    }
+
     if (path === '/api/auth/register' && request.method === 'POST') {
       const body = customerRegisterSchema.parse(await readJsonBody(request, {}));
       // Phone numbers authenticate members, so store one canonical form.

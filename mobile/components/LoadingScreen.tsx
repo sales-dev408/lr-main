@@ -92,7 +92,7 @@ export function LoadingScreen({ message = 'Loading your guide…' }: { message?:
       style={StyleSheet.absoluteFill}
       accessibilityLabel="Downtown Phoenix skyline during the day"
     >
-      <LinearGradient colors={['rgba(23,20,18,0.35)', 'rgba(23,20,18,0.78)']} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={StyleSheet.absoluteFill}>
+      <LinearGradient colors={['rgba(23,20,18,0.08)', 'rgba(23,20,18,0.42)']} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={StyleSheet.absoluteFill}>
         <View style={styles.content}>
           <View style={styles.stage}>
             {renderRipple(ripple1, 0)}

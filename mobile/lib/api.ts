@@ -615,6 +615,16 @@ export async function getEvents(): Promise<RssEvent[]> {
   return fetchCached('events', () => apiRequest<RssEvent[]>('/events'), 15 * 60 * 1000);
 }
 
+// Public endpoint — records the first-run legal acceptance server-side with
+// the request IP. Sends the stored bearer token when present so the row links
+// to the account.
+export async function recordLegalAcceptance(platform: string) {
+  return apiRequest<{ recorded: boolean }>('/legal/acceptance', {
+    method: 'POST',
+    body: JSON.stringify({ platform }),
+  });
+}
+
 export async function registerPushToken(token: string, city?: string | null) {
   return apiRequest('/me/push-token', { method: 'POST', body: JSON.stringify({ token, city }) });
 }
