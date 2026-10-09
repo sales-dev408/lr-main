@@ -35,6 +35,14 @@ export interface PublicStop {
   longitude: number | null;
 }
 
+export interface PublicAd {
+  id: string;
+  slot: number;
+  image_url: string;
+  link_url: string | null;
+  active: boolean;
+}
+
 export interface AppState {
   version: number;
   publishedAt: string;
@@ -44,6 +52,7 @@ export interface AppState {
   events: RssEvent[];
   theme: ThemeSettings;
   stops: PublicStop[];
+  ads: PublicAd[];
 }
 
 function parseJsonValue<T>(value: unknown): T | null {
@@ -101,6 +110,7 @@ export async function getLiveAppVersion(): Promise<{ version: number; publishedA
     tableFingerprint('admin_events'),
     tableFingerprint('stops'),
     tableFingerprint('app_settings'),
+    tableFingerprint('ads', 'WHERE active = true'),
   ]);
   return { version: parts.reduce((sum, n) => sum + n, 0), publishedAt: new Date().toISOString() };
 }
@@ -211,7 +221,7 @@ function toPublicStop(row: StopRecord): PublicStop {
 // Assembles the full public app state directly from the live tables. Served
 // by GET /api/app so admin edits reach devices immediately — no publish step.
 export async function buildLiveAppState(): Promise<AppState> {
-  const [content, vendors, apartments, events, theme, stops] = await Promise.all([
+  const [content, vendors, apartments, events, theme, stops, ads] = await Promise.all([
     listContentBlocks({ publishedOnly: true }),
     getVendorDirectory(),
     listApartments({ nearRail: true }).then((rows) => rows.map(toPublicApartment)),
@@ -221,6 +231,9 @@ export async function buildLiveAppState(): Promise<AppState> {
     }),
     getTheme(),
     listStops().then((rows) => rows.map(toPublicStop)),
+    dbQuery<PublicAd>(
+      'SELECT id, slot, image_url, link_url, active FROM ads WHERE active = true ORDER BY slot',
+    ).catch(() => [] as PublicAd[]),
   ]);
 
   return {
@@ -232,6 +245,7 @@ export async function buildLiveAppState(): Promise<AppState> {
     events,
     theme,
     stops,
+    ads,
   };
 }
 

@@ -349,4 +349,5 @@ export interface AppState {
   events: RssEvent[];
   theme: ThemeSettings;
   stops: StopRecord[];
+  ads: Ad[];
 }

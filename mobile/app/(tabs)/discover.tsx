@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Image, Linking, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { Image, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { AdBanner } from '@/components/AdBanner';
@@ -17,6 +17,12 @@ const SORT_LABELS: Record<SortOption, string> = {
   az: 'A-Z',
   za: 'Z-A',
 };
+
+function excerpt(body: string | null, max = 160): string {
+  if (!body) return '';
+  const clean = body.replace(/\s+/g, ' ').trim();
+  return clean.length > max ? `${clean.slice(0, max).trimEnd()}…` : clean;
+}
 
 export default function DiscoverScreen() {
   const colors = useThemeColors();
@@ -60,6 +66,10 @@ export default function DiscoverScreen() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to delete content');
     }
+  }
+
+  function open(item: ContentBlock) {
+    router.push({ pathname: '/article', params: { id: item.id } });
   }
 
   const sortedItems = useMemo(() => {
@@ -116,39 +126,52 @@ export default function DiscoverScreen() {
         {!loading && items.length === 0 ? <Banner tone="info">No content has been published yet.</Banner> : null}
 
         {sortedItems.map((item) => (
-          <Card key={item.id}>
-            <SectionTitle title={item.title} />
-            {!item.published ? <Pill tone="warning">Draft</Pill> : null}
-            {item.kind === 'image' && item.url ? (
-              <Image source={{ uri: item.url }} style={{ width: '100%', height: imageHeight, borderRadius: 16, backgroundColor: '#dfe7f3' }} resizeMode="cover" />
-            ) : null}
-            {item.body ? <Text style={{ color: colors.muted, lineHeight: 20 * effectiveScale, fontSize: 14 * effectiveScale }} allowFontScaling={false}>{item.body}</Text> : null}
-            {item.url && item.kind !== 'image' ? (
-              <AppButton
-                variant="secondary"
-                onPress={() => {
-                  const url = item.url as string;
-                  void Linking.openURL(url.includes('://') ? url : `https://${url}`);
-                }}
-              >
-                {item.kind === 'file' ? 'Open file' : 'Open link'}
-              </AppButton>
-            ) : null}
-            {admin.isAdmin ? (
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <View style={{ flex: 1 }}>
-                  <AppButton variant="secondary" onPress={() => router.push({ pathname: '/admin/content', params: { id: item.id } })}>
-                    Edit
-                  </AppButton>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <AppButton variant="danger" onPress={() => void remove(item.id)}>
-                    Delete
-                  </AppButton>
-                </View>
+          <Pressable
+            key={item.id}
+            onPress={() => open(item)}
+            accessibilityRole="button"
+            accessibilityLabel={`Read ${item.title}`}
+            style={({ pressed }) => ({ opacity: pressed ? 0.88 : 1 })}
+          >
+            <Card>
+              {item.kind === 'image' && item.url ? (
+                <Image
+                  source={{ uri: item.url }}
+                  style={{ width: '100%', height: imageHeight, borderRadius: 16, backgroundColor: colors.panel }}
+                  resizeMode="cover"
+                  accessibilityLabel={item.title}
+                />
+              ) : null}
+              <View style={{ gap: 6 }}>
+                <Text style={{ color: colors.ink, fontSize: 18 * effectiveScale, fontWeight: '800' }} allowFontScaling={false}>
+                  {item.title}
+                </Text>
+                {!item.published ? <Pill tone="warning">Draft</Pill> : null}
+                {item.body ? (
+                  <Text style={{ color: colors.muted, lineHeight: 20 * effectiveScale, fontSize: 14 * effectiveScale }} allowFontScaling={false}>
+                    {excerpt(item.body)}
+                  </Text>
+                ) : null}
+                <Text style={{ color: colors.brand, fontSize: 13 * effectiveScale, fontWeight: '700', marginTop: 2 }} allowFontScaling={false}>
+                  Read more →
+                </Text>
               </View>
-            ) : null}
-          </Card>
+              {admin.isAdmin ? (
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <View style={{ flex: 1 }}>
+                    <AppButton variant="secondary" onPress={() => router.push({ pathname: '/admin/content', params: { id: item.id } })}>
+                      Edit
+                    </AppButton>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <AppButton variant="danger" onPress={() => void remove(item.id)}>
+                      Delete
+                    </AppButton>
+                  </View>
+                </View>
+              ) : null}
+            </Card>
+          </Pressable>
         ))}
       </ScrollView>
     </Screen>
