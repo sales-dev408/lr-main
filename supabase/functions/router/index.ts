@@ -48,6 +48,14 @@ import {
   updateApartment,
 } from './lib/apartments.ts';
 import {
+  realEstateSchema,
+  createRealEstate,
+  deleteRealEstate,
+  getRealEstate,
+  listRealEstate,
+  updateRealEstate,
+} from './lib/realEstate.ts';
+import {
   stopSchema,
   createStop,
   deleteStop,
@@ -1969,6 +1977,45 @@ Deno.serve(async (request) => {
       if (auth instanceof Response) return auth;
       const id = path.split('/').pop()!;
       const deleted = await deleteApartment(id);
+      return json(request, {}, { status: deleted ? 204 : 404 });
+    }
+
+    // ---- Real estate ------------------------------------------------------
+    // Admin: manage real-estate listings surfaced on the app's Real Estate tab
+    // (via the /api/app snapshot; the tab shows "Coming soon" while empty).
+    if (path === '/api/admin/real-estate' && request.method === 'GET') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      return json(request, await listRealEstate());
+    }
+    if (path === '/api/admin/real-estate' && request.method === 'POST') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const body = realEstateSchema.parse(await readJsonBody(request, {}));
+      return json(request, await createRealEstate(body), { status: 201 });
+    }
+    if (/^\/api\/admin\/real-estate\/[^/]+$/.test(path) && request.method === 'GET') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const id = path.split('/').pop()!;
+      const row = await getRealEstate(id);
+      if (!row) return json(request, { error: 'Listing not found' }, { status: 404 });
+      return json(request, row);
+    }
+    if (/^\/api\/admin\/real-estate\/[^/]+$/.test(path) && request.method === 'PATCH') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const id = path.split('/').pop()!;
+      const body = realEstateSchema.partial().parse(await readJsonBody(request, {}));
+      const updated = await updateRealEstate(id, body);
+      if (!updated) return json(request, { error: 'Listing not found' }, { status: 404 });
+      return json(request, updated);
+    }
+    if (/^\/api\/admin\/real-estate\/[^/]+$/.test(path) && request.method === 'DELETE') {
+      const auth = requireRole(request, ['admin']);
+      if (auth instanceof Response) return auth;
+      const id = path.split('/').pop()!;
+      const deleted = await deleteRealEstate(id);
       return json(request, {}, { status: deleted ? 204 : 404 });
     }
 

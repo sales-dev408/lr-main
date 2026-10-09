@@ -21,6 +21,7 @@ import type {
   OnboardingResponse,
   PassDetail,
   PushPreferences,
+  RealEstateRecord,
   RedeemResult,
   RssEvent,
   StopRecord,
@@ -308,6 +309,31 @@ function normalizeApartment(input: Record<string, unknown>): ApartmentRecord {
   };
 }
 
+function normalizeRealEstate(input: Record<string, unknown>): RealEstateRecord {
+  return {
+    id: String(input.id),
+    title: String(input.title),
+    description: (input.description as string | null | undefined) ?? null,
+    price: toNullableNumber(input.price),
+    beds: toNullableNumber(input.beds),
+    baths: toNullableNumber(input.baths),
+    sqft: toNullableNumber(input.sqft),
+    propertyType: (input.propertyType as string | null | undefined) ?? (input.property_type as string | null | undefined) ?? null,
+    listingStatus: String(input.listingStatus ?? input.listing_status ?? 'for_sale'),
+    address: (input.address as string | null | undefined) ?? null,
+    city: (input.city as string | null | undefined) ?? null,
+    state: (input.state as string | null | undefined) ?? null,
+    zip: (input.zip as string | null | undefined) ?? null,
+    phone: (input.phone as string | null | undefined) ?? null,
+    email: (input.email as string | null | undefined) ?? null,
+    website: (input.website as string | null | undefined) ?? null,
+    imageUrl: (input.imageUrl as string | null | undefined) ?? (input.image_url as string | null | undefined) ?? null,
+    station: (input.station as string | null | undefined) ?? null,
+    latitude: input.latitude == null ? null : Number(input.latitude),
+    longitude: input.longitude == null ? null : Number(input.longitude),
+  };
+}
+
 function normalizeStop(input: Record<string, unknown>): StopRecord {
   return {
     id: String(input.id),
@@ -345,6 +371,7 @@ function normalizeAppState(raw: Record<string, unknown>): AppState {
     content: Array.isArray(raw.content) ? (raw.content as ContentBlock[]) : [],
     vendors: Array.isArray(raw.vendors) ? (raw.vendors as Record<string, unknown>[]).map(normalizeVendor) : [],
     apartments: Array.isArray(raw.apartments) ? (raw.apartments as Record<string, unknown>[]).map(normalizeApartment) : [],
+    realEstate: Array.isArray(raw.realEstate) ? (raw.realEstate as Record<string, unknown>[]).map(normalizeRealEstate) : [],
     events: Array.isArray(raw.events) ? (raw.events as RssEvent[]) : [],
     theme: (raw.theme as ThemeSettings) ?? ({} as ThemeSettings),
     stops: Array.isArray(raw.stops) ? (raw.stops as Record<string, unknown>[]).map(normalizeStop) : [],
@@ -446,6 +473,11 @@ export async function listVendors(params: { category?: string; station?: string 
     vendors = vendors.filter((v) => v.station === params.station);
   }
   return vendors;
+}
+
+export async function listRealEstate(): Promise<RealEstateRecord[]> {
+  const state = await getAppState();
+  return state?.realEstate ?? [];
 }
 
 export async function listApartments(): Promise<ApartmentRecord[]> {

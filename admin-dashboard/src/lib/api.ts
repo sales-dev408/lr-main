@@ -14,6 +14,7 @@ import type {
   CreateVendorResult,
   DiscountSummary,
   PushPreferences,
+  RealEstateRecord,
   StopRecord,
   ThemeSettings,
   UserRecord,
@@ -537,6 +538,28 @@ export async function updateAdminApartment(id: string, body: Partial<Omit<Apartm
 
 export async function deleteAdminApartment(id: string): Promise<void> {
   return apiRequest<void>(`/admin/apartments/${id}`, { method: 'DELETE' });
+}
+
+// ---- Real estate -------------------------------------------------------------
+
+export async function listAdminRealEstate(): Promise<RealEstateRecord[]> {
+  return apiRequest<RealEstateRecord[]>('/admin/real-estate');
+}
+
+export async function getAdminRealEstate(id: string): Promise<RealEstateRecord> {
+  return apiRequest<RealEstateRecord>(`/admin/real-estate/${id}`);
+}
+
+export async function createAdminRealEstate(body: Omit<RealEstateRecord, 'id' | 'created_at' | 'updated_at'>): Promise<RealEstateRecord> {
+  return apiRequest<RealEstateRecord>('/admin/real-estate', { method: 'POST', body: jsonBody(body) });
+}
+
+export async function updateAdminRealEstate(id: string, body: Partial<Omit<RealEstateRecord, 'id' | 'created_at' | 'updated_at'>>): Promise<RealEstateRecord> {
+  return apiRequest<RealEstateRecord>(`/admin/real-estate/${id}`, { method: 'PATCH', body: jsonBody(body) });
+}
+
+export async function deleteAdminRealEstate(id: string): Promise<void> {
+  return apiRequest<void>(`/admin/real-estate/${id}`, { method: 'DELETE' });
 }
 
 // ---- Content publishing ----------------------------------------------------

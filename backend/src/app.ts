@@ -14,6 +14,7 @@ import { registerPosRoutes } from './routes/pos.js';
 import { registerEventsRoutes } from './routes/events.js';
 import { registerSettingsRoutes } from './routes/settings.js';
 import { registerApartmentsRoutes } from './routes/apartments.js';
+import { registerRealEstateRoutes } from './routes/realEstate.js';
 import { registerMePassRoutes } from './routes/mePass.js';
 import { registerAdsRoutes } from './routes/ads.js';
 import { registerStopsRoutes } from './routes/stops.js';
@@ -43,6 +44,7 @@ export async function buildApp() {
   await registerEventsRoutes(app);
   await registerSettingsRoutes(app);
   await registerApartmentsRoutes(app);
+  await registerRealEstateRoutes(app);
   await registerMePassRoutes(app);
   await registerAdsRoutes(app);
   await registerStopsRoutes(app);

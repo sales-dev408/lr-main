@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router';
 import { AppLayout } from './components/Layout';
 import { RequireAuth } from './components/RequireAuth';
 import { ApartmentsPage } from './pages/ApartmentsPage';
+import { RealEstatePage } from './pages/RealEstatePage';
 import { ContentPage } from './pages/ContentPage';
 import { LoginPage } from './pages/LoginPage';
 import { MarketingPage } from './pages/MarketingPage';
@@ -29,6 +30,7 @@ export function App() {
         <Route path="/" element={<OverviewPage />} />
         <Route path="/vendors" element={<VendorsPage />} />
         <Route path="/apartments" element={<ApartmentsPage />} />
+        <Route path="/real-estate" element={<RealEstatePage />} />
         <Route path="/stops" element={<StopsPage />} />
         <Route path="/users" element={<UsersPage />} />
         <Route path="/marketing" element={<MarketingPage />} />

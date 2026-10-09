@@ -2,6 +2,7 @@ import { dbQuery } from './db.ts';
 import { listContentBlocks, getTheme, type ThemeSettings } from './content.ts';
 import { getVendorDirectory, type VendorDirectoryItem } from './vendors.ts';
 import { listApartments } from './apartments.ts';
+import { listRealEstate, type RealEstateRecord } from './realEstate.ts';
 import { fetchPublicEvents, type RssEvent } from './events.ts';
 import { listStops, type StopRecord } from './stops.ts';
 
@@ -43,12 +44,36 @@ export interface PublicAd {
   active: boolean;
 }
 
+export interface PublicRealEstate {
+  id: string;
+  title: string;
+  description: string | null;
+  price: number | null;
+  beds: number | null;
+  baths: number | null;
+  sqft: number | null;
+  propertyType: string | null;
+  listingStatus: string;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  imageUrl: string | null;
+  station: string | null;
+  latitude: number | null;
+  longitude: number | null;
+}
+
 export interface AppState {
   version: number;
   publishedAt: string;
   content: unknown[];
   vendors: VendorDirectoryItem[];
   apartments: PublicApartment[];
+  realEstate: PublicRealEstate[];
   events: RssEvent[];
   theme: ThemeSettings;
   stops: PublicStop[];
@@ -111,6 +136,7 @@ export async function getLiveAppVersion(): Promise<{ version: number; publishedA
     tableFingerprint('stops'),
     tableFingerprint('app_settings'),
     tableFingerprint('ads', 'WHERE active = true'),
+    tableFingerprint('real_estate', 'WHERE active = true'),
   ]);
   return { version: parts.reduce((sum, n) => sum + n, 0), publishedAt: new Date().toISOString() };
 }
@@ -218,13 +244,39 @@ function toPublicStop(row: StopRecord): PublicStop {
   };
 }
 
+function toPublicRealEstate(row: RealEstateRecord): PublicRealEstate {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    price: row.price,
+    beds: row.beds,
+    baths: row.baths,
+    sqft: row.sqft,
+    propertyType: row.property_type,
+    listingStatus: row.listing_status,
+    address: row.address,
+    city: row.city,
+    state: row.state,
+    zip: row.zip,
+    phone: row.phone,
+    email: row.email,
+    website: row.website,
+    imageUrl: row.image_url,
+    station: row.station,
+    latitude: row.latitude,
+    longitude: row.longitude,
+  };
+}
+
 // Assembles the full public app state directly from the live tables. Served
 // by GET /api/app so admin edits reach devices immediately — no publish step.
 export async function buildLiveAppState(): Promise<AppState> {
-  const [content, vendors, apartments, events, theme, stops, ads] = await Promise.all([
+  const [content, vendors, apartments, realEstate, events, theme, stops, ads] = await Promise.all([
     listContentBlocks({ publishedOnly: true }),
     getVendorDirectory(),
     listApartments({ nearRail: true }).then((rows) => rows.map(toPublicApartment)),
+    listRealEstate({ activeOnly: true }).then((rows) => rows.map(toPublicRealEstate)),
     fetchPublicEvents().catch((err) => {
       console.warn('[publish] events fetch failed, continuing without events:', err);
       return [] as RssEvent[];
@@ -242,6 +294,7 @@ export async function buildLiveAppState(): Promise<AppState> {
     content,
     vendors,
     apartments,
+    realEstate,
     events,
     theme,
     stops,

@@ -278,6 +278,32 @@ export interface ApartmentRecord {
   updated_at: string;
 }
 
+export interface RealEstateRecord {
+  id: string;
+  title: string;
+  description: string | null;
+  price: number | null;
+  beds: number | null;
+  baths: number | null;
+  sqft: number | null;
+  property_type: string | null;
+  listing_status: string;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  image_url: string | null;
+  station: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ContentStatus {
   currentVersion: number;
   publishedAt: string | null;

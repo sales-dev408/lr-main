@@ -340,12 +340,36 @@ export interface StopRecord {
   updatedAt?: string;
 }
 
+export interface RealEstateRecord {
+  id: string;
+  title: string;
+  description: string | null;
+  price: number | null;
+  beds: number | null;
+  baths: number | null;
+  sqft: number | null;
+  propertyType: string | null;
+  listingStatus: string;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  imageUrl: string | null;
+  station: string | null;
+  latitude: number | null;
+  longitude: number | null;
+}
+
 export interface AppState {
   version: number;
   publishedAt: string;
   content: ContentBlock[];
   vendors: VendorListItem[];
   apartments: ApartmentRecord[];
+  realEstate: RealEstateRecord[];
   events: RssEvent[];
   theme: ThemeSettings;
   stops: StopRecord[];
