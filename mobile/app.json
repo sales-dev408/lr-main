@@ -159,7 +159,7 @@
         {
           "image": "./assets/images/splash-icon.png",
           "resizeMode": "contain",
-          "backgroundColor": "#b8ccd8"
+          "backgroundColor": "#171412"
         }
       ],
       "expo-location",
