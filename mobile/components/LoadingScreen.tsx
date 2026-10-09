@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Image, ImageBackground, Platform, StyleSheet, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { ActivityIndicator, Animated, Image, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useAppColorScheme } from '@/lib/colorScheme';
 import { useThemeColors } from '@/lib/useThemeColors';
 
-export function LoadingScreen({ message = 'Loading your guide…' }: { message?: string }) {
+export function LoadingScreen({ message = 'Loading your guide…', ready = false, onContinue }: { message?: string; ready?: boolean; onContinue?: () => void }) {
   const { scheme } = useAppColorScheme();
   const colors = useThemeColors();
 
@@ -86,35 +85,53 @@ export function LoadingScreen({ message = 'Loading your guide…' }: { message?:
   };
 
   return (
-    // Downtown Phoenix skyline splash — the logo animation is unchanged.
-    <ImageBackground
-      source={require('@/assets/images/phoenix-skyline.jpg')}
+    // Havasu Falls splash. The sharp image uses `contain` so the whole photo is
+    // always visible with no cropping and no overlay filter; a blurred copy of
+    // the same photo fills the letterbox space behind it. Once `ready`, any tap
+    // calls onContinue.
+    <Pressable
       style={StyleSheet.absoluteFill}
-      accessibilityLabel="Downtown Phoenix skyline during the day"
+      onPress={ready ? onContinue : undefined}
+      disabled={!ready}
+      accessibilityRole="button"
+      accessibilityLabel={ready ? 'Tap anywhere to open the app' : 'Loading'}
     >
-      <LinearGradient colors={['rgba(23,20,18,0.08)', 'rgba(23,20,18,0.42)']} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={StyleSheet.absoluteFill}>
-        <View style={styles.content}>
-          <View style={styles.stage}>
-            {renderRipple(ripple1, 0)}
-            {renderRipple(ripple2, 1)}
-            {renderRipple(ripple3, 2)}
-            <Animated.View
-              style={[
-                styles.logoPanel,
-                { backgroundColor: logoBg, opacity: logoOpacity, transform: [{ scale: logoScale }] },
-                logoShadow,
-              ]}
-            >
-              <Image source={require('@/assets/images/logo.png')} style={styles.logo} resizeMode="contain" />
-            </Animated.View>
-          </View>
-
-          <Animated.Text style={[styles.title, { opacity: logoOpacity }]}>Light Rail Deals</Animated.Text>
-          <Animated.Text style={[styles.subtitle, { opacity: logoOpacity }]}>{message}</Animated.Text>
-          <ActivityIndicator color="rgba(255,255,255,0.9)" style={styles.spinner} />
+      <View style={StyleSheet.absoluteFill}>
+        <Image
+          source={require('@/assets/images/havasu-falls.jpg')}
+          style={StyleSheet.absoluteFill}
+          resizeMode="cover"
+          blurRadius={50}
+          accessibilityElementsHidden
+        />
+        <Image
+          source={require('@/assets/images/havasu-falls.jpg')}
+          style={StyleSheet.absoluteFill}
+          resizeMode="contain"
+          accessibilityLabel="Havasu Falls waterfall in the Grand Canyon, Arizona"
+        />
+      </View>
+      <View style={styles.content} pointerEvents="none">
+        <View style={styles.stage}>
+          {renderRipple(ripple1, 0)}
+          {renderRipple(ripple2, 1)}
+          {renderRipple(ripple3, 2)}
+          <Animated.View
+            style={[
+              styles.logoPanel,
+              { backgroundColor: logoBg, opacity: logoOpacity, transform: [{ scale: logoScale }] },
+              logoShadow,
+            ]}
+          >
+            <Image source={require('@/assets/images/logo.png')} style={styles.logo} resizeMode="contain" />
+          </Animated.View>
         </View>
-      </LinearGradient>
-    </ImageBackground>
+
+        <Animated.Text style={[styles.title, { opacity: logoOpacity }]}>Light Rail Deals</Animated.Text>
+        <Animated.Text style={[styles.subtitle, { opacity: logoOpacity }]}>{ready ? 'Tap anywhere to continue' : message}</Animated.Text>
+        {ready ? null : <ActivityIndicator color="rgba(255,255,255,0.9)" style={styles.spinner} />}
+      </View>
+    </Pressable>
   );
 }
 
@@ -158,12 +175,18 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#ffffff',
     letterSpacing: 0.2,
+    textShadowColor: 'rgba(0,0,0,0.55)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 8,
   },
   subtitle: {
     marginTop: 8,
     fontSize: 14,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.85)',
+    color: 'rgba(255,255,255,0.9)',
+    textShadowColor: 'rgba(0,0,0,0.55)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
   },
   spinner: {
     marginTop: 28,
