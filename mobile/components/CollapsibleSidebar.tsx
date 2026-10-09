@@ -177,8 +177,18 @@ export function CollapsibleSidebar() {
 
   return (
     <>
-      {/* Hamburger trigger — floats in the top corner of every page. */}
-      <View style={[styles.fab, { top: insets.top + 10, right: 12, pointerEvents: 'box-none' }]}>
+      {/* Hamburger trigger — floats in the top corner of every page, aligned
+          with the top edge of Screen content (same padding math as Ui.tsx). */}
+      <View
+        style={[
+          styles.fab,
+          {
+            top: insets.top + 12 + Math.round(Math.min(24, Math.max(16, width * 0.05)) * effectiveScale),
+            right: 12,
+            pointerEvents: 'box-none',
+          },
+        ]}
+      >
         <Pressable
           onPress={open}
           accessibilityRole="button"
