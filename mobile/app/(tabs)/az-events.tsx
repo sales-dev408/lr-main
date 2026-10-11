@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { Pressable, SectionList, Text, View } from 'react-native';
+import { Linking, Pressable, SectionList, Text, View } from 'react-native';
 import { Link } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Screen, SectionTitle } from '@/components/Ui';
 import {
@@ -163,14 +163,18 @@ export default function AzEventsScreen() {
           </View>
         )}
         renderItem={({ item }) => (
-          <View
-            style={{
+          <Pressable
+            onPress={() => void Linking.openURL(item.url)}
+            accessibilityRole="link"
+            accessibilityLabel={`${item.name} — open event website`}
+            style={({ pressed }) => ({
               flexDirection: 'row',
               gap: 10,
               paddingVertical: 10,
               borderBottomWidth: 1,
               borderBottomColor: colors.border,
-            }}
+              opacity: pressed ? 0.6 : 1,
+            })}
           >
             <View style={{ paddingTop: 4 }}>
               <AdmissionDot kind={item.admission} />
@@ -186,7 +190,13 @@ export default function AzEventsScreen() {
                 {item.location} · {item.category}
               </Text>
             </View>
-          </View>
+            <Text
+              style={{ color: colors.brand, fontWeight: '700', fontSize: 15 * effectiveScale, alignSelf: 'center' }}
+              allowFontScaling={false}
+            >
+              ↗
+            </Text>
+          </Pressable>
         )}
       />
       <ScrollToTopButton
