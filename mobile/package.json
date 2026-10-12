@@ -8,6 +8,7 @@
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-picker/picker": "2.11.4",
     "@rnmapbox/maps": "^10.3.5",
+    "braces": "file:vendor/braces-3.0.4.tgz",
     "expo": "~57.0.27",
     "expo-blur": "~57.0.3",
     "expo-constants": "~57.0.21",
@@ -24,6 +25,7 @@
     "expo-symbols": "~57.0.3",
     "expo-updates": "~57.0.25",
     "mapbox-gl": "^3.28.0",
+    "node-forge": "file:vendor/node-forge-1.4.1.tgz",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
@@ -60,6 +62,8 @@
     "decode-uri-component": "^0.5.0",
     "@xmldom/xmldom": "0.8.15",
     "@expo/require-utils": "57.0.5",
+    "braces": "$braces",
+    "node-forge": "$node-forge",
     "@rnmapbox/maps": {
       "mapbox-gl": "$mapbox-gl"
     }
