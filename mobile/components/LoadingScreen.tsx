@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Image, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAppColorScheme } from '@/lib/colorScheme';
 import { useThemeColors } from '@/lib/useThemeColors';
 
@@ -86,11 +87,10 @@ export function LoadingScreen({ message = 'Loading your guide…', ready = false
   };
 
   return (
-    // Havasu Falls splash. The photo gets the upper area to itself (contain —
-    // the whole image always shows, uncropped) while the logo, title, and
-    // spinner live in the dock below it, so nothing ever covers the falls.
-    // The backdrop matches the native splash color (#171412) for a seamless
-    // handoff. Once `ready`, any tap calls onContinue.
+    // Havasu Falls splash. The photo fills the entire background (cover) on
+    // every screen size; a bottom gradient scrim keeps the logo, title, and
+    // spinner readable while the falls stays visible above them. Once
+    // `ready`, any tap calls onContinue.
     <Pressable
       style={StyleSheet.absoluteFill}
       onPress={ready ? onContinue : undefined}
@@ -99,14 +99,18 @@ export function LoadingScreen({ message = 'Loading your guide…', ready = false
       accessibilityLabel={ready ? 'Tap anywhere to open the app' : 'Loading'}
     >
       <View style={styles.backdrop}>
-        <View style={styles.photoArea}>
-          <Image
-            source={require('@/assets/images/havasu-falls.jpg')}
-            style={styles.photo}
-            resizeMode="contain"
-            accessibilityLabel="Havasu Falls waterfall in the Grand Canyon, Arizona"
-          />
-        </View>
+        <Image
+          source={require('@/assets/images/havasu-falls.jpg')}
+          style={styles.photo}
+          resizeMode="cover"
+          accessibilityLabel="Havasu Falls waterfall in the Grand Canyon, Arizona"
+        />
+        <LinearGradient
+          colors={['rgba(23,20,18,0)', 'rgba(23,20,18,0.55)', '#171412']}
+          locations={[0, 0.5, 1]}
+          style={styles.scrim}
+          pointerEvents="none"
+        />
         <View style={styles.dock} pointerEvents="none">
           <View style={styles.stage}>
             {renderRipple(ripple1, 0)}
@@ -137,17 +141,27 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#171412',
   },
-  photoArea: {
-    flex: 1,
-    overflow: 'hidden',
-  },
   photo: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
     width: '100%',
     height: '100%',
   },
+  scrim: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '58%',
+  },
   dock: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
     paddingHorizontal: 24,
     paddingBottom: 48,
     paddingTop: 8,
