@@ -102,7 +102,7 @@ export function LoadingScreen({ message = 'Loading your guide…', ready = false
         <View style={styles.photoArea}>
           <Image
             source={require('@/assets/images/havasu-falls.jpg')}
-            style={StyleSheet.absoluteFill}
+            style={styles.photo}
             resizeMode="contain"
             accessibilityLabel="Havasu Falls waterfall in the Grand Canyon, Arizona"
           />
@@ -139,6 +139,11 @@ const styles = StyleSheet.create({
   },
   photoArea: {
     flex: 1,
+    overflow: 'hidden',
+  },
+  photo: {
+    width: '100%',
+    height: '100%',
   },
   dock: {
     alignItems: 'center',
