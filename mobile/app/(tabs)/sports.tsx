@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { FlatList, Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, GlassCard, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { SimpleListPicker, type SimpleListPickerEntry } from '@/components/SimpleListPicker';
@@ -67,36 +67,48 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
   );
 }
 
-function TeamEventCard({ event }: { event: TeamScheduleEvent }) {
+function TeamEventCard({ event, url }: { event: TeamScheduleEvent; url: string }) {
   const colors = useThemeColors();
   const { effectiveScale } = useDynamicType();
   return (
-    <Card>
-      <View style={{ gap: 6 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-          <Text style={{ color: colors.brand, fontSize: 13 * effectiveScale, fontWeight: '700' }} allowFontScaling={false}>
-            {formatEventDate(event)}
+    <Pressable
+      onPress={() => void Linking.openURL(url)}
+      accessibilityRole="link"
+      accessibilityLabel={`${event.title} — open the official schedule page`}
+      style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+    >
+      <Card>
+        <View style={{ gap: 6 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+            <Text style={{ color: colors.brand, fontSize: 13 * effectiveScale, fontWeight: '700' }} allowFontScaling={false}>
+              {formatEventDate(event)}
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={{ color: colors.muted, fontSize: 13 * effectiveScale }} allowFontScaling={false}>
+                {event.time ?? 'Time TBA'}
+              </Text>
+              <Text style={{ color: colors.brand, fontSize: 15 * effectiveScale, fontWeight: '700' }} allowFontScaling={false}>
+                ↗
+              </Text>
+            </View>
+          </View>
+          {event.sport ? (
+            <Text style={{ color: colors.muted, fontSize: 12 * effectiveScale }} allowFontScaling={false}>
+              {event.sport}
+            </Text>
+          ) : null}
+          <Text style={{ color: colors.ink, fontSize: 16 * effectiveScale, fontWeight: '700' }} allowFontScaling={false}>
+            {event.title}
           </Text>
-          <Text style={{ color: colors.muted, fontSize: 13 * effectiveScale }} allowFontScaling={false}>
-            {event.time ?? 'Time TBA'}
-          </Text>
+          {event.venue ? (
+            <Text style={{ color: colors.muted, fontSize: 12 * effectiveScale }} allowFontScaling={false}>
+              {event.venue}
+            </Text>
+          ) : null}
+          {event.note ? <Pill tone="warning">{event.note}</Pill> : null}
         </View>
-        {event.sport ? (
-          <Text style={{ color: colors.muted, fontSize: 12 * effectiveScale }} allowFontScaling={false}>
-            {event.sport}
-          </Text>
-        ) : null}
-        <Text style={{ color: colors.ink, fontSize: 16 * effectiveScale, fontWeight: '700' }} allowFontScaling={false}>
-          {event.title}
-        </Text>
-        {event.venue ? (
-          <Text style={{ color: colors.muted, fontSize: 12 * effectiveScale }} allowFontScaling={false}>
-            {event.venue}
-          </Text>
-        ) : null}
-        {event.note ? <Pill tone="warning">{event.note}</Pill> : null}
-      </View>
-    </Card>
+      </Card>
+    </Pressable>
   );
 }
 
@@ -135,7 +147,7 @@ function TeamScheduleView({ team, now }: { team: TeamSchedule; now: Date }) {
       ) : (
         <FlatList
           data={events}
-          renderItem={({ item }) => <TeamEventCard event={item} />}
+          renderItem={({ item }) => <TeamEventCard event={item} url={team.url} />}
           keyExtractor={(item, index) => `${item.date}-${index}`}
           contentContainerStyle={{ gap: 12 }}
           scrollEnabled={false}

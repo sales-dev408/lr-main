@@ -19,6 +19,7 @@ export type TeamSchedule = {
   id: TeamId;
   label: string; // sub-tab label
   name: string;
+  url: string; // official schedule page — event rows deep-link here
   events: TeamScheduleEvent[];
   note?: string; // team-level note shown above the list
 };
@@ -300,12 +301,25 @@ const GCU_EVENTS: TeamScheduleEvent[] = [
 ];
 
 export const TEAM_SCHEDULES: TeamSchedule[] = [
-  { id: 'asu', label: 'ASU', name: 'Arizona State Sun Devils', events: ASU_EVENTS },
-  { id: 'suns', label: 'Suns', name: 'Phoenix Suns', events: SUNS_EVENTS },
+  {
+    id: 'asu',
+    label: 'ASU',
+    name: 'Arizona State Sun Devils',
+    url: 'https://thesundevils.com/calendar',
+    events: ASU_EVENTS,
+  },
+  {
+    id: 'suns',
+    label: 'Suns',
+    name: 'Phoenix Suns',
+    url: 'https://www.nba.com/suns/schedule',
+    events: SUNS_EVENTS,
+  },
   {
     id: 'rising',
     label: 'Rising FC',
     name: 'Phoenix Rising FC',
+    url: 'https://www.phxrisingfc.com/schedule/',
     events: RISING_EVENTS,
     note: 'The 2027 Rising schedule has not been released. Playoff matches after Oct. 24 depend on qualification.',
   },
@@ -313,6 +327,7 @@ export const TEAM_SCHEDULES: TeamSchedule[] = [
     id: 'cardinals',
     label: 'Cardinals',
     name: 'Arizona Cardinals',
+    url: 'https://www.azcardinals.com/schedule/',
     events: CARDINALS_EVENTS,
     note: 'Week 18: vs. San Francisco 49ers — date/time TBA.',
   },
@@ -320,11 +335,24 @@ export const TEAM_SCHEDULES: TeamSchedule[] = [
     id: 'dbacks',
     label: 'D-backs',
     name: 'Arizona Diamondbacks',
+    url: 'https://www.mlb.com/dbacks/schedule',
     events: [],
     note: 'Schedule not yet available.',
   },
-  { id: 'ua', label: 'U of A', name: 'Arizona Wildcats', events: UA_EVENTS },
-  { id: 'gcu', label: 'GCU', name: 'Grand Canyon Antelopes', events: GCU_EVENTS },
+  {
+    id: 'ua',
+    label: 'U of A',
+    name: 'Arizona Wildcats',
+    url: 'https://arizonawildcats.com/calendar',
+    events: UA_EVENTS,
+  },
+  {
+    id: 'gcu',
+    label: 'GCU',
+    name: 'Grand Canyon Antelopes',
+    url: 'https://gculopes.com/calendar',
+    events: GCU_EVENTS,
+  },
 ];
 
 // Schedules are published in Arizona time (America/Phoenix, UTC-7, no DST).

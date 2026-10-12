@@ -9,6 +9,7 @@ import { LegalAcceptanceProvider } from '@/lib/legalAcceptance';
 import { DynamicTypeProvider } from '@/lib/dynamicType';
 import { listenForNotifications } from '@/lib/notifications';
 import { getAppState } from '@/lib/api';
+import { syncWidgetItems } from '@/lib/widgetFeed';
 
 export default function RootLayout() {
   // Mirror received push notifications into the local inbox for the
@@ -17,9 +18,11 @@ export default function RootLayout() {
   // Warm the app-state snapshot once per launch: a tiny /api/app/version check
   // decides whether the cached snapshot needs re-downloading. Every directory
   // screen then reads the same cached data — this is the only backend traffic
-  // the browsing experience produces.
+  // the browsing experience produces. The resolved state is also pushed to
+  // the iOS home-screen widget (rotating deals/games/events) via the shared
+  // app group.
   useEffect(() => {
-    void getAppState();
+    void getAppState().then((state) => syncWidgetItems(state));
   }, []);
   return (
     <ColorSchemeProvider>

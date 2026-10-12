@@ -1,18 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Image, Platform, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useAppColorScheme } from '@/lib/colorScheme';
 import { useThemeColors } from '@/lib/useThemeColors';
-
-// havasu-falls.jpg is 1080x1626. When the screen is proportionally taller than
-// the photo, `contain` leaves bars top and bottom; on wide screens the bars
-// move to the sides.
-const SPLASH_IMG_ASPECT = 1080 / 1626;
 
 export function LoadingScreen({ message = 'Loading your guide…', ready = false, onContinue }: { message?: string; ready?: boolean; onContinue?: () => void }) {
   const { scheme } = useAppColorScheme();
   const colors = useThemeColors();
-  const { width: winW, height: winH } = useWindowDimensions();
-  const horizontalBars = winW / winH < SPLASH_IMG_ASPECT;
 
   const isDark = scheme === 'dark';
   const logoBg = isDark ? colors.ink : colors.panel;
@@ -93,10 +86,11 @@ export function LoadingScreen({ message = 'Loading your guide…', ready = false
   };
 
   return (
-    // Havasu Falls splash. The image uses `contain` so the whole photo is
-    // always visible with no cropping and no overlay filter; flat panels
-    // sampled from the photo's own top and bottom edges fill the space
-    // above and below it. Once `ready`, any tap calls onContinue.
+    // Havasu Falls splash. The photo gets the upper area to itself (contain —
+    // the whole image always shows, uncropped) while the logo, title, and
+    // spinner live in the dock below it, so nothing ever covers the falls.
+    // The backdrop matches the native splash color (#171412) for a seamless
+    // handoff. Once `ready`, any tap calls onContinue.
     <Pressable
       style={StyleSheet.absoluteFill}
       onPress={ready ? onContinue : undefined}
@@ -104,101 +98,69 @@ export function LoadingScreen({ message = 'Loading your guide…', ready = false
       accessibilityRole="button"
       accessibilityLabel={ready ? 'Tap anywhere to open the app' : 'Loading'}
     >
-      <View style={StyleSheet.absoluteFill}>
-        {horizontalBars ? (
-          <>
-            <View style={styles.fillTop} />
-            <View style={styles.fillBottom} />
-          </>
-        ) : (
-          <>
-            <View style={styles.fillLeft} />
-            <View style={styles.fillRight} />
-          </>
-        )}
-        <Image
-          source={require('@/assets/images/havasu-falls.jpg')}
-          style={StyleSheet.absoluteFill}
-          resizeMode="contain"
-          accessibilityLabel="Havasu Falls waterfall in the Grand Canyon, Arizona"
-        />
-      </View>
-      <View style={styles.content} pointerEvents="none">
-        <View style={styles.stage}>
-          {renderRipple(ripple1, 0)}
-          {renderRipple(ripple2, 1)}
-          {renderRipple(ripple3, 2)}
-          <Animated.View
-            style={[
-              styles.logoPanel,
-              { backgroundColor: logoBg, opacity: logoOpacity, transform: [{ scale: logoScale }] },
-              logoShadow,
-            ]}
-          >
-            <Image source={require('@/assets/images/logo.png')} style={styles.logo} resizeMode="contain" />
-          </Animated.View>
+      <View style={styles.backdrop}>
+        <View style={styles.photoArea}>
+          <Image
+            source={require('@/assets/images/havasu-falls.jpg')}
+            style={StyleSheet.absoluteFill}
+            resizeMode="contain"
+            accessibilityLabel="Havasu Falls waterfall in the Grand Canyon, Arizona"
+          />
         </View>
+        <View style={styles.dock} pointerEvents="none">
+          <View style={styles.stage}>
+            {renderRipple(ripple1, 0)}
+            {renderRipple(ripple2, 1)}
+            {renderRipple(ripple3, 2)}
+            <Animated.View
+              style={[
+                styles.logoPanel,
+                { backgroundColor: logoBg, opacity: logoOpacity, transform: [{ scale: logoScale }] },
+                logoShadow,
+              ]}
+            >
+              <Image source={require('@/assets/images/logo.png')} style={styles.logo} resizeMode="contain" />
+            </Animated.View>
+          </View>
 
-        <Animated.Text style={[styles.title, { opacity: logoOpacity }]}>Light Rail Deals</Animated.Text>
-        <Animated.Text style={[styles.subtitle, { opacity: logoOpacity }]}>{ready ? 'Tap anywhere to continue' : message}</Animated.Text>
-        {ready ? null : <ActivityIndicator color="rgba(255,255,255,0.9)" style={styles.spinner} />}
+          <Animated.Text style={[styles.title, { opacity: logoOpacity }]}>Light Rail Deals</Animated.Text>
+          <Animated.Text style={[styles.subtitle, { opacity: logoOpacity }]}>{ready ? 'Tap anywhere to continue' : message}</Animated.Text>
+          {ready ? null : <ActivityIndicator color="rgba(255,255,255,0.9)" style={styles.spinner} />}
+        </View>
       </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  fillTop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '50%',
-    backgroundColor: '#a2795f',
-  },
-  fillBottom: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '50%',
-    backgroundColor: '#5e655d',
-  },
-  fillLeft: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: 0,
-    width: '50%',
-    backgroundColor: '#8f7661',
-  },
-  fillRight: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    right: 0,
-    width: '50%',
-    backgroundColor: '#a86350',
-  },
-  content: {
+  backdrop: {
     flex: 1,
+    backgroundColor: '#171412',
+  },
+  photoArea: {
+    flex: 1,
+  },
+  dock: {
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingBottom: 48,
+    paddingTop: 8,
   },
   stage: {
-    width: 220,
-    height: 220,
+    width: 160,
+    height: 160,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 28,
+    marginBottom: 16,
   },
   ripple: {
     position: 'absolute',
-    top: 40,
-    left: 40,
-    width: 140,
-    height: 140,
-    borderRadius: 70,
+    top: 25,
+    left: 25,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.5)',
     backgroundColor: 'transparent',
