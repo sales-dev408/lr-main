@@ -1,4 +1,5 @@
-import fastify from 'fastify';
+import fastify, { type FastifyError } from 'fastify';
+import { ZodError } from 'zod';
 import authPlugin from './plugins/auth.js';
 import securityPlugin from './plugins/security.js';
 import { registerHealthRoutes } from './routes/health.js';
@@ -18,6 +19,7 @@ import { registerRealEstateRoutes } from './routes/realEstate.js';
 import { registerMePassRoutes } from './routes/mePass.js';
 import { registerAdsRoutes } from './routes/ads.js';
 import { registerStopsRoutes } from './routes/stops.js';
+import { registerAppPublishRoutes } from './routes/appPublish.js';
 
 export async function buildApp() {
   const app = fastify({
@@ -26,6 +28,20 @@ export async function buildApp() {
     routerOptions: {
       maxParamLength: 256,
     },
+  });
+
+  app.setErrorHandler((error: FastifyError | ZodError, request, reply) => {
+    if (error instanceof ZodError) {
+      return reply.code(400).send({
+        error: 'Validation failed',
+        issues: error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
+      });
+    }
+    if (error.statusCode && error.statusCode < 500) {
+      return reply.code(error.statusCode).send({ error: error.message });
+    }
+    request.log.error(error);
+    return reply.code(500).send({ error: 'Internal Server Error' });
   });
 
   await app.register(securityPlugin);
@@ -48,6 +64,7 @@ export async function buildApp() {
   await registerMePassRoutes(app);
   await registerAdsRoutes(app);
   await registerStopsRoutes(app);
+  await registerAppPublishRoutes(app);
 
   return app;
 }

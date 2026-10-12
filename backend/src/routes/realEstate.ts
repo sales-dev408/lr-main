@@ -54,8 +54,9 @@ const realEstateSchema = z.object({
 const COLUMNS =
   'id, title, description, price, beds, baths, sqft, property_type, listing_status, address, city, state, zip, phone, email, website, image_url, station, latitude, longitude, active, created_at, updated_at';
 
-export async function listRealEstate(): Promise<RealEstateRecord[]> {
-  return dbQuery<RealEstateRecord>(`SELECT ${COLUMNS} FROM real_estate ORDER BY created_at DESC`);
+export async function listRealEstate(opts: { activeOnly?: boolean } = {}): Promise<RealEstateRecord[]> {
+  const where = opts.activeOnly ? 'WHERE active = true' : '';
+  return dbQuery<RealEstateRecord>(`SELECT ${COLUMNS} FROM real_estate ${where} ORDER BY created_at DESC`);
 }
 
 export async function getRealEstate(id: string): Promise<RealEstateRecord | null> {

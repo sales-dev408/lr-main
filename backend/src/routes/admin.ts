@@ -13,6 +13,12 @@ import { qrCodeUrl } from '../services/quickchart.js';
 import { deleteDiscountFromVendorConnections, syncDiscountToVendorConnections } from '../services/pos.js';
 import { config } from '../config.js';
 
+function isUniqueViolation(error: unknown): boolean {
+  const code = (error as { code?: unknown })?.code;
+  const message = String((error as { message?: unknown })?.message ?? '');
+  return code === '23505' || message.includes('unique constraint');
+}
+
 // Geocoding function using Mapbox Geocoding API
 async function geocodeAddress(address: string): Promise<{ latitude: number; longitude: number } | null> {
   if (!config.mapboxAccessToken || !address.trim()) return null;
@@ -74,8 +80,8 @@ const vendorSchema = z.object({
   discountEndsAt: z.string().datetime().optional().nullable(),
   boosted: z.boolean().optional(),
   membersOnly: z.boolean().optional(),
-  discountTerms: z.string().optional(),
-  discountDescription: z.string().optional(),
+  discountTerms: z.string().optional().nullable(),
+  discountDescription: z.string().optional().nullable(),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
   iconDataUrl: z.string().optional(),
@@ -194,7 +200,9 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
     if (body.discountType === 'bogo' && (!body.discountDescription || !body.discountDescription.trim())) {
       return reply.code(400).send({ error: 'BOGO discounts require a description' });
     }
-    const result = await withDbClient(async (client: PoolClient) => {
+    let result;
+    try {
+      result = await withDbClient(async (client: PoolClient) => {
       const address = body.address ?? body.location;
       
       // Auto-geocode if address is provided but coordinates are missing
@@ -273,7 +281,13 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
         membershipCard: { id: cardId, name: cardName },
         posInstructions: `Ask the customer to show their ${cardName} pass, scan its barcode, then apply code ${discountCode} in your POS. No NFC required.`,
       };
-    });
+      });
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        return reply.code(409).send({ error: 'A vendor with this email already exists.' });
+      }
+      throw error;
+    }
 
     if (body.email) {
       try {
@@ -311,31 +325,43 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
       return reply.code(400).send({ error: 'BOGO discounts require a description' });
     }
     const address = body.address ?? body.location;
-    const rows = await dbQuery(
-      `
-        UPDATE vendors
-        SET name = COALESCE($2, name),
-            owner_name = COALESCE($3, owner_name),
-            location = COALESCE($4, location),
-            address = COALESCE($4, address),
-            city = COALESCE($5, city),
-            station = COALESCE($6, station),
-            category = COALESCE($7, category),
-            email = COALESCE($8, email),
-            phone = COALESCE($9, phone),
-            status = COALESCE($10, status),
-            latitude = COALESCE($11, latitude),
-            longitude = COALESCE($12, longitude),
-            icon_url = COALESCE($13, icon_url),
-            logo_url = COALESCE($14, logo_url),
-            discount_terms = COALESCE($15, discount_terms),
-            website = COALESCE($16, website),
-            updated_at = now()
-        WHERE id = $1
-        RETURNING *
-      `,
-      [id, body.name ?? null, body.ownerName ?? null, address ?? null, body.city ?? null, body.station ?? null, body.category ?? null, body.email ?? null, body.phone ?? null, body.status ?? null, body.latitude ?? null, body.longitude ?? null, body.iconDataUrl ?? null, body.logoDataUrl ?? null, body.discountTerms ?? null, body.website ?? null],
-    );
+    let rows;
+    try {
+      rows = await dbQuery(
+        `
+          UPDATE vendors
+          SET name = COALESCE($2, name),
+              owner_name = COALESCE($3, owner_name),
+              location = COALESCE($4, location),
+              address = COALESCE($4, address),
+              city = COALESCE($5, city),
+              station = COALESCE($6, station),
+              category = COALESCE($7, category),
+              email = COALESCE($8, email),
+              phone = COALESCE($9, phone),
+              status = COALESCE($10, status),
+              latitude = COALESCE($11, latitude),
+              longitude = COALESCE($12, longitude),
+              icon_url = COALESCE($13, icon_url),
+              logo_url = COALESCE($14, logo_url),
+              discount_terms = COALESCE($15, discount_terms),
+              website = COALESCE($16, website),
+              updated_at = now()
+          WHERE id = $1
+          RETURNING *
+        `,
+        [id, body.name ?? null, body.ownerName ?? null, address ?? null, body.city ?? null, body.station ?? null, body.category ?? null, body.email ?? null, body.phone ?? null, body.status ?? null, body.latitude ?? null, body.longitude ?? null, body.iconDataUrl ?? null, body.logoDataUrl ?? null, body.discountTerms ?? null, body.website ?? null],
+      );
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        return reply.code(409).send({ error: 'A vendor with this email already exists.' });
+      }
+      throw error;
+    }
+
+    if (rows.length === 0) {
+      return reply.code(404).send({ error: 'Vendor not found' });
+    }
 
     if (body.discountType !== undefined || body.discountValue !== undefined || body.discountStartsAt !== undefined || body.discountEndsAt !== undefined || body.boosted !== undefined || body.membersOnly !== undefined || body.discountDescription !== undefined) {
       const discountDescription = body.discountDescription?.trim();
@@ -389,7 +415,7 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
       }
     }
 
-    return rows[0] ?? {};
+    return rows[0];
   });
 
   fastify.post('/api/admin/vendors/:id/approve', { preHandler: fastify.requireRole(['admin']) }, async (request) => {
@@ -654,67 +680,86 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
 
   fastify.post('/api/admin/discounts', { preHandler: fastify.requireRole(['admin']) }, async (request, reply) => {
     const body = discountSchema.parse(request.body);
-    const rows = await dbQuery<{ id: string }>(
-      `
-        INSERT INTO discounts (
-          card_id, vendor_id, type, value, min_purchase, max_uses_total, max_uses_per_customer, city_overrides, active
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)
-        RETURNING id
-      `,
-      [
-        body.cardId,
-        body.vendorId,
-        body.type,
-        body.value,
-        body.minPurchase,
-        body.maxUsesTotal ?? null,
-        body.maxUsesPerCustomer ?? null,
-        JSON.stringify(body.cityOverrides),
-        body.active,
-      ],
-    );
+    let rows: { id: string }[];
+    try {
+      rows = await dbQuery<{ id: string }>(
+        `
+          INSERT INTO discounts (
+            card_id, vendor_id, type, value, min_purchase, max_uses_total, max_uses_per_customer, city_overrides, active
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)
+          RETURNING id
+        `,
+        [
+          body.cardId,
+          body.vendorId,
+          body.type,
+          body.value,
+          body.minPurchase,
+          body.maxUsesTotal ?? null,
+          body.maxUsesPerCustomer ?? null,
+          JSON.stringify(body.cityOverrides),
+          body.active,
+        ],
+      );
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        return reply.code(409).send({ error: 'A discount already exists for this vendor on this card. Edit the existing discount instead.' });
+      }
+      throw error;
+    }
     void syncDiscountToVendorConnections({ discountId: rows[0]!.id, action: 'upsert' }).catch((error) => {
       fastify.log.warn({ error, discountId: rows[0]!.id }, 'POS auto-sync failed');
     });
     return reply.code(201).send({ id: rows[0]!.id });
   });
 
-  fastify.patch('/api/admin/discounts/:id', { preHandler: fastify.requireRole(['admin']) }, async (request) => {
+  fastify.patch('/api/admin/discounts/:id', { preHandler: fastify.requireRole(['admin']) }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const body = discountSchema.partial().parse(request.body);
-    const rows = await dbQuery(
-      `
-        UPDATE discounts
-        SET card_id = COALESCE($2, card_id),
-            vendor_id = COALESCE($3, vendor_id),
-            type = COALESCE($4, type),
-            value = COALESCE($5, value),
-            min_purchase = COALESCE($6, min_purchase),
-            max_uses_total = COALESCE($7, max_uses_total),
-            max_uses_per_customer = COALESCE($8, max_uses_per_customer),
-            city_overrides = COALESCE($9::jsonb, city_overrides),
-            active = COALESCE($10, active),
-            updated_at = now()
-        WHERE id = $1
-        RETURNING *
-      `,
-      [
-        id,
-        body.cardId ?? null,
-        body.vendorId ?? null,
-        body.type ?? null,
-        body.value ?? null,
-        body.minPurchase ?? null,
-        body.maxUsesTotal ?? null,
-        body.maxUsesPerCustomer ?? null,
-        body.cityOverrides ? JSON.stringify(body.cityOverrides) : null,
-        body.active ?? null,
-      ],
-    );
+    let rows: Record<string, unknown>[];
+    try {
+      rows = await dbQuery<Record<string, unknown>>(
+        `
+          UPDATE discounts
+          SET card_id = COALESCE($2, card_id),
+              vendor_id = COALESCE($3, vendor_id),
+              type = COALESCE($4, type),
+              value = COALESCE($5, value),
+              min_purchase = COALESCE($6, min_purchase),
+              max_uses_total = COALESCE($7, max_uses_total),
+              max_uses_per_customer = COALESCE($8, max_uses_per_customer),
+              city_overrides = COALESCE($9::jsonb, city_overrides),
+              active = COALESCE($10, active),
+              updated_at = now()
+          WHERE id = $1
+          RETURNING *
+        `,
+        [
+          id,
+          body.cardId ?? null,
+          body.vendorId ?? null,
+          body.type ?? null,
+          body.value ?? null,
+          body.minPurchase ?? null,
+          body.maxUsesTotal ?? null,
+          body.maxUsesPerCustomer ?? null,
+          body.cityOverrides ? JSON.stringify(body.cityOverrides) : null,
+          body.active ?? null,
+        ],
+      );
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        return reply.code(409).send({ error: 'A discount already exists for this vendor on this card. Edit the existing discount instead.' });
+      }
+      throw error;
+    }
+    if (rows.length === 0) {
+      return reply.code(404).send({ error: 'Discount not found' });
+    }
     void syncDiscountToVendorConnections({ discountId: id, action: 'upsert' }).catch((error) => {
       fastify.log.warn({ error, discountId: id }, 'POS auto-sync failed');
     });
-    return rows[0] ?? {};
+    return rows[0];
   });
 
   fastify.delete('/api/admin/discounts/:id', { preHandler: fastify.requireRole(['admin']) }, async (request) => {
