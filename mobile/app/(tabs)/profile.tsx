@@ -15,9 +15,9 @@ import type { UserAnalytics, VendorListItem } from '@/lib/types';
 
 const IMAGE_CREDITS = [
   {
-    image: 'Downtown Phoenix skyline during the day',
-    screen: 'Splash screen & Home hero',
-    credit: 'Alan Stark — CC BY-SA 2.0 (via Wikimedia Commons / Flickr)',
+    image: 'Downtown Phoenix skyline at sunset',
+    screen: 'Home hero',
+    credit: 'Adobe Stock #888020508',
   },
   {
     image: 'Valley Metro rail line maps (A Line, B Line, streetcar)',
