@@ -69,7 +69,7 @@ export function inferVendorType(value: unknown): string | null {
   const raw = value.trim();
   if (!raw) return null;
   const lower = raw.toLowerCase();
-  if (lower === 'restaurant' || lower === 'bar' || lower === 'cafe' || lower === 'other' || lower === 'beauty' || lower === 'boutique') return lower;
+  if (lower === 'restaurant' || lower === 'bar' || lower === 'cafe' || lower === 'other' || lower === 'beauty' || lower === 'boutique' || lower === 'services') return lower;
   if (/(beauty|barber|salon|nail|lash|brow|spa\b|hair)/i.test(raw)) return 'beauty';
   if (/boutique/i.test(raw)) return 'boutique';
   if (/(bar|pub|brew|tavern|lounge|cocktail|wine|beer|rooftop|live music)/i.test(raw)) return 'bar';

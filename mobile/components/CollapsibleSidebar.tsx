@@ -29,6 +29,7 @@ const PRIMARY_ITEMS: NavItem[] = [
   { key: 'events', label: 'Events', icon: '★', href: '/events' },
   { key: 'live', label: 'Train Times', icon: '⚡', href: '/live' },
   { key: 'real-estate', label: 'Real Estate', icon: '🏘', href: '/real-estate' },
+  { key: 'services', label: 'Services', icon: '🛠', href: '/services' },
 ];
 
 const SECONDARY_ITEMS: NavItem[] = [

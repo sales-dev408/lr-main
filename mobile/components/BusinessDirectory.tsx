@@ -24,6 +24,8 @@ export type DirectoryTypeOption = {
   label: string;
   /** vendorType values matched by this filter; null matches every page type. */
   types: string[] | null;
+  /** vendor.category substrings matched by this filter (services pages). */
+  categories?: string[];
   /** Legacy deep-link values (?type=...) that should select this option. */
   aliases?: string[];
 };
@@ -35,6 +37,10 @@ export type DirectoryConfig = {
   typeOptions: DirectoryTypeOption[];
   /** Offer the cuisine dropdown (restaurants pages). */
   cuisineFilter?: boolean;
+  /** Group the list by vendor city instead of rail stop. */
+  groupByCity?: boolean;
+  /** City sections to always show first, in order (groupByCity only). */
+  cityOrder?: string[];
 };
 
 function distanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -221,6 +227,10 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
       const allowed = new Set(activeTypeOption.types.map((t) => t.toLowerCase()));
       list = list.filter((v) => allowed.has((v.vendorType ?? '').toLowerCase()));
     }
+    if (activeTypeOption?.categories?.length) {
+      const wanted = activeTypeOption.categories.map((c) => c.toLowerCase());
+      list = list.filter((v) => wanted.some((c) => (v.category ?? '').toLowerCase().includes(c)));
+    }
     if (cuisineFilter) {
       list = list.filter((v) => (v.cuisine ?? '').toLowerCase() === cuisineFilter.toLowerCase());
     }
@@ -232,6 +242,35 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
 
   const groupedVendors = useMemo(() => {
     const groups = new Map<string, VendorListItem[]>();
+    const sortItems = (arr: VendorListItem[]) => {
+      const favoriteSet = new Set(favorites);
+      arr.sort((a, b) => {
+        if (sortByFavorites) {
+          const af = favoriteSet.has(a.id) ? -1 : 1;
+          const bf = favoriteSet.has(b.id) ? -1 : 1;
+          if (af !== bf) return af - bf;
+        }
+        if (a.boosted !== b.boosted) return a.boosted ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+    };
+    if (config.groupByCity) {
+      const order = config.cityOrder ?? [];
+      for (const city of order) groups.set(city, []);
+      for (const v of filteredVendors) {
+        const key = v.city?.trim() || 'Other';
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push(v);
+      }
+      for (const arr of groups.values()) sortItems(arr);
+      const rank = (name: string) => {
+        const i = order.findIndex((c) => c.toLowerCase() === name.toLowerCase());
+        return i < 0 ? order.length : i;
+      };
+      return new Map(
+        [...groups.entries()].sort((a, b) => rank(a[0]) - rank(b[0]) || a[0].localeCompare(b[0])),
+      );
+    }
     for (const v of filteredVendors) {
       // Use the canonical stop name when available, otherwise fall back to the
       // vendor's own station label so vendors are still grouped by stop rather
@@ -244,18 +283,7 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
     for (const stop of revealedStops) {
       if (!groups.has(stop)) groups.set(stop, []);
     }
-    const favoriteSet = new Set(favorites);
-    for (const arr of groups.values()) {
-      arr.sort((a, b) => {
-        if (sortByFavorites) {
-          const af = favoriteSet.has(a.id) ? -1 : 1;
-          const bf = favoriteSet.has(b.id) ? -1 : 1;
-          if (af !== bf) return af - bf;
-        }
-        if (a.boosted !== b.boosted) return a.boosted ? -1 : 1;
-        return a.name.localeCompare(b.name);
-      });
-    }
+    for (const arr of groups.values()) sortItems(arr);
     const lineRank = (station: string) => {
       const line = findStop(station)?.line;
       const rank = line === 'A Line' ? 0 : line === 'B Line' ? 1 : 2;
@@ -264,7 +292,7 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
     return new Map(
       [...groups.entries()].sort((a, b) => lineRank(a[0]) - lineRank(b[0]) || compareStops(a[0], b[0])),
     );
-  }, [filteredVendors, sortByFavorites, favorites, bLineFirst, revealedStops]);
+  }, [filteredVendors, sortByFavorites, favorites, bLineFirst, revealedStops, config.groupByCity, config.cityOrder]);
 
   const stopEntries = useMemo(() => {
     const counts = new Map<string, number>();
@@ -495,9 +523,11 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
               Search
             </AppButton>
           </View>
-          <View style={{ marginTop: 4 }}>
-            <StopPicker entries={stopEntries} onSelect={jumpToStation} label="Jump to a stop" itemNoun="business" />
-          </View>
+          {config.groupByCity ? null : (
+            <View style={{ marginTop: 4 }}>
+              <StopPicker entries={stopEntries} onSelect={jumpToStation} label="Jump to a stop" itemNoun="business" />
+            </View>
+          )}
 
           {filtersOpen ? (
             <View style={{ gap: 10, marginTop: 4 }}>
@@ -538,6 +568,7 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
                 />
               ) : null}
 
+              {config.groupByCity ? null : (
               <View>
                 <Text style={{ color: colors.muted, fontSize: 12 * effectiveScale, marginBottom: 6 }} allowFontScaling={false}>
                   Rail line
@@ -554,6 +585,7 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
                   ))}
                 </View>
               </View>
+              )}
 
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 }}>
                 <Text style={{ color: colors.ink, fontSize: 14 * effectiveScale }} allowFontScaling={false}>
@@ -581,7 +613,7 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 }}>
                 <Text style={{ color: colors.ink, fontSize: 14 * effectiveScale }} allowFontScaling={false}>
-                  Stations
+                  {config.groupByCity ? 'Sections' : 'Stations'}
                 </Text>
                 <AppButton
                   variant="secondary"
@@ -630,7 +662,9 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
             {items.length === 0 ? (
               <Card>
                 <Text style={{ color: colors.muted, fontSize: 14 * effectiveScale }} allowFontScaling={false}>
-                  No {title.toLowerCase()} listed at this stop yet.
+                  {config.groupByCity
+                    ? `No ${title.toLowerCase()} listed in ${station} yet.`
+                    : `No ${title.toLowerCase()} listed at this stop yet.`}
                 </Text>
               </Card>
             ) : !collapsed ? (
