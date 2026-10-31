@@ -94,6 +94,7 @@ export interface VendorRecord {
   discount_starts_at?: string | null;
   discount_ends_at?: string | null;
   discount_members_only?: boolean | null;
+  discount_boosted?: boolean | null;
   boosted?: boolean | null;
   status: VendorStatus;
   created_at?: string;

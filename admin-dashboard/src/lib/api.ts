@@ -315,6 +315,10 @@ export async function updateAdminVendor(
   return apiRequest(`/admin/vendors/${id}`, { method: 'PATCH', body: jsonBody(body) });
 }
 
+export async function getAdminVendor(id: string): Promise<VendorRecord> {
+  return apiRequest(`/admin/vendors/${id}`);
+}
+
 export async function getVendorPass(id: string): Promise<VendorPassResult> {
   return apiRequest(`/admin/vendors/${id}/pass`);
 }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
 import {
   createAdminVendor,
+  getAdminVendor,
   getVendorAnalytics,
   listAdminStops,
   listAdminVendors,
@@ -524,7 +525,7 @@ export function VendorsPage() {
         discountTerms: editing.discount_terms?.trim() || DEFAULT_DISCOUNT_TERMS,
         discountStartsAt: toIsoOrNull(editing.discount_starts_at),
         discountEndsAt: toIsoOrNull(editing.discount_ends_at),
-        boosted: editing.boosted ?? false,
+        boosted: editing.discount_boosted ?? false,
         membersOnly: editing.discount_members_only ?? false,
       });
       setEditing(null);
@@ -532,6 +533,19 @@ export function VendorsPage() {
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Update failed');
+    }
+  }
+
+  // The list endpoint omits discount_description/discount_boosted; the
+  // single-vendor endpoint returns them, so hydrate the edit form from it.
+  async function handleEditVendor(vendor: VendorRecord) {
+    setError(null);
+    setEditing(vendor);
+    try {
+      const full = await getAdminVendor(vendor.id);
+      setEditing((prev) => (prev && prev.id === vendor.id ? { ...prev, ...full } : prev));
+    } catch {
+      // Fall back to the list record; missing fields will save as-is.
     }
   }
 
@@ -880,14 +894,14 @@ export function VendorsPage() {
                     </p>
                     <div className="inline-row" style={{ gap: 6, flexWrap: 'wrap' }}>
                       <Badge tone={vendor.status === 'approved' ? 'success' : vendor.status === 'rejected' ? 'danger' : 'warning'}>{vendor.status}</Badge>
-                      {vendor.boosted ? <Badge tone="info">Boosted</Badge> : null}
+                      {vendor.discount_boosted ? <Badge tone="info">Boosted</Badge> : null}
                       {vendor.discount_type ? <Badge tone="neutral">{formatDiscount(vendor.discount_type, vendor.discount_value)}</Badge> : null}
                     </div>
                     {formatFlashWindow(vendor.discount_starts_at, vendor.discount_ends_at) ? <p className="muted">{formatFlashWindow(vendor.discount_starts_at, vendor.discount_ends_at)}</p> : null}
                   </div>
                 </div>
                 <div className="row-actions">
-                  <Button variant="secondary" disabled={readOnly} onClick={() => { setError(null); setEditing(vendor); }}>Edit</Button>
+                  <Button variant="secondary" disabled={readOnly} onClick={() => handleEditVendor(vendor)}>Edit</Button>
                   <Button variant="secondary" disabled={readOnly} onClick={() => handleRegenerateQr(vendor)}>Regenerate QR</Button>
                   <Button variant="secondary" onClick={() => handleViewStats(vendor)}>View stats</Button>
                 </div>
@@ -1033,7 +1047,7 @@ export function VendorsPage() {
               </label>
             </div>
             <label className="inline-row" style={{ alignItems: 'center', gap: 8 }}>
-              <input type="checkbox" checked={Boolean(editing.boosted)} onChange={(e) => setEditing({ ...editing, boosted: e.target.checked })} />
+              <input type="checkbox" checked={Boolean(editing.discount_boosted)} onChange={(e) => setEditing({ ...editing, discount_boosted: e.target.checked })} />
               Boost this deal
             </label>
             <label className="inline-row" style={{ alignItems: 'center', gap: 8 }}>
