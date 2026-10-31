@@ -166,7 +166,7 @@
       [
         "@rnmapbox/maps",
         {
-          "RNMapboxMapsVersion": "11.27.1"
+          "RNMapboxMapsVersion": "11.33.0"
         }
       ],
       "expo-notifications",
