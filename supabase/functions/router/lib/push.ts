@@ -1,4 +1,4 @@
-import { dbQuery } from './db.ts';
+import { dbQuery, restQuery } from './db.ts';
 import { config } from './config.ts';
 
 interface ExpoMessage {
@@ -16,26 +16,31 @@ export async function savePushToken(userId: string, token: string | null, city?:
   );
 }
 
-export async function getAllPushTokens(): Promise<string[]> {
-  const rows = await dbQuery<{ expo_push_token: string }>(
-    "SELECT expo_push_token FROM users WHERE expo_push_token IS NOT NULL AND expo_push_token <> ''",
-  );
+// Token lists can be thousands of rows — read via PostgREST since the direct
+// pg connection dies mid-transfer on multi-KB result sets from edge isolates.
+async function pushTokensWhere(extraParams: Array<[string, string]>): Promise<string[]> {
+  const rows = await restQuery<{ expo_push_token: string }>('users', [
+    ['select', 'expo_push_token'],
+    ['expo_push_token', 'not.is.null'],
+    ['expo_push_token', 'neq.'],
+    ...extraParams,
+  ]);
   return rows.map((r) => r.expo_push_token);
+}
+
+export async function getAllPushTokens(): Promise<string[]> {
+  return pushTokensWhere([]);
 }
 
 export async function getPushTokensForNewVendor(): Promise<string[]> {
-  const rows = await dbQuery<{ expo_push_token: string }>(
-    "SELECT expo_push_token FROM users WHERE expo_push_token IS NOT NULL AND expo_push_token <> '' AND push_enabled_new_vendor = true",
-  );
-  return rows.map((r) => r.expo_push_token);
+  return pushTokensWhere([['push_enabled_new_vendor', 'eq.true']]);
 }
 
 export async function getPushTokensByCity(city: string): Promise<string[]> {
-  const rows = await dbQuery<{ expo_push_token: string }>(
-    "SELECT expo_push_token FROM users WHERE city ILIKE $1 AND expo_push_token IS NOT NULL AND expo_push_token <> '' AND push_enabled_local_event = true",
-    [city.trim()],
-  );
-  return rows.map((r) => r.expo_push_token);
+  return pushTokensWhere([
+    ['city', `ilike.${city.trim().replace(/[,()]/g, '')}`],
+    ['push_enabled_local_event', 'eq.true'],
+  ]);
 }
 
 function chunk<T>(arr: T[], size: number): T[][] {

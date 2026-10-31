@@ -1,4 +1,4 @@
-import { dbQuery, withDbClient } from './db.ts';
+import { dbQuery, restQuery, restWrite } from './db.ts';
 import { uploadImageDataUrl } from './storage.ts';
 import { generateOpaqueToken } from './ids.ts';
 
@@ -27,17 +27,24 @@ export async function getContentBlock(id: string): Promise<ContentBlock | null> 
 }
 
 export async function listContentBlocks(opts: { publishedOnly: boolean }): Promise<ContentBlock[]> {
-  if (opts.publishedOnly) {
-    return dbQuery<ContentBlock>(
-      `SELECT ${CONTENT_COLUMNS} FROM content_blocks WHERE published = true ORDER BY position ASC, created_at DESC`,
-    );
-  }
-  return dbQuery<ContentBlock>(`SELECT ${CONTENT_COLUMNS} FROM content_blocks ORDER BY position ASC, created_at DESC`);
+  // Read via PostgREST: the direct pg connection dies mid-transfer on
+  // multi-KB result sets from edge isolates (CONNECTION_CLOSED / 546).
+  const params: Array<[string, string]> = [
+    ['select', CONTENT_COLUMNS.replace(/\s/g, '')],
+    ['order', 'position.asc,created_at.desc'],
+  ];
+  if (opts.publishedOnly) params.push(['published', 'eq.true']);
+  return restQuery<ContentBlock>('content_blocks', params);
 }
 
 export async function getLatestPublishedSnapshot(): Promise<{ version: number; published_at: string; content: ContentBlock[] } | null> {
-  const rows = await dbQuery<{ version: number; published_at: string; content: ContentBlock[] }>(
-    'SELECT version, published_at, content FROM content_published ORDER BY version DESC, published_at DESC LIMIT 1',
+  const rows = await restQuery<{ version: number; published_at: string; content: ContentBlock[] }>(
+    'content_published',
+    [
+      ['select', 'version,published_at,content'],
+      ['order', 'version.desc,published_at.desc'],
+      ['limit', '1'],
+    ],
   );
   return rows[0] ?? null;
 }
@@ -68,21 +75,20 @@ export async function getContentStatus(): Promise<{ currentVersion: number; publ
 }
 
 export async function publishContent(): Promise<{ version: number; publishedAt: string }> {
-  return withDbClient(async (client) => {
-    const allPublishedResult = await client.query<ContentBlock>(
-      `SELECT ${CONTENT_COLUMNS} FROM content_blocks WHERE published = true ORDER BY position ASC, created_at DESC`,
-    );
-    const allPublished = allPublishedResult.rows;
-    const currentResult = await client.query<{ max: number | null }>('SELECT COALESCE(MAX(version), 0) AS max FROM content_published');
-    const currentRow = currentResult.rows[0];
-    const nextVersion = (currentRow?.max ?? 0) + 1;
-    const publishedAt = new Date().toISOString();
-    await client.query(
-      'INSERT INTO content_published (version, published_at, content) VALUES ($1, $2, $3::jsonb)',
-      [nextVersion, publishedAt, allPublished],
-    );
-    return { version: nextVersion, publishedAt };
+  // Read + write via PostgREST: the snapshot JSONB is too big for the direct
+  // pg socket from edge isolates.
+  const allPublished = await listContentBlocks({ publishedOnly: true });
+  const latest = await restQuery<{ version: number | null }>('content_published', [
+    ['select', 'version'],
+    ['order', 'version.desc'],
+    ['limit', '1'],
+  ]);
+  const nextVersion = (latest[0]?.version ?? 0) + 1;
+  const publishedAt = new Date().toISOString();
+  await restWrite('content_published', {
+    body: { version: nextVersion, published_at: publishedAt, content: allPublished },
   });
+  return { version: nextVersion, publishedAt };
 }
 
 // Uploads an inline data URL to storage and returns a public URL, falling back

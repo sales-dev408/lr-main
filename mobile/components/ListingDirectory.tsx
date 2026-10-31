@@ -250,7 +250,7 @@ export function ListingDirectory({ kind }: { kind: 'apartment' | 'hotel' }) {
 
         <Card>
           <SectionTitle title="Find a place" subtitle="Search by name, stop, or address" />
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'stretch', gap: 8 }}>
             <View style={{ flex: 1, minWidth: 0 }}>
               <FieldInput
                 placeholder="Search…"

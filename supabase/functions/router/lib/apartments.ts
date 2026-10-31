@@ -1,4 +1,4 @@
-import { dbQuery } from './db.ts';
+import { dbQuery, restQuery } from './db.ts';
 import { z } from 'npm:zod';
 
 export interface ApartmentRecord {
@@ -76,14 +76,14 @@ function railProximity(station: string | null, distanceMiles: number | null): { 
 }
 
 export async function listApartments(opts: { nearRail?: boolean } = {}): Promise<ApartmentRecord[]> {
-  const conditions: string[] = [];
-  const values: (boolean | null)[] = [];
-  if (opts.nearRail) {
-    values.push(true);
-    conditions.push(`near_rail = $${values.length}`);
-  }
-  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-  return dbQuery<ApartmentRecord>(`SELECT ${COLUMNS} FROM apartments_hotels ${where} ORDER BY section NULLS LAST, name`, values);
+  // Read via PostgREST: the direct pg connection dies mid-transfer on
+  // multi-KB result sets from edge isolates (CONNECTION_CLOSED / 546).
+  const params: Array<[string, string]> = [
+    ['select', COLUMNS.replace(/\s/g, '')],
+    ['order', 'section.asc.nullslast,name.asc'],
+  ];
+  if (opts.nearRail) params.push(['near_rail', 'eq.true']);
+  return restQuery<ApartmentRecord>('apartments_hotels', params);
 }
 
 export async function getApartment(id: string): Promise<ApartmentRecord | null> {

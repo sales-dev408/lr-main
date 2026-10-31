@@ -1,4 +1,4 @@
-import { dbQuery } from './db.ts';
+import { dbQuery, restQuery, restWrite } from './db.ts';
 import { listContentBlocks, getTheme, type ThemeSettings } from './content.ts';
 import { getVendorDirectory, type VendorDirectoryItem } from './vendors.ts';
 import { listApartments } from './apartments.ts';
@@ -94,8 +94,15 @@ function parseJsonValue<T>(value: unknown): T | null {
 }
 
 export async function getLatestAppSnapshot(): Promise<AppState | null> {
-  const rows = await dbQuery<{ version: number; published_at: string; payload: AppState }>(
-    'SELECT version, published_at, payload FROM app_published ORDER BY version DESC, published_at DESC LIMIT 1',
+  // Read via PostgREST: the snapshot payload is a multi-MB JSONB blob that
+  // kills the direct pg connection mid-transfer from edge isolates.
+  const rows = await restQuery<{ version: number; published_at: string; payload: AppState }>(
+    'app_published',
+    [
+      ['select', 'version,published_at,payload'],
+      ['order', 'version.desc,published_at.desc'],
+      ['limit', '1'],
+    ],
   );
   const row = rows[0];
   if (!row) return null;
@@ -161,8 +168,13 @@ export async function getAppStatus(): Promise<AppStatus> {
 
   const publishedCounts = { vendors: 0, apartments: 0, events: 0, content: 0 };
   try {
-    const latest = await dbQuery<{ payload: AppState }>(
-      'SELECT payload FROM app_published ORDER BY version DESC, published_at DESC LIMIT 1',
+    const latest = await restQuery<{ payload: AppState }>(
+      'app_published',
+      [
+        ['select', 'payload'],
+        ['order', 'version.desc,published_at.desc'],
+        ['limit', '1'],
+      ],
     );
     const payload = parseJsonValue<AppState>(latest[0]?.payload);
     if (payload) {
@@ -283,9 +295,11 @@ export async function buildLiveAppState(): Promise<AppState> {
     }),
     getTheme(),
     listStops().then((rows) => rows.map(toPublicStop)),
-    dbQuery<PublicAd>(
-      'SELECT id, slot, image_url, link_url, active FROM ads WHERE active = true ORDER BY slot',
-    ).catch(() => [] as PublicAd[]),
+    restQuery<PublicAd>('ads', [
+      ['select', 'id,slot,image_url,link_url,active'],
+      ['active', 'eq.true'],
+      ['order', 'slot.asc'],
+    ]).catch(() => [] as PublicAd[]),
   ]);
 
   return {
@@ -306,13 +320,18 @@ export async function publishApp(): Promise<{ version: number; publishedAt: stri
   const publishedAt = new Date().toISOString();
   const payload = { ...(await buildLiveAppState()), publishedAt };
 
-  const result = await dbQuery<{ version: number; published_at: string }>(
-    `INSERT INTO app_published (version, published_at, payload)
-     SELECT COALESCE(MAX(version), 0) + 1, $1, $2::jsonb
-     FROM app_published
-     RETURNING version, published_at`,
-    [publishedAt, payload],
-  );
+  // Write via PostgREST: the multi-MB payload JSONB dies on the direct pg
+  // socket from edge isolates, same as the big reads did.
+  const latest = await restQuery<{ version: number }>('app_published', [
+    ['select', 'version'],
+    ['order', 'version.desc'],
+    ['limit', '1'],
+  ]);
+  const nextVersion = (latest[0]?.version ?? 0) + 1;
+  const result = await restWrite<{ version: number; published_at: string }>('app_published', {
+    body: { version: nextVersion, published_at: publishedAt, payload },
+    prefer: 'return=representation',
+  });
 
   const row = result[0];
   if (!row) {

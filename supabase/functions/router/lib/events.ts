@@ -1,4 +1,4 @@
-import { dbQuery } from './db.ts';
+import { dbQuery, restQuery } from './db.ts';
 import { z } from 'npm:zod';
 
 const adminEventSchema = z.object({
@@ -117,9 +117,12 @@ function mapAdminEventRow(row: AdminEventRow): AdminEvent {
 // Only list events that haven't happened yet, ordered soonest first, so
 // past events "disappear" from the admin console once their date passes.
 export async function listAdminEvents(): Promise<AdminEvent[]> {
-  const rows = await dbQuery<AdminEventRow>(
-    `SELECT ${ADMIN_EVENT_COLUMNS} FROM admin_events ORDER BY event_date ASC NULLS LAST, event_time ASC NULLS LAST, created_at ASC`,
-  );
+  // Read via PostgREST: the direct pg connection dies mid-transfer on
+  // multi-KB result sets from edge isolates (CONNECTION_CLOSED / 546).
+  const rows = await restQuery<AdminEventRow>('admin_events', [
+    ['select', ADMIN_EVENT_COLUMNS.replace(/\s/g, '')],
+    ['order', 'event_date.asc.nullslast,event_time.asc.nullslast,created_at.asc'],
+  ]);
   return rows.map(mapAdminEventRow).filter((event) => !isEventPast(event.eventDate, event.eventTime));
 }
 

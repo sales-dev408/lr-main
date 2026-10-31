@@ -523,7 +523,7 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
               {filtersOpen ? 'Done' : 'Filters'}
             </AppButton>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'stretch', gap: 8 }}>
             <View style={{ flex: 1, minWidth: 0 }}>
               <FieldInput
                 placeholder={`Search ${title.toLowerCase()}…`}

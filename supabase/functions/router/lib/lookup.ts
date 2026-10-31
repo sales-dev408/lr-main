@@ -1,6 +1,19 @@
-import { dbQuery } from './db.ts';
+import { dbQuery, restQuery } from './db.ts';
 import { buildLookupDiscountView } from './discounts.ts';
 import type { CardRecord, DiscountRule } from './types.ts';
+
+// Discounts for a card via PostgREST: the membership card's discount list is
+// one row per vendor (~2.4k) — too big for the direct pg socket from edge
+// isolates.
+async function lookupDiscounts(cardId: string, vendorId?: string): Promise<DiscountRule[]> {
+  const params: Array<[string, string]> = [
+    ['select', '*'],
+    ['card_id', `eq.${cardId}`],
+    ['active', 'eq.true'],
+  ];
+  if (vendorId) params.push(['vendor_id', `eq.${vendorId}`]);
+  return restQuery<DiscountRule>('discounts', params);
+}
 
 export async function resolvePassLookup(lookupToken: string, vendorId?: string, city?: string | null) {
   const passRows = await dbQuery<{
@@ -45,17 +58,7 @@ export async function resolvePassLookup(lookupToken: string, vendorId?: string, 
   }
 
   const pass = passRows[0]!;
-  const discounts = await dbQuery<DiscountRule>(
-    `
-      SELECT d.*
-      FROM discounts d
-      JOIN card_vendors cv ON cv.card_id = d.card_id AND cv.vendor_id = d.vendor_id
-      WHERE d.card_id = $1
-        AND ($2::uuid IS NULL OR d.vendor_id = $2::uuid)
-        AND d.active = true
-    `,
-    [pass.card_id, vendorId ?? null],
-  );
+  const discounts = await lookupDiscounts(pass.card_id, vendorId);
 
   return {
     pass,
@@ -80,16 +83,7 @@ export async function resolveCardLookup(cardId: string, vendorId?: string, city?
   }
 
   const card = cardRows[0]!;
-  const discounts = await dbQuery<DiscountRule>(
-    `
-      SELECT d.*
-      FROM discounts d
-      WHERE d.card_id = $1
-        AND ($2::uuid IS NULL OR d.vendor_id = $2::uuid)
-        AND d.active = true
-    `,
-    [cardId, vendorId ?? null],
-  );
+  const discounts = await lookupDiscounts(cardId, vendorId);
 
   return {
     card,

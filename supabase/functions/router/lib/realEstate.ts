@@ -1,4 +1,4 @@
-import { dbQuery } from './db.ts';
+import { dbQuery, restQuery } from './db.ts';
 import { z } from 'npm:zod';
 
 export interface RealEstateRecord {
@@ -54,8 +54,14 @@ const COLUMNS =
   'id, title, description, price, beds, baths, sqft, property_type, listing_status, address, city, state, zip, phone, email, website, image_url, station, latitude, longitude, active, created_at, updated_at';
 
 export async function listRealEstate(opts: { activeOnly?: boolean } = {}): Promise<RealEstateRecord[]> {
-  const where = opts.activeOnly ? 'WHERE active = true' : '';
-  return dbQuery<RealEstateRecord>(`SELECT ${COLUMNS} FROM real_estate ${where} ORDER BY created_at DESC`, []);
+  // Read via PostgREST: the direct pg connection dies mid-transfer on
+  // multi-KB result sets from edge isolates (CONNECTION_CLOSED / 546).
+  const params: Array<[string, string]> = [
+    ['select', COLUMNS.replace(/\s/g, '')],
+    ['order', 'created_at.desc'],
+  ];
+  if (opts.activeOnly) params.push(['active', 'eq.true']);
+  return restQuery<RealEstateRecord>('real_estate', params);
 }
 
 export async function getRealEstate(id: string): Promise<RealEstateRecord | null> {

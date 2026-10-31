@@ -13,6 +13,7 @@ import { generateDiscountCode, humanDiscountLabel } from './lib/codes.ts';
 import { qrCodeUrl } from './lib/quickchart.ts';
 import { normalizePhone } from './lib/phone.ts';
 import { createRedemptionToken, redeemByToken, affirmRedemptionToken } from './lib/redemptionTokens.ts';
+import type { DiscountRule } from './lib/types.ts';
 import { sendDealOfTheDayBlast } from './lib/resend.ts';
 import {
   createContentBlock,
@@ -531,16 +532,24 @@ function pageShell(title: string, body: string, tone: 'success' | 'error' | 'neu
 }
 
 function json(request: Request, body: unknown, init: ResponseInit = {}): Response {
-  return new Response(JSON.stringify(body), {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Access-Control-Allow-Origin': corsOrigin(request),
-      'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, pragma',
-      'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
-      ...(init.headers ?? {}),
-    },
-  });
+  const payload = JSON.stringify(body);
+  const headers = {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Access-Control-Allow-Origin': corsOrigin(request),
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, pragma',
+    'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
+    ...(init.headers ?? {}),
+  };
+  // The app-state and vendor payloads are multi-MB JSON; gzip cuts them to a
+  // fraction of the wire size when the client accepts it.
+  if (payload.length > 1024 && /\bgzip\b/i.test(request.headers.get('accept-encoding') ?? '')) {
+    const stream = new Blob([payload]).stream().pipeThrough(new CompressionStream('gzip'));
+    return new Response(stream, {
+      ...init,
+      headers: { ...headers, 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' },
+    });
+  }
+  return new Response(payload, { ...init, headers });
 }
 
 function noContent(request: Request): Response {
@@ -640,95 +649,62 @@ async function buildCustomerProfile(userId: string) {
 }
 
 async function loadCardsWithBusinesses(filters: { id?: string; theme?: string; status?: string; city?: string }) {
-  const cards = await dbQuery<{
-    id: string;
-    name: string;
-    theme: string;
-    description: string | null;
-    image_url: string | null;
-    expiration_date: string | null;
-    max_uses: number | null;
-    status: string;
-  }>(
-    `
-      SELECT *
-      FROM cards
-      WHERE is_membership = true
-        AND ($1::uuid IS NULL OR id = $1::uuid)
-        AND ($2::text IS NULL OR $2 = '' OR theme = $2)
-        AND ($3::text IS NULL OR $3 = '' OR status = $3)
-      ORDER BY created_at DESC
-    `,
-    [filters.id ?? null, filters.theme ?? null, filters.status ?? null],
-  );
+  // Reads via PostgREST: the membership card joins every vendor (~2.4k rows)
+  // and the direct pg connection dies mid-transfer on that payload.
+  const cardParams: Array<[string, string]> = [
+    ['select', '*'],
+    ['is_membership', 'eq.true'],
+    ['order', 'created_at.desc'],
+  ];
+  if (filters.id) cardParams.push(['id', `eq.${filters.id}`]);
+  if (filters.theme) cardParams.push(['theme', `eq.${filters.theme}`]);
+  if (filters.status) cardParams.push(['status', `eq.${filters.status}`]);
+  const cards = await restQuery<Record<string, unknown> & { id: string }>('cards', cardParams);
 
   const cardIds = cards.map((card) => card.id);
-  const vendors = cardIds.length
-    ? await dbQuery<{
-        card_id: string;
-        vendor_id: string;
-        vendor_name: string;
-        vendor_city: string | null;
-        discount_id: string | null;
-        discount_type: 'fixed' | 'percent' | 'bogo' | null;
-        discount_value: string | null;
-        min_purchase: string | null;
-        max_uses_total: number | null;
-        max_uses_per_customer: number | null;
-        uses_count: number | null;
-        city_overrides: Record<string, { type?: 'fixed' | 'percent' | 'bogo'; value?: number }> | null;
-        active: boolean | null;
-      }>(
-        `
-          SELECT cv.card_id,
-                 v.id AS vendor_id,
-                 v.name AS vendor_name,
-                 v.city AS vendor_city,
-                 d.id AS discount_id,
-                 d.type AS discount_type,
-                 d.value AS discount_value,
-                 d.min_purchase,
-                 d.max_uses_total,
-                 d.max_uses_per_customer,
-                 d.uses_count,
-                 d.city_overrides,
-                 d.active
-          FROM card_vendors cv
-          JOIN vendors v ON v.id = cv.vendor_id
-          LEFT JOIN discounts d ON d.card_id = cv.card_id AND d.vendor_id = cv.vendor_id
-          WHERE cv.card_id = ANY($1::uuid[])
-          ORDER BY v.name
-        `,
-        [cardIds],
-      )
-    : [];
+  const cardIdList = `(${cardIds.join(',')})`;
+  const [links, vendorRows, discountRows] = cardIds.length
+    ? await Promise.all([
+        restQuery<{ card_id: string; vendor_id: string }>('card_vendors', [
+          ['select', 'card_id,vendor_id'],
+          ['card_id', `in.${cardIdList}`],
+        ]),
+        restQuery<{ id: string; name: string; city: string | null }>('vendors', [
+          ['select', 'id,name,city'],
+          ['order', 'name.asc'],
+        ]),
+        restQuery<DiscountRule>('discounts', [['card_id', `in.${cardIdList}`]]),
+      ])
+    : [[], [], []] as const;
+
+  const vendorById = new Map(vendorRows.map((v) => [v.id, v]));
+  const discountByCardVendor = new Map(discountRows.map((d) => [`${d.card_id}:${d.vendor_id}`, d]));
 
   return cards.map((card) => ({
     ...card,
-    participatingBusinesses: vendors.filter((vendor) => vendor.card_id === card.id).map((vendor) => ({
-      id: vendor.vendor_id,
-      name: vendor.vendor_name,
-      city: vendor.vendor_city,
-      discount:
-        vendor.discount_id && vendor.discount_type && vendor.discount_value !== null && vendor.min_purchase !== null
-          ? buildLookupDiscountView(
-              {
-                id: vendor.discount_id,
-                card_id: card.id,
-                vendor_id: vendor.vendor_id,
-                type: vendor.discount_type,
-                value: vendor.discount_value,
-                min_purchase: vendor.min_purchase,
-                max_uses_total: vendor.max_uses_total,
-                max_uses_per_customer: vendor.max_uses_per_customer,
-                uses_count: vendor.uses_count ?? 0,
-                city_overrides: vendor.city_overrides,
-                active: Boolean(vendor.active),
-              },
-              filters.city ?? null,
-            )
-          : null,
-    })),
+    participatingBusinesses: links
+      .filter((link) => link.card_id === card.id)
+      .map((link) => {
+        const vendor = vendorById.get(link.vendor_id);
+        const discount = discountByCardVendor.get(`${link.card_id}:${link.vendor_id}`);
+        return {
+          id: link.vendor_id,
+          name: vendor?.name ?? '',
+          city: vendor?.city ?? null,
+          discount:
+            discount && discount.id && discount.type && discount.value !== null && discount.min_purchase !== null
+              ? buildLookupDiscountView(
+                  {
+                    ...discount,
+                    uses_count: discount.uses_count ?? 0,
+                    active: Boolean(discount.active),
+                  },
+                  filters.city ?? null,
+                )
+              : null,
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name)),
   }));
 }
 
@@ -1104,10 +1080,32 @@ Deno.serve(async (request) => {
 
     if (/^\/api\/cards\/[^/]+$/.test(path) && request.method === 'GET') {
       const id = path.split('/').pop()!;
-      const cards = await dbQuery('SELECT * FROM cards WHERE id = $1 LIMIT 1', [id]);
+      // Reads via PostgREST: the membership card's vendor join is ~2.4k rows —
+      // too big for the direct pg socket from edge isolates.
+      const [cards, links, vendorRows, discountRows] = await Promise.all([
+        restQuery<Record<string, unknown>>('cards', [['id', `eq.${id}`], ['limit', '1']]),
+        restQuery<{ card_id: string; vendor_id: string }>('card_vendors', [
+          ['select', 'card_id,vendor_id'],
+          ['card_id', `eq.${id}`],
+        ]),
+        restQuery<{ id: string; name: string; city: string | null }>('vendors', [
+          ['select', 'id,name,city'],
+          ['order', 'name.asc'],
+        ]),
+        restQuery<Record<string, unknown>>('discounts', [['card_id', `eq.${id}`]]),
+      ]);
       if (cards.length === 0) return json(request, { error: 'Card not found' }, { status: 404 });
-      const vendors = await dbQuery(`SELECT v.id, v.name, v.city, d.* FROM card_vendors cv JOIN vendors v ON v.id = cv.vendor_id LEFT JOIN discounts d ON d.card_id = cv.card_id AND d.vendor_id = cv.vendor_id WHERE cv.card_id = $1`, [id]);
-      return json(request, { ...(cards[0] as Record<string, unknown>), participatingBusinesses: vendors });
+      const vendorById = new Map(vendorRows.map((v) => [v.id, v]));
+      const discountByVendor = new Map(discountRows.map((d) => [d.vendor_id as string, d]));
+      const vendors = links
+        .map((link) => {
+          const vendor = vendorById.get(link.vendor_id);
+          if (!vendor) return null;
+          const discount = discountByVendor.get(link.vendor_id);
+          return { id: vendor.id, name: vendor.name, city: vendor.city, ...(discount ?? {}) };
+        })
+        .filter((v): v is NonNullable<typeof v> => v !== null);
+      return json(request, { ...cards[0], participatingBusinesses: vendors });
     }
 
     // Public, customer-facing directory of participating businesses for the
@@ -1159,22 +1157,31 @@ Deno.serve(async (request) => {
           throw error;
         }
       });
-      const rows = await dbQuery(
-        `
-          SELECT t.id, t.name, t.barcode, t.barcode_format, t.allowed_uses, t.used_uses, t.available_count, t.status,
-                 t.drawing_deadline, t.drawing_status, t.user_id, t.created_at,
-                 CASE WHEN t.user_id = $1::uuid THEN t.barcodes ELSE '[]'::jsonb END AS barcodes,
-                 (SELECT COALESCE(SUM(requested_count), 0)::int FROM ticket_entries te WHERE te.ticket_id = t.id AND te.user_id = $1::uuid) AS entry_count
-          FROM tickets t
-          WHERE t.status = 'active'
-            AND (
-              (t.drawing_status = 'open' AND t.drawing_deadline > now())
-              OR ($1::uuid IS NOT NULL AND t.user_id = $1::uuid)
-            )
-          ORDER BY t.created_at DESC
-        `,
-        [userId],
-      );
+      // Reads via PostgREST: ticket rows carry a JSONB barcodes array — the
+      // direct pg socket dies on that payload size from edge isolates.
+      const [tickets, entryRows] = await Promise.all([
+        restQuery<Record<string, unknown>>('tickets', [
+          ['select', 'id,name,barcode,barcode_format,allowed_uses,used_uses,available_count,status,drawing_deadline,drawing_status,user_id,created_at,barcodes'],
+          ['status', 'eq.active'],
+          ['order', 'created_at.desc'],
+        ]),
+        userId
+          ? restQuery<{ ticket_id: string; requested_count: number }>('ticket_entries', [
+              ['select', 'ticket_id,requested_count'],
+              ['user_id', `eq.${userId}`],
+            ])
+          : Promise.resolve([] as { ticket_id: string; requested_count: number }[]),
+      ]);
+      const entryByTicket = new Map<string, number>();
+      for (const entry of entryRows) {
+        entryByTicket.set(entry.ticket_id, (entryByTicket.get(entry.ticket_id) ?? 0) + Number(entry.requested_count));
+      }
+      const nowMs = Date.now();
+      const rows = tickets.filter((row) => {
+        const deadline = typeof row.drawing_deadline === 'string' ? new Date(row.drawing_deadline).getTime() : NaN;
+        const open = row.drawing_status === 'open' && deadline > nowMs;
+        return open || (userId !== null && row.user_id === userId);
+      });
       return json(request, rows.map((row) => ({
         id: row.id,
         name: row.name,
@@ -1184,11 +1191,11 @@ Deno.serve(async (request) => {
         usedUses: row.used_uses,
         remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
         availableCount: row.available_count ?? 4,
-        barcodes: Array.isArray(row.barcodes) ? row.barcodes : [],
+        barcodes: userId !== null && row.user_id === userId && Array.isArray(row.barcodes) ? row.barcodes : [],
         status: row.status,
         drawingDeadline: row.drawing_deadline,
         drawingStatus: row.drawing_status,
-        entryCount: Number(row.entry_count ?? 0),
+        entryCount: entryByTicket.get(row.id as string) ?? 0,
         userId: row.user_id,
         createdAt: row.created_at,
       })));
@@ -1281,7 +1288,10 @@ Deno.serve(async (request) => {
     if (path === '/api/admin/tickets' && request.method === 'GET') {
       const auth = requireRole(request, ['admin']);
       if (auth instanceof Response) return auth;
-      const rows = await dbQuery('SELECT id, name, barcode, barcode_format, allowed_uses, used_uses, available_count, barcodes, status, drawing_date, user_id, created_at FROM tickets ORDER BY created_at DESC', []);
+      const rows = await restQuery<Record<string, unknown>>('tickets', [
+        ['select', 'id,name,barcode,barcode_format,allowed_uses,used_uses,available_count,barcodes,status,drawing_date,user_id,created_at'],
+        ['order', 'created_at.desc'],
+      ]);
       return json(request, rows.map((row) => ({
         id: row.id,
         name: row.name,
@@ -1690,12 +1700,18 @@ Deno.serve(async (request) => {
       const auth = requireRole(request, ['admin']);
       if (auth instanceof Response) return auth;
       const q = queryObject(url);
-      const status = q.status ?? null;
-      const search = q.search?.trim() ? `%${q.search.trim()}%` : null;
-      const rows = await dbQuery<UserProfileRow>(
-        `SELECT id, email::text AS email, phone, full_name, first_name, last_name, city, status, push_enabled_new_vendor, push_enabled_expiring_deal, push_enabled_local_event, promo_email_opt_in, promo_sms_opt_in, terms_accepted_at, privacy_accepted_at, eula_accepted_at, created_at, updated_at FROM users WHERE ($1::text IS NULL OR status = $1) AND ($2::text IS NULL OR email::text ILIKE $2 OR phone ILIKE $2 OR full_name ILIKE $2) ORDER BY created_at DESC`,
-        [status, search],
-      );
+      // Read via PostgREST: the users table outgrows the direct pg socket
+      // from edge isolates as the member count climbs.
+      const params: Array<[string, string]> = [
+        ['select', 'id,email,phone,full_name,first_name,last_name,city,status,push_enabled_new_vendor,push_enabled_expiring_deal,push_enabled_local_event,promo_email_opt_in,promo_sms_opt_in,terms_accepted_at,privacy_accepted_at,eula_accepted_at,created_at,updated_at'],
+        ['order', 'created_at.desc'],
+      ];
+      if (q.status) params.push(['status', `eq.${q.status}`]);
+      const searchTerm = q.search?.trim().replace(/[,()]/g, '') ?? '';
+      if (searchTerm) {
+        params.push(['or', `(email.ilike.*${searchTerm}*,phone.ilike.*${searchTerm}*,full_name.ilike.*${searchTerm}*)`]);
+      }
+      const rows = await restQuery<UserProfileRow>('users', params);
       return json(request, rows.map(mapUserProfileRow));
     }
     if (/^\/api\/admin\/users\/[^/]+$/.test(path) && request.method === 'GET') {
@@ -1745,7 +1761,10 @@ Deno.serve(async (request) => {
     if (path === '/api/admin/discounts' && request.method === 'GET') {
       const auth = requireRole(request, ['admin']);
       if (auth instanceof Response) return auth;
-      const rows = await dbQuery('SELECT id, card_id, vendor_id, type, value, min_purchase, max_uses_total, max_uses_per_customer, city_overrides, active, created_at, updated_at FROM discounts ORDER BY created_at DESC');
+      const rows = await restQuery('discounts', [
+        ['select', 'id,card_id,vendor_id,type,value,min_purchase,max_uses_total,max_uses_per_customer,city_overrides,active,created_at,updated_at'],
+        ['order', 'created_at.desc'],
+      ]);
       return json(request, rows);
     }
     if (/^\/api\/admin\/discounts\/[^/]+$/.test(path) && request.method === 'GET') {
@@ -2390,11 +2409,11 @@ Deno.serve(async (request) => {
         html: z.string().optional(),
         smsText: z.string().optional(),
       }).parse(await readJsonBody(request, {}));
-      const recipients = await dbQuery<{ email: string | null; phone: string | null; promo_email_opt_in: boolean; promo_sms_opt_in: boolean }>(
-        `SELECT email::text AS email, phone, promo_email_opt_in, promo_sms_opt_in
-         FROM users
-         WHERE status = 'active' AND (promo_email_opt_in = true OR promo_sms_opt_in = true)`,
-      );
+      const recipients = await restQuery<{ email: string | null; phone: string | null; promo_email_opt_in: boolean; promo_sms_opt_in: boolean }>('users', [
+        ['select', 'email,phone,promo_email_opt_in,promo_sms_opt_in'],
+        ['status', 'eq.active'],
+        ['or', '(promo_email_opt_in.eq.true,promo_sms_opt_in.eq.true)'],
+      ]);
       const result = await sendDealOfTheDayBlast({
         ...body,
         recipients: recipients.map((r) => ({

@@ -1,4 +1,4 @@
-import { dbQuery } from './db.ts';
+import { dbQuery, restQuery } from './db.ts';
 import { z } from 'npm:zod';
 
 export interface StopRecord {
@@ -25,9 +25,12 @@ export const stopSchema = z.object({
 const COLUMNS = 'id, name, city, line, position, latitude, longitude, created_at, updated_at';
 
 export async function listStops(): Promise<StopRecord[]> {
-  return dbQuery<StopRecord>(
-    `SELECT ${COLUMNS} FROM stops ORDER BY position NULLS LAST, name`,
-  );
+  // Read via PostgREST: the direct pg connection dies mid-transfer on
+  // multi-KB result sets from edge isolates (CONNECTION_CLOSED / 546).
+  return restQuery<StopRecord>('stops', [
+    ['select', COLUMNS.replace(/\s/g, '')],
+    ['order', 'position.asc.nullslast,name.asc'],
+  ]);
 }
 
 export async function getStop(id: string): Promise<StopRecord | null> {
