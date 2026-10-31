@@ -2,7 +2,7 @@ import { z } from 'npm:zod';
 import bcrypt from 'npm:bcryptjs';
 import { config } from './lib/config.ts';
 import { authenticate, requireRole } from './lib/auth.ts';
-import { dbQuery, withDbClient } from './lib/db.ts';
+import { dbQuery, restQuery, withDbClient } from './lib/db.ts';
 import { getAdminAnalytics, getVendorAnalytics } from './lib/analytics.ts';
 import { buildLookupDiscountView } from './lib/discounts.ts';
 import { resolvePassLookup, resolveCardLookup } from './lib/lookup.ts';
@@ -1413,11 +1413,42 @@ Deno.serve(async (request) => {
       const auth = requireRole(request, ['admin']);
       if (auth instanceof Response) return auth;
       const q = queryObject(url);
-      return json(request, await dbQuery(`SELECT v.*, d.type AS discount_type, d.value AS discount_value, d.discount_code, d.description AS discount_description, d.starts_at AS discount_starts_at, d.ends_at AS discount_ends_at, d.boosted AS discount_boosted, d.members_only AS discount_members_only FROM vendors v LEFT JOIN LATERAL (SELECT d.type, d.value, d.discount_code, d.description, d.starts_at, d.ends_at, d.boosted, d.members_only FROM discounts d JOIN cards c ON c.id = d.card_id AND c.is_membership = true WHERE d.vendor_id = v.id ORDER BY d.created_at DESC LIMIT 1) d ON true WHERE ($1::text IS NULL OR v.status = $1) AND ($2::text IS NULL OR v.city = $2) AND ($3::text IS NULL OR v.category = $3) ORDER BY v.created_at DESC`, [
-        q.status ?? null,
-        q.city ?? null,
-        q.category ?? null,
-      ]));
+      // Read via PostgREST: the direct pg connection dies mid-transfer on
+      // this multi-KB result set from edge isolates.
+      const vendorParams: Array<[string, string]> = [
+        ['select', 'id,name,owner_name,location,address,city,station,category,vendor_type,cuisine,email,phone,website,status,latitude,longitude,icon_url,logo_url,discount_terms,pos_type,pos_system,created_at,updated_at'],
+        ['order', 'created_at.desc'],
+      ];
+      if (q.status) vendorParams.push(['status', `eq.${q.status}`]);
+      if (q.city) vendorParams.push(['city', `eq.${q.city}`]);
+      if (q.category) vendorParams.push(['category', `eq.${q.category}`]);
+      const [vendors, discounts] = await Promise.all([
+        restQuery<Record<string, unknown>>('vendors', vendorParams),
+        restQuery<{ vendor_id: string; type: string | null; value: number | null; discount_code: string | null; description: string | null; starts_at: string | null; ends_at: string | null; boosted: boolean | null; members_only: boolean | null }>(
+          'discounts',
+          [
+            ['select', 'vendor_id,type,value,discount_code,description,starts_at,ends_at,boosted,members_only,created_at,cards!inner(is_membership)'],
+            ['cards.is_membership', 'eq.true'],
+            ['order', 'created_at.desc'],
+          ],
+        ),
+      ]);
+      const latest = new Map<string, (typeof discounts)[number]>();
+      for (const d of discounts) if (!latest.has(d.vendor_id)) latest.set(d.vendor_id, d);
+      return json(request, vendors.map((v) => {
+        const d = latest.get(v.id as string);
+        return {
+          ...v,
+          discount_type: d?.type ?? null,
+          discount_value: d?.value ?? null,
+          discount_code: d?.discount_code ?? null,
+          discount_description: d?.description ?? null,
+          discount_starts_at: d?.starts_at ?? null,
+          discount_ends_at: d?.ends_at ?? null,
+          discount_boosted: d?.boosted ?? null,
+          discount_members_only: d?.members_only ?? null,
+        };
+      }));
     }
     if (path === '/api/admin/vendors' && request.method === 'POST') {
       const auth = requireRole(request, ['admin']);

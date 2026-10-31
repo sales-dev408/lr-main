@@ -1,4 +1,4 @@
-import { dbQuery, withDbClient, type PoolClient } from './db.ts';
+import { dbQuery, restQuery, withDbClient, type PoolClient } from './db.ts';
 import { generateDiscountCode, humanDiscountLabel, type DiscountType } from './codes.ts';
 import { uploadImageDataUrl } from './storage.ts';
 import { config } from './config.ts';
@@ -248,49 +248,61 @@ export interface VendorDirectoryItem {
 }
 
 export async function getVendorDirectory(vendorId?: string): Promise<VendorDirectoryItem[]> {
-  const rows = await dbQuery<{
-    id: string;
-    name: string;
-    address: string | null;
-    city: string | null;
-    location: string | null;
-    category: string | null;
-    vendor_type: string | null;
-    cuisine: string | null;
-    station: string | null;
-    latitude: number | null;
-    longitude: number | null;
-    pos_system: string | null;
-    icon_url: string | null;
-    logo_url: string | null;
-    discount_terms: string | null;
-    discount_type: string | null;
-    discount_value: number | null;
-    discount_code: string | null;
-    discount_description: string | null;
-    starts_at: string | null;
-    ends_at: string | null;
-    boosted: boolean;
-    phone: string | null;
-    website: string | null;
-    members_only: boolean;
-    card_icon: string | null;
-    card_logo: string | null;
-  }>(
-    `SELECT v.id, v.name, v.address, v.city, v.location, v.category, v.vendor_type, v.cuisine, v.station, v.latitude, v.longitude, v.pos_system, v.icon_url, v.logo_url, v.discount_terms,
-            v.phone, v.website, d.members_only,
-            d.type AS discount_type, d.value AS discount_value, d.discount_code, d.description AS discount_description,
-            d.starts_at, d.ends_at, d.boosted, c.id AS card_id, c.icon_url AS card_icon, c.logo_url AS card_logo
-     FROM vendors v
-     JOIN cards c ON c.is_membership = true AND c.status = 'active'
-     JOIN discounts d ON d.vendor_id = v.id AND d.card_id = c.id AND d.active = true
-     WHERE v.status = 'approved'
-       AND ($1::uuid IS NULL OR v.id = $1::uuid)
-       AND (d.starts_at IS NULL OR d.starts_at <= now())
-       AND (d.ends_at IS NULL OR d.ends_at >= now())
-     ORDER BY CASE WHEN d.boosted THEN 0 ELSE 1 END, v.station NULLS LAST, v.name`,
-    [vendorId ?? null],
-  );
+  // Read via PostgREST: the direct pg connection dies mid-transfer on this
+  // multi-KB result set from edge isolates (CONNECTION_CLOSED / 546).
+  const vendorParams: Array<[string, string]> = [
+    ['select', 'id,name,address,city,location,category,vendor_type,cuisine,station,latitude,longitude,pos_system,icon_url,logo_url,discount_terms,phone,website'],
+    ['status', 'eq.approved'],
+    ['order', 'name.asc'],
+  ];
+  if (vendorId) vendorParams.push(['id', `eq.${vendorId}`]);
+  const now = new Date().toISOString();
+  const [vendors, discounts] = await Promise.all([
+    restQuery<Record<string, unknown>>('vendors', vendorParams),
+    restQuery<Record<string, unknown>>('discounts', [
+      ['select', 'vendor_id,type,value,discount_code,description,starts_at,ends_at,boosted,members_only,card_id,cards!inner(is_membership,status,icon_url,logo_url)'],
+      ['cards.is_membership', 'eq.true'],
+      ['cards.status', 'eq.active'],
+      ['active', 'eq.true'],
+      ['or', `(starts_at.is.null,starts_at.lte.${now})`],
+      ['or', `(ends_at.is.null,ends_at.gte.${now})`],
+    ]),
+  ]);
+  const byVendor = new Map<string, Record<string, unknown>>();
+  for (const d of discounts) {
+    const id = d.vendor_id as string;
+    if (!byVendor.has(id)) byVendor.set(id, d);
+  }
+
+  // Inner-join merge (mirrors the old SQL JOIN) and sort: boosted first,
+  // then station (nulls last), then name.
+  const rows = vendors
+    .map((v) => {
+      const d = byVendor.get(v.id as string);
+      if (!d) return null;
+      const card = (d.cards as Record<string, unknown> | null) ?? null;
+      return {
+        ...v,
+        discount_type: d.type ?? null,
+        discount_value: d.value ?? null,
+        discount_code: d.discount_code ?? null,
+        discount_description: d.description ?? null,
+        starts_at: d.starts_at ?? null,
+        ends_at: d.ends_at ?? null,
+        boosted: d.boosted ?? false,
+        members_only: d.members_only ?? false,
+        card_id: d.card_id ?? '',
+        card_icon: card?.icon_url ?? null,
+        card_logo: card?.logo_url ?? null,
+      };
+    })
+    .filter((r): r is NonNullable<typeof r> => r !== null)
+    .sort((a, b) => {
+      const boost = (a.boosted ? 0 : 1) - (b.boosted ? 0 : 1);
+      if (boost !== 0) return boost;
+      const station = String(a.station ?? '￿').localeCompare(String(b.station ?? '￿'));
+      return station !== 0 ? station : String(a.name).localeCompare(String(b.name));
+    });
 
   return rows.map((row) => {
     const type = (row.discount_type ?? 'fixed') as 'fixed' | 'percent' | 'bogo';
@@ -338,7 +350,8 @@ export async function getVendorDirectory(vendorId?: string): Promise<VendorDirec
 
 export async function getAdminVendorById(id: string): Promise<Record<string, unknown> | null> {
   const rows = await dbQuery<Record<string, unknown>>(
-    `SELECT v.*, d.type AS discount_type, d.value AS discount_value, d.discount_code, d.description AS discount_description,
+    `SELECT v.id, v.name, v.owner_name, v.location, v.address, v.city, v.station, v.category, v.vendor_type, v.cuisine, v.email, v.phone, v.website, v.status, v.latitude, v.longitude, v.icon_url, v.logo_url, v.discount_terms, v.pos_type, v.pos_system, v.created_at, v.updated_at,
+            d.type AS discount_type, d.value AS discount_value, d.discount_code, d.description AS discount_description,
             d.starts_at AS discount_starts_at, d.ends_at AS discount_ends_at, d.boosted AS discount_boosted, d.members_only AS discount_members_only
      FROM vendors v
      LEFT JOIN LATERAL (
