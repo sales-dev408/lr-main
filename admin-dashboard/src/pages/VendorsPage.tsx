@@ -483,36 +483,52 @@ export function VendorsPage() {
     event.preventDefault();
     if (readOnly || !editing) return;
     try {
-      const kind = editing.discount_type ?? 'percent';
-      const needsValue = discountValueRequired(kind as DiscountKind);
+      if (!editing.name?.trim()) {
+        setError('Business name is required.');
+        return;
+      }
+      const kind: DiscountKind = ['fixed', 'percent', 'bogo'].includes(editing.discount_type ?? '')
+        ? (editing.discount_type as DiscountKind)
+        : 'percent';
+      const needsValue = discountValueRequired(kind);
       const rawValue = editing.discount_value;
-      const value = rawValue !== undefined && rawValue !== null && rawValue !== '' ? Number(rawValue) : null;
+      const num = rawValue !== undefined && rawValue !== null && rawValue !== '' ? Number(rawValue) : NaN;
+      const value = Number.isFinite(num) ? num : null;
       if (kind === 'bogo' && !editing.discount_description?.trim()) {
         setError('BOGO discounts require a description.');
         return;
       }
+      // Values that fail server-side validation (empty-string email, NaN,
+      // out-of-range enum) are dropped/coerced here rather than sent anyway.
+      const toIsoOrNull = (v: string | null | undefined) => {
+        if (!v) return null;
+        const d = new Date(v);
+        return Number.isNaN(d.getTime()) ? null : d.toISOString();
+      };
+      const numOrUndef = (v: unknown) => (v === null || v === undefined || v === '' ? undefined : Number.isFinite(Number(v)) ? Number(v) : undefined);
       await updateAdminVendor(editing.id, {
-        name: editing.name,
-        ownerName: editing.owner_name ?? undefined,
-        address: editing.address ?? editing.location ?? undefined,
-        station: editing.station ?? null,
-        latitude: editing.latitude ?? undefined,
-        longitude: editing.longitude ?? undefined,
-        category: (editing.category as VendorCategory | null) ?? undefined,
-        email: editing.email ?? undefined,
-        phone: editing.phone ?? undefined,
+        name: editing.name.trim(),
+        ownerName: editing.owner_name?.trim() || undefined,
+        address: (editing.address ?? editing.location)?.trim() || undefined,
+        station: editing.station || null,
+        latitude: numOrUndef(editing.latitude),
+        longitude: numOrUndef(editing.longitude),
+        category: (editing.category as VendorCategory | null) || undefined,
+        email: editing.email?.trim() || undefined,
+        phone: editing.phone?.trim() || undefined,
         website: editing.website?.trim() || null,
         status: editing.status,
         ...(editing.discount_type || value !== null ? { discountType: kind } : {}),
         ...(needsValue && value !== null ? { discountValue: value } : {}),
         discountDescription: editing.discount_description?.trim() || null,
         discountTerms: editing.discount_terms?.trim() || DEFAULT_DISCOUNT_TERMS,
-        discountStartsAt: editing.discount_starts_at ? new Date(editing.discount_starts_at).toISOString() : null,
-        discountEndsAt: editing.discount_ends_at ? new Date(editing.discount_ends_at).toISOString() : null,
+        discountStartsAt: toIsoOrNull(editing.discount_starts_at),
+        discountEndsAt: toIsoOrNull(editing.discount_ends_at),
         boosted: editing.boosted ?? false,
         membersOnly: editing.discount_members_only ?? false,
       });
       setEditing(null);
+      setError(null);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Update failed');
@@ -871,7 +887,7 @@ export function VendorsPage() {
                   </div>
                 </div>
                 <div className="row-actions">
-                  <Button variant="secondary" disabled={readOnly} onClick={() => setEditing(vendor)}>Edit</Button>
+                  <Button variant="secondary" disabled={readOnly} onClick={() => { setError(null); setEditing(vendor); }}>Edit</Button>
                   <Button variant="secondary" disabled={readOnly} onClick={() => handleRegenerateQr(vendor)}>Regenerate QR</Button>
                   <Button variant="secondary" onClick={() => handleViewStats(vendor)}>View stats</Button>
                 </div>
@@ -884,6 +900,7 @@ export function VendorsPage() {
       <Modal open={Boolean(editing)} title="Edit vendor" onClose={() => setEditing(null)}>
         {editing ? (
           <form className="form" onSubmit={submitUpdate}>
+            {error ? <ErrorBanner message={error} /> : null}
             <label>
               Business name
               <Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />

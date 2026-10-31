@@ -79,15 +79,28 @@ async function parseResponseError(response: Response): Promise<{ code: string; m
     const body = (await response.json()) as unknown;
     if (typeof body === 'object' && body !== null && 'error' in body) {
       const error = (body as { error: unknown }).error;
+      const issues = (body as { issues?: unknown }).issues;
+      const detail = Array.isArray(issues) && issues.length > 0
+        ? ' — ' + issues
+            .map((issue) => {
+              const i = issue as { path?: unknown; message?: unknown };
+              const field = Array.isArray(i.path) ? i.path.join('.') : '';
+              return field ? `${field}: ${i.message}` : String(i.message);
+            })
+            .join('; ')
+        : '';
       if (typeof error === 'string') {
-        return { code: 'api_error', message: error };
+        return { code: 'api_error', message: error + detail };
       }
       if (typeof error === 'object' && error !== null) {
         const err = error as { code?: unknown; message?: unknown };
         return {
           code: typeof err.code === 'string' ? err.code : 'api_error',
-          message: typeof err.message === 'string' ? err.message : response.statusText || 'Request failed',
+          message: (typeof err.message === 'string' ? err.message : response.statusText || 'Request failed') + detail,
         };
+      }
+      if (detail) {
+        return { code: 'validation_error', message: `Validation error${detail}` };
       }
     }
     return { code: 'api_error', message: response.statusText || 'Request failed' };
