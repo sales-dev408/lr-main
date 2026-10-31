@@ -2,6 +2,12 @@
 const fs = require('fs');
 const UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0 Safari/537.36' };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Strip tags to a fixpoint so broken/nested markup can't leave a tag behind.
+const stripTags = (s) => {
+  let prev;
+  do { prev = s; s = s.replace(/<[^>]+>/g, ''); } while (s !== prev);
+  return s;
+};
 
 (async () => {
   const slugs = new Set();
@@ -24,7 +30,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       const block = t.match(/<h2 class="on-detail">Address<\/h2>\s*<p>([\s\S]*?)<\/p>/);
       let phone = null, street = null;
       if (block) {
-        const parts = block[1].split(/<br\s*\/?>/i).map((x) => x.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').trim());
+        const parts = block[1].split(/<br\s*\/?>/i).map((x) => stripTags(x).replace(/&amp;/g, '&').trim());
         street = parts[0] || null;
         const pm = block[1].match(/\(?\d{3}\)?[\s.\-]\d{3}[\s.\-]\d{4}/);
         if (pm) phone = pm[0];

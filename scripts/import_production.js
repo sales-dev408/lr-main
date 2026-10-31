@@ -47,12 +47,14 @@ function parseMetroStop(file, stationName) {
   const start = html.indexOf('id="wsite-content"');
   const end = html.indexOf('class="footer-wrap"');
   const content = end > start && start > -1 ? html.slice(start, end) : html;
-  const text = content
-    .replace(/<br\s*\/?>/gi, '\n')
+  // Strip tags to a fixpoint; decode &amp; last so it can't unescape twice.
+  let prev;
+  let text = content.replace(/<br\s*\/?>/gi, '\n');
+  do { prev = text; text = text.replace(/<[^>]+>/g, ' '); } while (text !== prev);
+  text = text
     .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
     .replace(/&#[xX]?[0-9a-fA-F]+;/g, ' ')
-    .replace(/<[^>]+>/g, ' ')
+    .replace(/&amp;/gi, '&')
     .replace(/[\u00a0\u200B-\u200D\uFEFF]/g, ' ');
   const chunks = text.split(/\n{2,}/).map((c) => c.replace(/[ \t]+/g, ' ').trim()).filter(Boolean);
   const vendors = [];

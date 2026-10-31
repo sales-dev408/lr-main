@@ -11,6 +11,12 @@ const UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKi
 const PHONE_RE = /(?:\(\d{3}\)\s?|\d{3}[.\-\s])\d{3}[.\-\s]\d{4}/g;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Strip tags to a fixpoint so broken/nested markup can't leave a tag behind.
+const stripTags = (s) => {
+  let prev;
+  do { prev = s; s = s.replace(/<[^>]+>/g, ' '); } while (s !== prev);
+  return s;
+};
 
 async function ddg(query, tries = 2) {
   for (let i = 0; i < tries; i++) {
@@ -18,10 +24,10 @@ async function ddg(query, tries = 2) {
       const r = await fetch('https://lite.duckduckgo.com/lite/?q=' + encodeURIComponent(query), { headers: UA });
       const html = await r.text();
       const links = [...html.matchAll(/uddg=(https?%3A%2F%2F[^&"']+)/g)].map((m) => decodeURIComponent(m[1]));
-      const text = html
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/&amp;/g, '&')
+      // Decode &amp; last so sequences like '&amp;quot;' only unescape once.
+      const text = stripTags(html)
         .replace(/&#x27;|&quot;/g, "'")
+        .replace(/&amp;/g, '&')
         .replace(/\s+/g, ' ');
       if (links.length || /phone|tel/i.test(text)) return { links, text };
     } catch {}
