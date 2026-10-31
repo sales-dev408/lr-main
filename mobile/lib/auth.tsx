@@ -2,6 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { login as loginRequest, register as registerRequest, updateMe, deleteMe } from './api';
 import { clearApiCache, clearSecureCache } from './cache';
 import { initPushNotifications } from './notifications';
+import { posthog } from './posthog';
+import { posthogLog } from './posthogLog';
 import { getItem, removeItem, setItem } from './storage';
 import type { AuthResponse, PushPreferences, UserProfile } from './types';
 
@@ -65,9 +67,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const persist = useCallback(
-    async (auth: AuthResponse<UserProfile>) => {
+    async (auth: AuthResponse<UserProfile>, authenticationMethod: 'sign_in' | 'registration') => {
+      const nextProfile = normalizeProfile(auth.profile);
+      posthog?.identify(nextProfile.id, {
+        $set: {
+          email: nextProfile.email,
+          name: nextProfile.fullName,
+          city: nextProfile.city,
+          membership_status: nextProfile.status,
+        },
+      });
+      posthog?.capture('member_authenticated', { authentication_method: authenticationMethod });
+      posthogLog.info('member authentication completed', {
+        authentication_method: authenticationMethod,
+      });
       setToken(auth.token);
-      setProfile(normalizeProfile(auth.profile));
+      setProfile(nextProfile);
       await setItem(AUTH_KEY, JSON.stringify(auth));
       await clearApiCache();
       await clearSecureCache('my-pass');
@@ -110,17 +125,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       signIn: async (body) => {
         const auth = await loginRequest(body);
-        await persist(auth);
+        await persist(auth, 'sign_in');
       },
       registerAccount: async (body) => {
         const auth = await registerRequest(body);
-        await persist(auth);
+        await persist(auth, 'registration');
       },
       updateProfile: async (update) => {
         await updateProfile(update);
       },
       deleteAccount: async () => {
         await deleteMe();
+        posthog?.reset();
         setToken(null);
         setProfile(null);
         await removeItem(AUTH_KEY);
@@ -128,6 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await clearSecureCache('my-pass');
       },
       logout: async () => {
+        posthog?.reset();
         setToken(null);
         setProfile(null);
         await removeItem(AUTH_KEY);

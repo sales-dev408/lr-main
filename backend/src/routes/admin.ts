@@ -96,7 +96,7 @@ const discountSchema = z.object({
   minPurchase: z.number().default(0),
   maxUsesTotal: z.number().int().positive().optional(),
   maxUsesPerCustomer: z.number().int().positive().optional(),
-  cityOverrides: z.record(z.object({ type: z.enum(['fixed', 'percent', 'bogo']).optional(), value: z.number().optional() })).default({}),
+  cityOverrides: z.record(z.string(), z.object({ type: z.enum(['fixed', 'percent', 'bogo']).optional(), value: z.number().optional() })).default({}),
   active: z.boolean().default(true),
 });
 

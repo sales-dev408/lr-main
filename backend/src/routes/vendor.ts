@@ -199,7 +199,7 @@ export async function registerVendorRoutes(fastify: FastifyInstance): Promise<vo
         minPurchase: z.number().optional(),
         maxUsesPerCustomer: z.number().int().positive().optional(),
         active: z.boolean().optional(),
-        cityOverrides: z.record(z.object({ type: z.enum(['fixed', 'percent', 'bogo']).optional(), value: z.number().optional() })).optional(),
+        cityOverrides: z.record(z.string(), z.object({ type: z.enum(['fixed', 'percent', 'bogo']).optional(), value: z.number().optional() })).optional(),
       })
       .parse(request.body);
 

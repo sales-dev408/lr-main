@@ -57,6 +57,8 @@ export interface ThemeSettings {
   brand: string;
   primaryGradient: [string, string];
   tabs: ThemeTab[];
+  /** When 'nba-allstar', the app renders the basketball (mobile-basketball) theme. */
+  mode?: 'nba-allstar';
 }
 
 export interface AuthResponse<TProfile> {

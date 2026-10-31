@@ -1,12 +1,14 @@
 import { useMemo } from 'react';
-import { darkTheme, theme, type ThemeColors } from './theme';
+import { darkTheme, nbaDarkTheme, nbaTheme, theme, type ThemeColors } from './theme';
 import { useAppColorScheme } from './colorScheme';
+import { useAppTheme } from './appTheme';
 
 export function useThemeColors(): ThemeColors {
   const { scheme, highContrast } = useAppColorScheme();
+  const { nbaAllStarEnabled } = useAppTheme();
 
   return useMemo(() => {
-    const base = scheme === 'dark' ? darkTheme : theme;
+    const base = nbaAllStarEnabled ? (scheme === 'dark' ? nbaDarkTheme : nbaTheme) : scheme === 'dark' ? darkTheme : theme;
     if (!highContrast) return base;
 
     return {
@@ -20,5 +22,5 @@ export function useThemeColors(): ThemeColors {
       subtle: scheme === 'dark' ? '#ffffff' : '#000000',
       accent: scheme === 'dark' ? '#ffffff' : '#000000',
     };
-  }, [highContrast, scheme]);
+  }, [highContrast, scheme, nbaAllStarEnabled]);
 }

@@ -64,6 +64,20 @@ export function ThemePage() {
       {error ? <ErrorBanner message={error} /> : null}
       {toast ? <SuccessBanner message={toast} /> : null}
 
+      <PageCard title="App theme variant" subtitle="Switches the whole app to the NBA All-Star / basketball theme (mobile-basketball palette). Off returns to the standard light-rail theme.">
+        <label className="theme-toggle">
+          <input
+            type="checkbox"
+            checked={theme.mode === 'nba-allstar'}
+            onChange={(e) => setTheme({ ...theme, mode: e.target.checked ? 'nba-allstar' : undefined })}
+          />
+          NBA All-Star (basketball) theme
+        </label>
+        {theme.mode === 'nba-allstar' ? (
+          <p className="muted">Phoenix Suns purple with a basketball-orange accent — takes effect on devices after saving.</p>
+        ) : null}
+      </PageCard>
+
       <PageCard title="Brand">
         <div className="form">
           <label>

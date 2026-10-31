@@ -194,6 +194,8 @@ export interface ThemeSettings {
   brand: string;
   primaryGradient: [string, string];
   tabs: ThemeTab[];
+  /** 'nba-allstar' switches the mobile app to the basketball theme. */
+  mode?: 'nba-allstar';
 }
 
 export interface AdminEvent {

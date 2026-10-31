@@ -9,6 +9,7 @@ import { useAppColorScheme } from '@/lib/colorScheme';
 import { useThemeColors } from '@/lib/useThemeColors';
 import { useDynamicType } from '@/lib/dynamicType';
 import { useFavorites } from '@/lib/favorites';
+import { posthog } from '@/lib/posthog';
 import { shareDeal } from '@/lib/share';
 import { findStop } from '@/lib/stops';
 import type { VendorListItem } from '@/lib/types';
@@ -67,6 +68,11 @@ export function BusinessModal({ vendor, onClose }: Props) {
   }
 
   function openDiscount() {
+    posthog?.capture('discount_redemption_started', {
+      vendor_id: vendor!.id,
+      vendor_type: vendor!.vendorType ?? 'other',
+      authenticated: signedIn,
+    });
     onClose();
     router.push((`/discount?vendorId=${encodeURIComponent(vendor!.id)}`) as never);
   }

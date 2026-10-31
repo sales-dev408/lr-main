@@ -2,7 +2,7 @@
   "expo": {
     "name": "Light Rail Deals",
     "slug": "mobile",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/appstore.png",
     "scheme": "lrcard",
@@ -15,7 +15,7 @@
       "associatedDomains": [
         "applinks:lightraildeals.com"
       ],
-      "buildNumber": "2",
+      "buildNumber": "3",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "Allow $(PRODUCT_NAME) to show nearby participating stores on the map."
@@ -136,7 +136,7 @@
     },
     "android": {
       "package": "com.lightraildeals.app",
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-foreground.png",
         "backgroundColor": "#ffffff"

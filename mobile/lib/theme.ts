@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import type { ThemeSettings } from './types';
 
 export interface ThemeColors {
@@ -97,6 +98,94 @@ export const WEBSITE_URL = 'https://lightraildeals.com';
 export const TERMS_URL = 'https://www.lightraildeals.com/terms-of-use.html';
 export const PRIVACY_URL = 'https://www.lightraildeals.com/privacy-policy.html';
 export const EULA_URL = 'https://www.lightraildeals.com/eula.html';
+
+// NBA All-Star 2027 Phoenix full palette — matches the mobile-basketball
+// variant. Applied app-wide when the published theme has mode 'nba-allstar'
+// or the local NBA All-Star switch is on.
+export const nbaTheme: ThemeColors = {
+  brand: '#1d1160',
+  brandDark: '#150b47',
+  brandSoft: '#e9e5f8',
+  infoSoft: '#e9e5f8',
+  successSoft: '#dcfce7',
+  warningSoft: '#fef3c7',
+  dangerSoft: '#fee2e2',
+  ink: '#1c1917',
+  ink2: '#292524',
+  bg: '#f8f7fc',
+  panel: '#ffffff',
+  border: '#e6e2f0',
+  muted: '#57534e',
+  subtle: '#a8a29e',
+  danger: '#dc2626',
+  success: '#16a34a',
+  warning: '#d97706',
+  accent: '#e56020',
+  radius: 20,
+  shadow: {
+    shadowColor: '#1d1160',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 30,
+    elevation: 10,
+  },
+};
+
+export const nbaDarkTheme: ThemeColors = {
+  brand: '#a594f9',
+  brandDark: '#c7bdfb',
+  brandSoft: '#2a2056',
+  infoSoft: '#2a2056',
+  successSoft: '#14532d',
+  warningSoft: '#78350f',
+  dangerSoft: '#7f1d1d',
+  ink: '#f5f3ff',
+  ink2: '#e7e2f4',
+  bg: '#15101f',
+  panel: '#231a33',
+  border: '#3d3355',
+  muted: '#a89fc4',
+  subtle: '#756a94',
+  danger: '#f87171',
+  success: '#4ade80',
+  warning: '#fbbf24',
+  accent: '#f97e2b',
+  radius: 20,
+  shadow: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 30,
+    elevation: 10,
+  },
+};
+
+// Condensed display face for headers/hero text — a jersey-lettering feel on
+// iOS/Android, plain sans elsewhere (matches mobile-basketball).
+export const fonts = {
+  display: Platform.select({ ios: 'AvenirNextCondensed-Bold', android: 'sans-serif-condensed', default: undefined }),
+};
+
+// NBA All-Star 2027 Phoenix theme — "Valley Hoops" palette. Phoenix Suns
+// purple brand with a basketball-orange accent and faint lavender court
+// neutrals.
+export const NBA_ALLSTAR_THEME_SETTINGS: ThemeSettings = {
+  brand: '#1d1160',
+  primaryGradient: ['#1d1160', '#e56020'],
+  tabs: [
+    { key: 'index', label: 'Home', color: '#1d1160', gradient: ['#7c6cd9', '#1d1160'] },
+    { key: 'restaurants', label: 'Restaurants & Bars', color: '#e56020', gradient: ['#f7971e', '#e56020'] },
+    { key: 'shopping', label: 'Shopping', color: '#7c3aed', gradient: ['#a78bfa', '#7c3aed'] },
+    { key: 'hotels', label: 'Hotels', color: '#0284c7', gradient: ['#38bdf8', '#0284c7'] },
+    { key: 'sports', label: 'Sports', color: '#e56020', gradient: ['#f9a01b', '#e56020'] },
+    { key: 'events', label: 'Events', color: '#e11d48', gradient: ['#fb7185', '#e11d48'] },
+    { key: 'live', label: 'Train Times', color: '#4f46e5', gradient: ['#818cf8', '#4f46e5'] },
+    { key: 'profile', label: 'Profile', color: '#57534e', gradient: ['#a8a29e', '#57534e'] },
+    { key: 'discover', label: 'Discover', color: '#0d9488', gradient: ['#2dd4bf', '#0d9488'] },
+    { key: 'az-events', label: 'Events Around Arizona', color: '#d97706', gradient: ['#fbbf24', '#d97706'] },
+    { key: 'apartments', label: 'Apartments', color: '#f59e0b', gradient: ['#fbbf24', '#d97706'] },
+  ],
+};
 
 // Fallback theme used before the admin-published theme loads from the backend.
 // Keys match route names so navigation can look up each section's style.

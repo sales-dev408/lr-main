@@ -5,6 +5,8 @@ import { AppButton, Banner, Card, FieldInput, Pill, Screen, SectionTitle, Spinne
 import { affirmRedemptionToken, createRedemptionToken, type RedemptionToken } from '@/lib/api';
 import { recordLocalRedemption } from '@/lib/localStats';
 import { useAuth } from '@/lib/auth';
+import { posthog } from '@/lib/posthog';
+import { posthogLog } from '@/lib/posthogLog';
 import { qrCodeUrl } from '@/lib/qr';
 import { useThemeColors } from '@/lib/useThemeColors';
 import { useDynamicType } from '@/lib/dynamicType';
@@ -50,6 +52,12 @@ export default function DiscountScreen() {
           const data = await createRedemptionToken(vendorId);
           if (!active) return;
           setToken(data);
+          posthog?.capture('discount_qr_created', {
+            authenticated: Boolean(auth.token),
+          });
+          posthogLog.info('discount QR created', {
+            authenticated: Boolean(auth.token),
+          });
           // Anonymous discount tracking: when signed in the backend records
           // this against the member account; without an account we track it
           // on-device so My Stats keeps working.
@@ -81,6 +89,14 @@ export default function DiscountScreen() {
     try {
       const result = await affirmRedemptionToken(token.token, name);
       if (result.ok) {
+        posthog?.capture('discount_redemption_confirmed', {
+          redemption_method: 'manual_affirmation',
+          authenticated: Boolean(auth.token),
+        });
+        posthogLog.info('discount redemption confirmed', {
+          redemption_method: 'manual_affirmation',
+          authenticated: Boolean(auth.token),
+        });
         setApproved(true);
         setApprovedLabel(result.discountLabel);
       } else {

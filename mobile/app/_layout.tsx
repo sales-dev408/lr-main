@@ -10,6 +10,7 @@ import { DynamicTypeProvider } from '@/lib/dynamicType';
 import { listenForNotifications } from '@/lib/notifications';
 import { getAppState } from '@/lib/api';
 import { syncWidgetItems } from '@/lib/widgetFeed';
+import { PostHogRoot } from '@/lib/posthog';
 
 export default function RootLayout() {
   // Mirror received push notifications into the local inbox for the
@@ -25,9 +26,10 @@ export default function RootLayout() {
     void getAppState().then((state) => syncWidgetItems(state));
   }, []);
   return (
-    <ColorSchemeProvider>
-      <AuthProvider>
-        <AdminProvider>
+    <PostHogRoot>
+      <ColorSchemeProvider>
+        <AuthProvider>
+          <AdminProvider>
           <AppThemeProvider>
             <LegalAcceptanceProvider>
               <DynamicTypeProvider>
@@ -45,8 +47,9 @@ export default function RootLayout() {
               </DynamicTypeProvider>
             </LegalAcceptanceProvider>
           </AppThemeProvider>
-        </AdminProvider>
-      </AuthProvider>
-    </ColorSchemeProvider>
+          </AdminProvider>
+        </AuthProvider>
+      </ColorSchemeProvider>
+    </PostHogRoot>
   );
 }

@@ -1,0 +1,53 @@
+# Vendor health sweep — runs on the 1st of every odd month (Jan, Mar, May,
+# Jul, Sep, Nov) and on demand. Queries every approved vendor against the
+# Mapbox Places API, flags ones that appear closed, finds nearby open
+# replacements, and publishes a report + SQL file. It never modifies the
+# database.
+name: Vendor Sweep (Mapbox)
+
+on:
+  schedule:
+    - cron: '0 9 1 1-11/2 * *' # 09:00 UTC on day 1 of odd months
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      MAPBOX_ACCESS_TOKEN: ${{ secrets.MAPBOX_ACCESS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies (pg lives in the backend workspace)
+        run: npm ci
+
+      - name: Run vendor sweep
+        working-directory: scripts
+        run: node vendor_sweep.mjs
+
+      - name: Upload report artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: vendor-sweep-report
+          path: |
+            scripts/out/report.md
+            scripts/out/vendor_sweep.sql
+          retention-days: 365
+
+      - name: File report as an issue
+        if: always()
+        run: |
+          TITLE="Vendor sweep report — $(date +%Y-%m-%d)"
+          gh issue create --title "$TITLE" --label "vendor-sweep" --body-file scripts/out/report.md \
+            || gh issue create --title "$TITLE" --body-file scripts/out/report.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -9,6 +9,7 @@ import MapView, { Marker, type Region } from '@/components/MapView';
 import { StopPicker } from '@/components/StopPicker';
 import { ScrollToTopButton } from '@/components/ScrollToTopButton';
 import { compareStops, findStop, getStops } from '@/lib/stops';
+import { searchScore } from '@/lib/search';
 import type { ApartmentRecord } from '@/lib/types';
 
 function normalizeWebsite(url: string): string {
@@ -88,12 +89,16 @@ export function ListingDirectory({ kind }: { kind: 'apartment' | 'hotel' }) {
   }
 
   const filtered = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
+    const term = searchTerm.trim();
     if (!term) return apartments;
-    return apartments.filter((a) => {
-      const hay = [a.name, a.station, a.address, a.city, a.section].filter(Boolean).join(' ').toLowerCase();
-      return hay.includes(term);
+    const scored = new Map<string, number>();
+    const list = apartments.filter((a) => {
+      const s = searchScore([a.name, a.station, a.address, a.city, a.section], term);
+      if (s == null) return false;
+      scored.set(a.id, s);
+      return true;
     });
+    return list.sort((a, b) => scored.get(a.id)! - scored.get(b.id)!);
   }, [apartments, searchTerm]);
 
   const grouped = useMemo(() => {
@@ -252,7 +257,7 @@ export function ListingDirectory({ kind }: { kind: 'apartment' | 'hotel' }) {
                 value={search}
                 onChangeText={(text) => {
                   setSearch(text);
-                  if (!text.trim()) setSearchTerm('');
+                  setSearchTerm(text);
                 }}
                 onSubmitEditing={() => setSearchTerm(search.trim())}
                 returnKeyType="search"

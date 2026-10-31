@@ -22,10 +22,15 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
+const NBA_BRAND = '#1d1160';
+const NBA_GRADIENT: [string, string] = ['#1d1160', '#e56020'];
+
 function applyCssVariables(theme: ThemeSettings) {
   const root = document.documentElement;
-  root.style.setProperty('--accent', theme.brand);
-  root.style.setProperty('--brand-gradient', `linear-gradient(135deg, ${theme.primaryGradient[0]}, ${theme.primaryGradient[1]})`);
+  const nba = theme.mode === 'nba-allstar';
+  root.style.setProperty('--accent', nba ? NBA_BRAND : theme.brand);
+  const [g0, g1] = nba ? NBA_GRADIENT : theme.primaryGradient;
+  root.style.setProperty('--brand-gradient', `linear-gradient(135deg, ${g0}, ${g1})`);
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {

@@ -11,10 +11,12 @@ import { useAuth } from '@/lib/auth';
 import { useThemeColors } from '@/lib/useThemeColors';
 import { useDynamicType } from '@/lib/dynamicType';
 import { useFavorites } from '@/lib/favorites';
+import { posthog } from '@/lib/posthog';
 import MapView, { Marker, type Region } from '@/components/MapView';
 import { StopPicker } from '@/components/StopPicker';
 import { ScrollToTopButton } from '@/components/ScrollToTopButton';
 import { compareStops, findStop, getStops } from '@/lib/stops';
+import { searchScore } from '@/lib/search';
 import type { VendorListItem } from '@/lib/types';
 
 const LINE_OPTIONS = ['All lines', 'A Line', 'B Line'] as const;
@@ -217,12 +219,21 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
   }, [pageVendors]);
 
   const filteredVendors = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-    let list = pageVendors.filter((v) => {
-      if (!term) return true;
-      const hay = [v.name, v.cuisine, v.station, v.address, v.city, v.category].filter(Boolean).join(' ').toLowerCase();
-      return hay.includes(term);
-    });
+    const term = searchTerm.trim();
+    let scored: Map<string, number> | null = null;
+    let list = pageVendors;
+    if (term) {
+      scored = new Map();
+      list = pageVendors.filter((v) => {
+        const s = searchScore([v.name, v.cuisine, v.station, v.address, v.city, v.category], term);
+        if (s == null) return false;
+        scored!.set(v.id, s);
+        return true;
+      });
+      if (scored.size) {
+        list = [...list].sort((a, b) => scored!.get(a.id)! - scored!.get(b.id)!);
+      }
+    }
     if (activeTypeOption?.types) {
       const allowed = new Set(activeTypeOption.types.map((t) => t.toLowerCase()));
       list = list.filter((v) => allowed.has((v.vendorType ?? '').toLowerCase()));
@@ -413,6 +424,12 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
   const selectVendor = useCallback(
     (id: string) => {
       const vendor = vendors.find((v) => v.id === id) ?? null;
+      if (vendor) {
+        posthog?.capture('business_viewed', {
+          vendor_id: vendor.id,
+          vendor_type: vendor.vendorType ?? 'other',
+        });
+      }
       setSelectedVendor(vendor);
       if (vendor?.latitude != null && vendor?.longitude != null) {
         setRegion({
@@ -431,6 +448,10 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
       router.push('/auth' as never);
       return;
     }
+    posthog?.capture('business_favorite_updated', {
+      vendor_id: id,
+      is_favorited: !isFavorite(id),
+    });
     void toggleFavorite(id);
   }
 
@@ -509,9 +530,9 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
                 value={search}
                 onChangeText={(text) => {
                   setSearch(text);
-                  // Clearing the field resets an applied search so users can
-                  // get back to the full list without an empty "no results".
-                  if (!text.trim()) setSearchTerm('');
+                  // Live filtering — every typed word must match somewhere,
+                  // so partial names like "palomar hotel" still hit.
+                  setSearchTerm(text);
                 }}
                 onSubmitEditing={() => setSearchTerm(search.trim())}
                 returnKeyType="search"

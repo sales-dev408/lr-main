@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View, Switch } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useRouter } from 'expo-router';
 import { AppButton, Banner, BrandHeader, Card, FieldInput, Screen, SectionTitle } from '@/components/Ui';
@@ -15,6 +15,7 @@ export default function AdminThemeScreen() {
   const [draft, setDraft] = useState<ThemeSettings>(appTheme.theme);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [nbaAllStarEnabled, setNbaAllStarEnabledLocal] = useState(appTheme.nbaAllStarEnabled);
 
   if (!admin.isAdmin || !admin.token) {
     return (
@@ -46,11 +47,35 @@ export default function AdminThemeScreen() {
     }
   }
 
+  async function toggleNbaAllStar(value: boolean) {
+    setNbaAllStarEnabledLocal(value);
+    await appTheme.setNbaAllStarEnabled(value);
+  }
+
   return (
     <Screen>
       <Stack.Screen options={{ headerShown: true, title: 'App theme' }} />
       <ScrollView contentContainerStyle={{ gap: 14, paddingBottom: 24 }}>
         <BrandHeader subtitle="App theme" />
+        
+        <Card>
+          <SectionTitle title="NBA All-Star Theme" subtitle="Switch to the NBA All-Star 2027 Phoenix theme" />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 }}>
+            <Text style={{ fontSize: 16, color: '#1c1917' }}>NBA All-Star Theme</Text>
+            <Switch
+              value={nbaAllStarEnabled}
+              onValueChange={toggleNbaAllStar}
+              trackColor={{ false: '#e7e5e4', true: '#1d1160' }}
+              thumbColor={nbaAllStarEnabled ? '#e56020' : '#f5f5f4'}
+            />
+          </View>
+          {nbaAllStarEnabled && (
+            <Text style={{ fontSize: 12, color: '#57534e', marginTop: 8 }}>
+              Phoenix Suns purple with basketball-orange accent
+            </Text>
+          )}
+        </Card>
+
         <Card>
           <SectionTitle title="Bottom tabs" subtitle="Blue / red / green gradients shared by the app and admin site." />
           {error ? <Banner tone="error">{error}</Banner> : null}
