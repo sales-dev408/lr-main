@@ -6,7 +6,6 @@ import { LiquidGlassView, isLiquidGlassSupported } from '@callstack/liquid-glass
 import { useRouter, useSegments } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/lib/appTheme';
-import { useAuth } from '@/lib/auth';
 import { useAppColorScheme } from '@/lib/colorScheme';
 import { useThemeColors } from '@/lib/useThemeColors';
 import { useDynamicType } from '@/lib/dynamicType';
@@ -18,25 +17,30 @@ type NavItem = {
   href: `/${string}`;
 };
 
-// Sidebar order per release brief §1.4, with Apartments alongside Hotels.
+// Sidebar order per the restructure brief: the divider line between the main
+// directory sections and the informational/settings entries is intentional.
 const PRIMARY_ITEMS: NavItem[] = [
   { key: 'index', label: 'Home', icon: '⌂', href: '/' },
+  { key: 'events', label: 'Events', icon: '★', href: '/events' },
+  { key: 'sports', label: 'Sports', icon: '🏀', href: '/sports' },
   { key: 'restaurants', label: 'Restaurants & Bars', icon: '🍽', href: '/restaurants' },
   { key: 'shopping', label: 'Shopping', icon: '🛍', href: '/shopping' },
+  { key: 'beauty', label: 'Beauty & Health', icon: '💅', href: '/beauty' },
+  { key: 'live', label: 'Train Times', icon: '⚡', href: '/live' },
   { key: 'hotels', label: 'Hotels', icon: '🏨', href: '/hotels' },
   { key: 'apartments', label: 'Apartments', icon: '🏢', href: '/apartments' },
-  { key: 'sports', label: 'Sports', icon: '🏀', href: '/sports' },
-  { key: 'events', label: 'Events', icon: '★', href: '/events' },
-  { key: 'live', label: 'Train Times', icon: '⚡', href: '/live' },
   { key: 'real-estate', label: 'Real Estate', icon: '🏘', href: '/real-estate' },
-  { key: 'services', label: 'Services', icon: '🛠', href: '/services' },
 ];
 
 const SECONDARY_ITEMS: NavItem[] = [
-  { key: 'profile', label: 'Profile', icon: '●', href: '/profile' },
-  { key: 'notifications', label: 'Notifications', icon: '🔔', href: '/notifications' },
-  { key: 'discover', label: 'Discover', icon: '✦', href: '/discover' },
+  { key: 'discover', label: 'Discover Articles', icon: '✦', href: '/discover' },
   { key: 'az-events', label: 'Events Around Arizona', icon: '🌵', href: '/az-events' },
+];
+
+// The Settings area groups the settings screen with the notification inbox.
+const SETTINGS_ITEMS: NavItem[] = [
+  { key: 'settings', label: 'Settings', icon: '⚙', href: '/settings' },
+  { key: 'notifications', label: 'Notifications', icon: '🔔', href: '/notifications' },
 ];
 
 export function CollapsibleSidebar() {
@@ -48,7 +52,6 @@ export function CollapsibleSidebar() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const segments = useSegments();
-  const auth = useAuth();
 
   const [visible, setVisible] = useState(false);
   const [slide] = useState(() => new Animated.Value(0));
@@ -130,46 +133,13 @@ export function CollapsibleSidebar() {
         {PRIMARY_ITEMS.map(renderItem)}
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
         {SECONDARY_ITEMS.map(renderItem)}
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        <Text style={{ color: colors.muted, fontSize: 11 * effectiveScale, fontWeight: '700', marginHorizontal: 20, marginTop: 4, marginBottom: 2, textTransform: 'uppercase', letterSpacing: 0.8 }} allowFontScaling={false}>
+          Settings
+        </Text>
+        {SETTINGS_ITEMS.map(renderItem)}
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 14, borderTopColor: colors.border }]}>
-        {auth.token ? (
-          <>
-            <Text style={{ color: colors.muted, fontSize: 12 * effectiveScale }} numberOfLines={1} allowFontScaling={false}>
-              Signed in as {auth.profile?.fullName || auth.profile?.email || 'member'}
-            </Text>
-            <Pressable
-              onPress={() => {
-                close();
-                setTimeout(() => {
-                  void auth.logout().then(() => router.replace('/' as never));
-                }, 60);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Sign out"
-              style={[styles.authButton, { borderColor: colors.border, backgroundColor: colors.panel }]}
-            >
-              <Text style={{ color: colors.danger, fontWeight: '700', fontSize: 14 * effectiveScale }} allowFontScaling={false}>
-                Sign Out
-              </Text>
-            </Pressable>
-          </>
-        ) : (
-          <Pressable
-            onPress={() => {
-              close();
-              setTimeout(() => router.push('/auth' as never), 60);
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Sign in or create an account"
-            style={[styles.authButton, { borderColor: 'transparent', backgroundColor: colors.brand }]}
-          >
-            <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14 * effectiveScale }} allowFontScaling={false}>
-              Sign In / Sign Up
-            </Text>
-          </Pressable>
-        )}
-      </View>
     </View>
   );
 

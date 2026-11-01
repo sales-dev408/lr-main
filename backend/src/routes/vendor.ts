@@ -4,7 +4,6 @@ import bcrypt from 'bcrypt';
 import { dbQuery } from '../db/pool.js';
 import { getVendorAnalytics } from '../services/analytics.js';
 import { buildLookupDiscountView, humanDiscountLabel } from '../services/discounts.js';
-import { syncDiscountToVendorConnections } from '../services/pos.js';
 
 export async function registerVendorRoutes(fastify: FastifyInstance): Promise<void> {
   // Public, customer-facing vendor directory for the mobile app.
@@ -231,9 +230,6 @@ export async function registerVendorRoutes(fastify: FastifyInstance): Promise<vo
         body.cityOverrides ? JSON.stringify(body.cityOverrides) : null,
       ],
     );
-    void syncDiscountToVendorConnections({ discountId: id, action: 'upsert' }).catch((error) => {
-      fastify.log.warn({ error, discountId: id }, 'POS auto-sync failed');
-    });
 
     return rows[0] ?? {};
   });

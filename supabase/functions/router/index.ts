@@ -5,16 +5,12 @@ import { authenticate, requireRole } from './lib/auth.ts';
 import { dbQuery, restQuery, withDbClient } from './lib/db.ts';
 import { getAdminAnalytics, getVendorAnalytics } from './lib/analytics.ts';
 import { buildLookupDiscountView } from './lib/discounts.ts';
-import { resolvePassLookup, resolveCardLookup } from './lib/lookup.ts';
 import { redeemDiscount } from './lib/redeem.ts';
 import { createVendorWithDiscount, getAdminVendorById, getVendorDirectory, inferCuisine, inferVendorType } from './lib/vendors.ts';
-import { ensureMembershipPass } from './lib/membership.ts';
 import { generateDiscountCode, humanDiscountLabel } from './lib/codes.ts';
 import { qrCodeUrl } from './lib/quickchart.ts';
-import { normalizePhone } from './lib/phone.ts';
 import { createRedemptionToken, redeemByToken, affirmRedemptionToken } from './lib/redemptionTokens.ts';
 import type { DiscountRule } from './lib/types.ts';
-import { sendDealOfTheDayBlast } from './lib/resend.ts';
 import {
   createContentBlock,
   deleteContentBlock,
@@ -39,7 +35,7 @@ import {
   deleteAdminEvent,
   adminEventSchema,
 } from './lib/events.ts';
-import { savePushToken, getAllPushTokens, getPushTokensByCity, sendPushNotifications } from './lib/push.ts';
+import { saveDevicePushToken, removeDevicePushToken, sendPushCampaign } from './lib/push.ts';
 import {
   apartmentSchema,
   createApartment,
@@ -65,49 +61,6 @@ import {
   updateStop,
 } from './lib/stops.ts';
 
-function generateSecureSixDigitCode(): string {
-  const min = 100000;
-  const range = 900000;
-  const limit = Math.floor(0x100000000 / range) * range;
-  const buffer = new Uint32Array(1);
-  while (true) {
-    crypto.getRandomValues(buffer);
-    if (buffer[0] < limit) {
-      return String(min + (buffer[0] % range));
-    }
-  }
-}
-
-// Shape the customer-facing membership pass payload (barcode only),
-// creating the pass idempotently. Returns null if pass generation fails.
-async function buildMembershipPassResponse(userId: string, _baseUrl?: string) {
-  try {
-    const pass = await ensureMembershipPass(userId);
-    return {
-      serialNumber: pass.serial_number,
-      lookupToken: pass.lookup_token,
-      barcodeValue: pass.barcode_value ?? pass.lookup_token,
-      cardId: pass.card_id,
-    };
-  } catch {
-    return null;
-  }
-}
-
-const customerRegisterSchema = z.object({
-  firstName: z.string().trim().min(1),
-  lastName: z.string().trim().min(1),
-  email: z.string().email().optional(),
-  phone: z.string().min(7).optional(),
-  password: z.string().min(8),
-  city: z.string().optional(),
-  promoEmailOptIn: z.boolean().default(false),
-  promoSmsOptIn: z.boolean().default(false),
-  termsAccepted: z.boolean().refine((v) => v === true, { message: 'Terms of Use must be accepted' }),
-  privacyAccepted: z.boolean().refine((v) => v === true, { message: 'Privacy Policy must be accepted' }),
-  eulaAccepted: z.boolean().refine((v) => v === true, { message: 'EULA must be accepted' }),
-});
-
 const contentCreateSchema = z.object({
   kind: z.enum(['text', 'article', 'image', 'file', 'embed']).default('text'),
   title: z.string().min(1),
@@ -127,16 +80,13 @@ const themeTabSchema = z.object({
   gradient: z.tuple([z.string().min(1), z.string().min(1)]),
 });
 
+const adminLoginSchema = z.object({ email: z.string().email(), password: z.string().min(1) });
+
 const themeSchema = z.object({
   brand: z.string().min(1),
   primaryGradient: z.tuple([z.string().min(1), z.string().min(1)]),
   tabs: z.array(themeTabSchema).min(1),
-});
-
-const pushTokenSchema = z.object({
-  // null clears the stored token (notification mute).
-  token: z.string().min(1).nullable(),
-  city: z.string().optional(),
+  mode: z.enum(['nba-allstar']).nullish(),
 });
 
 const adSchema = z.object({
@@ -148,201 +98,6 @@ const adSchema = z.object({
 
 const adUpdateSchema = adSchema.partial();
 
-const customerLoginSchema = z
-  .object({
-    email: z.string().email().optional(),
-    phone: z.string().min(7).optional(),
-    password: z.string().min(1),
-  })
-  .refine((data) => Boolean(data.email || data.phone), { message: 'Email or phone is required', path: ['email'] });
-
-const forgotPasswordSchema = z.object({
-  identifier: z.string().min(1),
-});
-
-const resetPasswordSchema = z.object({
-  identifier: z.string().min(1),
-  code: z.string().min(6).max(6),
-  password: z.string().min(8),
-});
-
-const socialSchema = z
-  .object({
-    provider: z.string().min(1),
-    token: z.string().min(1).optional(),
-    idToken: z.string().min(1).optional(),
-    email: z.string().email().optional(),
-    fullName: z.string().min(1).default('Social User'),
-  })
-  .refine((value) => Boolean(value.token || value.idToken), { message: 'token or idToken is required' });
-
-const adminLoginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
-});
-
-const cardSchema = z.object({
-  name: z.string().min(1),
-  theme: z.enum(['sports', 'entertainment', 'shops_restaurants']),
-  description: z.string().optional(),
-  imageUrl: z.string().optional(),
-  logoUrl: z.string().optional(),
-  iconUrl: z.string().optional(),
-  primaryColor: z.string().optional(),
-  secondaryColor: z.string().optional(),
-  qrSize: z.number().int().min(80).max(600).optional(),
-  layout: z.enum(['qr_top', 'qr_bottom', 'qr_left', 'qr_right']).optional(),
-  expirationDate: z.string().datetime().optional(),
-  maxUses: z.number().int().positive().optional(),
-  status: z.enum(['draft', 'active', 'archived']).optional(),
-});
-
-const adminVendorCreateSchema = z
-  .object({
-    name: z.string().min(1),
-    ownerName: z.string().optional(),
-    address: z.string().optional(),
-    city: z.string().optional().nullable(),
-    station: z.string().optional().nullable(),
-    category: z.string().min(1),
-    email: z.string().email().optional(),
-    phone: z.string().optional(),
-    website: z.string().optional().nullable(),
-    discountType: z.enum(['fixed', 'percent', 'bogo']).default('percent'),
-    discountValue: z.number().min(0),
-    discountDescription: z.string().optional().nullable(),
-    discountTerms: z.string().optional().nullable(),
-    discountStartsAt: z.string().datetime().optional().nullable(),
-    discountEndsAt: z.string().datetime().optional().nullable(),
-    boosted: z.boolean().optional(),
-    membersOnly: z.boolean().optional(),
-    latitude: z.number().optional(),
-    longitude: z.number().optional(),
-    iconDataUrl: z.string().optional(),
-    logoDataUrl: z.string().optional(),
-  })
-  .refine((data) => data.discountType !== 'bogo' || Boolean(data.discountDescription?.trim()), {
-    message: 'BOGO discounts require a description',
-    path: ['discountDescription'],
-  });
-
-const adminVendorUpdateSchema = z
-  .object({
-    name: z.string().min(1).optional(),
-    ownerName: z.string().optional(),
-    address: z.string().optional(),
-    city: z.string().optional().nullable(),
-    station: z.string().optional().nullable(),
-    category: z.string().optional(),
-    email: z.string().email().optional(),
-    phone: z.string().optional(),
-    website: z.string().optional().nullable(),
-    discountType: z.enum(['fixed', 'percent', 'bogo']).optional(),
-    discountValue: z.number().min(0).optional(),
-    discountDescription: z.string().optional().nullable(),
-    discountTerms: z.string().optional().nullable(),
-    discountStartsAt: z.string().datetime().optional().nullable(),
-    discountEndsAt: z.string().datetime().optional().nullable(),
-    boosted: z.boolean().optional(),
-    membersOnly: z.boolean().optional(),
-    latitude: z.number().optional(),
-    longitude: z.number().optional(),
-    status: z.enum(['pending', 'approved', 'rejected', 'suspended']).optional(),
-  })
-  .refine((data) => data.discountType !== 'bogo' || (data.discountDescription !== undefined && Boolean(data.discountDescription?.trim())), {
-    message: 'BOGO discounts require a description',
-    path: ['discountDescription'],
-  });
-
-const adminSettingsSchema = z.object({
-  email: z.string().email().optional(),
-  password: z.string().min(8).optional(),
-  location: z.string().optional(),
-});
-
-const ticketBarcodeSchema = z.object({ barcode: z.string().min(1), format: z.string().min(1) });
-
-const ticketCreateSchema = z.object({
-  barcode: z.string().min(1),
-  barcodeFormat: z.string().optional(),
-  name: z.string().min(1).default('Event Ticket'),
-  allowedUses: z.number().int().positive().default(1),
-  availableCount: z.number().int().positive().default(4),
-  barcodes: z.array(ticketBarcodeSchema).default([]),
-  drawingDeadline: z.coerce.date().optional(),
-  drawingDate: z.string().optional(),
-  userId: z.string().uuid().optional(),
-});
-
-const ticketUpdateSchema = z.object({
-  name: z.string().min(1).optional(),
-  barcode: z.string().min(1).optional(),
-  barcodeFormat: z.string().optional(),
-  allowedUses: z.number().int().positive().optional(),
-  availableCount: z.number().int().positive().optional(),
-  barcodes: z.array(ticketBarcodeSchema).optional(),
-  usedUses: z.number().int().min(0).optional(),
-  status: z.enum(['active', 'used', 'disabled']).optional(),
-  drawingDeadline: z.coerce.date().optional().nullable(),
-  drawingStatus: z.enum(['open', 'drawn', 'closed']).optional(),
-  drawingDate: z.string().optional().nullable(),
-  userId: z.string().uuid().optional().nullable(),
-});
-
-const ticketEntrySchema = z.object({
-  ticketId: z.string().uuid(),
-  requestedCount: z.coerce.number().int().min(1).default(1),
-});
-
-const discountSchema = z.object({
-  cardId: z.string().uuid(),
-  vendorId: z.string().uuid(),
-  type: z.enum(['fixed', 'percent', 'bogo']),
-  value: z.number(),
-  minPurchase: z.number().default(0),
-  maxUsesTotal: z.number().int().positive().optional(),
-  maxUsesPerCustomer: z.number().int().positive().optional(),
-  cityOverrides: z.record(z.string(), z.object({ type: z.enum(['fixed', 'percent', 'bogo']).optional(), value: z.number().optional() })).default({}),
-  active: z.boolean().default(true),
-});
-
-const adminUserUpdateSchema = z.object({
-  fullName: z.string().trim().min(1).optional(),
-  email: z.string().email().optional().nullable(),
-  phone: z.string().optional().nullable(),
-  city: z.string().optional().nullable(),
-  status: z.enum(['active', 'suspended', 'deleted']).optional(),
-  pushPreferences: z
-    .object({
-      newVendor: z.boolean().optional(),
-      expiringDeal: z.boolean().optional(),
-      localEvent: z.boolean().optional(),
-    })
-    .optional(),
-  promoEmailOptIn: z.boolean().optional(),
-  promoSmsOptIn: z.boolean().optional(),
-});
-
-type UserProfileRow = {
-  id: string;
-  email: string | null;
-  phone: string | null;
-  full_name: string;
-  first_name: string | null;
-  last_name: string | null;
-  city: string | null;
-  status: string;
-  push_enabled_new_vendor: boolean;
-  push_enabled_expiring_deal: boolean;
-  push_enabled_local_event: boolean;
-  promo_email_opt_in: boolean;
-  promo_sms_opt_in: boolean;
-  terms_accepted_at: string | null;
-  privacy_accepted_at: string | null;
-  eula_accepted_at: string | null;
-  created_at: string;
-  updated_at: string;
-};
 
 function buildPushPreferences(row: Pick<UserProfileRow, 'push_enabled_new_vendor' | 'push_enabled_expiring_deal' | 'push_enabled_local_event'>) {
   return {
@@ -604,109 +359,6 @@ async function issueToken(role: 'customer' | 'vendor' | 'admin', id: string, ema
   return signJwt({ sub: id, role, email: email ?? null }, expiresIn);
 }
 
-async function buildCustomerProfile(userId: string) {
-  const rows = await dbQuery<{
-    id: string;
-    email: string | null;
-    phone: string | null;
-    fullName: string;
-    firstName: string | null;
-    lastName: string | null;
-    city: string | null;
-    status: string;
-    pushEnabledNewVendor: boolean;
-    pushEnabledExpiringDeal: boolean;
-    pushEnabledLocalEvent: boolean;
-    promoEmailOptIn: boolean;
-    promoSmsOptIn: boolean;
-    termsAcceptedAt: string | null;
-    privacyAcceptedAt: string | null;
-    eulaAcceptedAt: string | null;
-  }>(
-    `SELECT id, email::text AS email, phone, full_name AS "fullName",
-            first_name AS "firstName", last_name AS "lastName", city, status,
-            push_enabled_new_vendor AS "pushEnabledNewVendor",
-            push_enabled_expiring_deal AS "pushEnabledExpiringDeal",
-            push_enabled_local_event AS "pushEnabledLocalEvent",
-            promo_email_opt_in AS "promoEmailOptIn",
-            promo_sms_opt_in AS "promoSmsOptIn",
-            terms_accepted_at AS "termsAcceptedAt",
-            privacy_accepted_at AS "privacyAcceptedAt",
-            eula_accepted_at AS "eulaAcceptedAt"
-     FROM users WHERE id = $1 LIMIT 1`,
-    [userId],
-  );
-  const user = rows[0];
-  if (!user) return null;
-  return {
-    ...user,
-    pushPreferences: {
-      newVendor: user.pushEnabledNewVendor,
-      expiringDeal: user.pushEnabledExpiringDeal,
-      localEvent: user.pushEnabledLocalEvent,
-    },
-  };
-}
-
-async function loadCardsWithBusinesses(filters: { id?: string; theme?: string; status?: string; city?: string }) {
-  // Reads via PostgREST: the membership card joins every vendor (~2.4k rows)
-  // and the direct pg connection dies mid-transfer on that payload.
-  const cardParams: Array<[string, string]> = [
-    ['select', '*'],
-    ['is_membership', 'eq.true'],
-    ['order', 'created_at.desc'],
-  ];
-  if (filters.id) cardParams.push(['id', `eq.${filters.id}`]);
-  if (filters.theme) cardParams.push(['theme', `eq.${filters.theme}`]);
-  if (filters.status) cardParams.push(['status', `eq.${filters.status}`]);
-  const cards = await restQuery<Record<string, unknown> & { id: string }>('cards', cardParams);
-
-  const cardIds = cards.map((card) => card.id);
-  const cardIdList = `(${cardIds.join(',')})`;
-  const [links, vendorRows, discountRows] = cardIds.length
-    ? await Promise.all([
-        restQuery<{ card_id: string; vendor_id: string }>('card_vendors', [
-          ['select', 'card_id,vendor_id'],
-          ['card_id', `in.${cardIdList}`],
-        ]),
-        restQuery<{ id: string; name: string; city: string | null }>('vendors', [
-          ['select', 'id,name,city'],
-          ['order', 'name.asc'],
-        ]),
-        restQuery<DiscountRule>('discounts', [['card_id', `in.${cardIdList}`]]),
-      ])
-    : [[], [], []] as const;
-
-  const vendorById = new Map(vendorRows.map((v) => [v.id, v]));
-  const discountByCardVendor = new Map(discountRows.map((d) => [`${d.card_id}:${d.vendor_id}`, d]));
-
-  return cards.map((card) => ({
-    ...card,
-    participatingBusinesses: links
-      .filter((link) => link.card_id === card.id)
-      .map((link) => {
-        const vendor = vendorById.get(link.vendor_id);
-        const discount = discountByCardVendor.get(`${link.card_id}:${link.vendor_id}`);
-        return {
-          id: link.vendor_id,
-          name: vendor?.name ?? '',
-          city: vendor?.city ?? null,
-          discount:
-            discount && discount.id && discount.type && discount.value !== null && discount.min_purchase !== null
-              ? buildLookupDiscountView(
-                  {
-                    ...discount,
-                    uses_count: discount.uses_count ?? 0,
-                    active: Boolean(discount.active),
-                  },
-                  filters.city ?? null,
-                )
-              : null,
-        };
-      })
-      .sort((a, b) => a.name.localeCompare(b.name)),
-  }));
-}
 
 function notFound(request: Request): Response {
   return json(request, { error: 'Not found' }, { status: 404 });
@@ -870,182 +522,16 @@ Deno.serve(async (request) => {
     // request IP and timestamp. Works anonymously — the bearer token is used
     // only to link the row to an account when one exists.
     if (path === '/api/legal/acceptance' && request.method === 'POST') {
-      const body = await readJsonBody<{ platform?: string }>(request, {});
-      const claims = authenticate(request);
+      const body = await readJsonBody<{ platform?: string; deviceId?: string }>(request, {});
       const ip = getIp(request);
       const userAgent = request.headers.get('user-agent')?.slice(0, 500) ?? null;
       const platform = typeof body.platform === 'string' ? body.platform.slice(0, 50) : null;
+      const deviceId = typeof body.deviceId === 'string' ? body.deviceId.slice(0, 120) : null;
       await dbQuery(
-        'INSERT INTO legal_acceptances (user_id, platform, ip, user_agent) VALUES ($1, $2, $3::inet, $4)',
-        [claims?.sub ?? null, platform, ip, userAgent],
+        'INSERT INTO legal_acceptances (device_id, platform, ip, user_agent) VALUES ($1, $2, $3::inet, $4)',
+        [deviceId, platform, ip, userAgent],
       );
-      if (claims?.sub) {
-        await dbQuery(
-          `UPDATE users SET terms_accepted_at = COALESCE(terms_accepted_at, now()),
-             privacy_accepted_at = COALESCE(privacy_accepted_at, now()),
-             eula_accepted_at = COALESCE(eula_accepted_at, now()) WHERE id = $1`,
-          [claims.sub],
-        );
-      }
       return json(request, { recorded: true });
-    }
-
-    if (path === '/api/auth/register' && request.method === 'POST') {
-      const body = customerRegisterSchema.parse(await readJsonBody(request, {}));
-      // Phone numbers authenticate members, so store one canonical form.
-      const phone = normalizePhone(body.phone);
-      if (body.phone && !phone) return json(request, { error: 'Invalid phone number' }, { status: 400 });
-      const fullName = `${body.firstName} ${body.lastName}`.trim();
-      const passwordHash = await bcrypt.hash(body.password, 10);
-      let rows: Array<{ id: string }>;
-      try {
-        rows = await withDbClient(async (client) => {
-          await client.query('BEGIN');
-          try {
-            const result = await client.query<{ id: string }>(
-              `INSERT INTO users (email, phone, password_hash, full_name, first_name, last_name, city, promo_email_opt_in, promo_sms_opt_in, terms_accepted_at, privacy_accepted_at, eula_accepted_at)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
-              [
-                body.email ?? null,
-                phone ?? null,
-                passwordHash,
-                fullName,
-                body.firstName,
-                body.lastName,
-                body.city ?? null,
-                body.promoEmailOptIn,
-                body.promoSmsOptIn,
-                body.termsAccepted ? new Date().toISOString() : null,
-                body.privacyAccepted ? new Date().toISOString() : null,
-                body.eulaAccepted ? new Date().toISOString() : null,
-              ],
-            );
-            await client.query('COMMIT');
-            return result.rows;
-          } catch (error) {
-            await client.query('ROLLBACK');
-            throw error;
-          }
-        });
-      } catch (error) {
-        if (isUniqueViolation(error)) {
-          return json(request, { error: 'An account with this email or phone number already exists. Please sign in.' }, { status: 409 });
-        }
-        throw error;
-      }
-      const profile = await buildCustomerProfile(rows[0]!.id);
-      const token = await issueToken('customer', rows[0]!.id, profile?.email ?? body.email ?? null);
-      // Auto-generate the member's all-in-one membership pass right after signup.
-      const membershipPass = await buildMembershipPassResponse(rows[0]!.id, baseUrl);
-      return json(request, { token, expiresIn: '365d', profile, membershipPass, walletUrl: membershipPass?.walletUrl ?? null }, { status: 201 });
-    }
-
-    if (path === '/api/auth/login' && request.method === 'POST') {
-      const body = customerLoginSchema.parse(await readJsonBody(request, {}));
-      const loginPhone = body.phone ? normalizePhone(body.phone) : null;
-      if (body.phone && !loginPhone) return json(request, { error: 'Invalid phone number' }, { status: 400 });
-      const rows = await dbQuery<{ id: string; email: string | null; password_hash: string | null; status: string; full_name: string }>(
-        'SELECT id, email::text AS email, password_hash, status, full_name FROM users WHERE ($1::text IS NOT NULL AND lower(email::text) = lower($1::text)) OR ($2::text IS NOT NULL AND phone = $2::text) ORDER BY created_at DESC LIMIT 1',
-        [body.email ?? null, loginPhone ?? null],
-      );
-      const user = rows[0];
-      if (!user || user.status !== 'active' || !user.password_hash || !(await bcrypt.compare(body.password, user.password_hash))) {
-        return json(request, { error: 'Invalid credentials' }, { status: 401 });
-      }
-      const profile = await buildCustomerProfile(user.id);
-      const token = await issueToken('customer', user.id, user.email);
-      const membershipPass = await buildMembershipPassResponse(user.id, baseUrl);
-      return json(request, { token, expiresIn: '365d', profile, membershipPass, walletUrl: membershipPass?.walletUrl ?? null });
-    }
-
-    if (path === '/api/auth/forgot-password' && request.method === 'POST') {
-      const body = forgotPasswordSchema.parse(await readJsonBody(request, {}));
-      const isEmail = body.identifier.includes('@');
-      const loginPhone = isEmail ? null : normalizePhone(body.identifier);
-      if (!isEmail && !loginPhone) return json(request, { error: 'Invalid phone number' }, { status: 400 });
-      const rows = await dbQuery<{ id: string; email: string | null; phone: string | null; expo_push_token: string | null }>(
-        'SELECT id, email::text AS email, phone, expo_push_token FROM users WHERE status = \'active\' AND (($1::text IS NOT NULL AND lower(email::text) = lower($1::text)) OR ($2::text IS NOT NULL AND phone = $2::text)) LIMIT 1',
-        [isEmail ? body.identifier.toLowerCase() : null, loginPhone],
-      );
-      if (rows.length === 0) {
-        return json(request, { message: 'If an account exists, a verification code has been sent via push notification.' });
-      }
-      const user = rows[0]!;
-      const code = generateSecureSixDigitCode();
-      const codeHash = await bcrypt.hash(code, 10);
-      await dbQuery(
-        'UPDATE users SET password_reset_code_hash = $1, password_reset_expires_at = now() + interval \'15 minutes\' WHERE id = $2',
-        [codeHash, user.id],
-      );
-      
-      // Send push notification with reset code if user has a push token
-      if (user.expo_push_token && user.expo_push_token.trim() !== '') {
-        try {
-          await sendPushNotifications(
-            [user.expo_push_token],
-            'Password Reset Code',
-            `Your password reset code is: ${code}`,
-            { type: 'password_reset', userId: user.id },
-          );
-        } catch (err) {
-          console.warn('[auth] Failed to send password reset push notification:', err);
-        }
-      }
-      
-      return json(request, { message: 'If an account exists, a verification code has been sent via push notification.' });
-    }
-
-    if (path === '/api/auth/reset-password' && request.method === 'POST') {
-      const body = resetPasswordSchema.parse(await readJsonBody(request, {}));
-      const isEmail = body.identifier.includes('@');
-      const loginPhone = isEmail ? null : normalizePhone(body.identifier);
-      if (!isEmail && !loginPhone) return json(request, { error: 'Invalid phone number' }, { status: 400 });
-      const rows = await dbQuery<{ id: string; password_reset_code_hash: string | null }>(
-        'SELECT id, password_reset_code_hash FROM users WHERE status = \'active\' AND password_reset_expires_at > now() AND (($1::text IS NOT NULL AND lower(email::text) = lower($1::text)) OR ($2::text IS NOT NULL AND phone = $2::text)) LIMIT 1',
-        [isEmail ? body.identifier.toLowerCase() : null, loginPhone],
-      );
-      const user = rows[0];
-      if (!user || !user.password_reset_code_hash || !(await bcrypt.compare(body.code, user.password_reset_code_hash))) {
-        return json(request, { error: 'Invalid or expired verification code.' }, { status: 400 });
-      }
-      const passwordHash = await bcrypt.hash(body.password, 10);
-      await dbQuery(
-        'UPDATE users SET password_hash = $1, password_reset_code_hash = NULL, password_reset_expires_at = NULL WHERE id = $2',
-        [passwordHash, user.id],
-      );
-      return json(request, { success: true });
-    }
-
-    if (path === '/api/auth/social' && request.method === 'POST') {
-      const body = socialSchema.parse(await readJsonBody(request, {}));
-      const socialToken = body.token ?? body.idToken ?? '';
-      const socialId = `${body.provider}:${socialToken}`;
-      const rows = await withDbClient(async (client) => {
-        await client.query('BEGIN');
-        try {
-          const existing = await client.query<{ id: string; email: string | null }>('SELECT id, email::text AS email FROM users WHERE social_provider = $1 AND social_id = $2 LIMIT 1', [
-            body.provider,
-            socialId,
-          ]);
-          if (existing.rows[0]) {
-            await client.query('COMMIT');
-            return existing.rows[0]!;
-          }
-          const created = await client.query<{ id: string }>(
-            `INSERT INTO users (email, password_hash, social_provider, social_id, full_name) VALUES ($1, NULL, $2, $3, $4) RETURNING id`,
-            [body.email ?? null, body.provider, socialId, body.fullName],
-          );
-          await client.query('COMMIT');
-          return { id: created.rows[0]!.id, email: body.email ?? null };
-        } catch (error) {
-          await client.query('ROLLBACK');
-          throw error;
-        }
-      });
-      const token = await issueToken('customer', rows.id, rows.email);
-      const profile = await buildCustomerProfile(rows.id);
-      const membershipPass = await buildMembershipPassResponse(rows.id, baseUrl);
-      return json(request, { token, expiresIn: '7d', profile, membershipPass, walletUrl: membershipPass?.walletUrl ?? null });
     }
 
     if (path === '/api/auth/admin/login' && request.method === 'POST') {
@@ -1074,40 +560,6 @@ Deno.serve(async (request) => {
       return json(request, { token, expiresIn: '7d', profile: { id: admin.id, email: admin.email, role: admin.role } });
     }
 
-    if (path === '/api/cards' && request.method === 'GET') {
-      return json(request, await loadCardsWithBusinesses({ theme: url.searchParams.get('theme') ?? '', status: 'active', city: url.searchParams.get('city') ?? '' }));
-    }
-
-    if (/^\/api\/cards\/[^/]+$/.test(path) && request.method === 'GET') {
-      const id = path.split('/').pop()!;
-      // Reads via PostgREST: the membership card's vendor join is ~2.4k rows —
-      // too big for the direct pg socket from edge isolates.
-      const [cards, links, vendorRows, discountRows] = await Promise.all([
-        restQuery<Record<string, unknown>>('cards', [['id', `eq.${id}`], ['limit', '1']]),
-        restQuery<{ card_id: string; vendor_id: string }>('card_vendors', [
-          ['select', 'card_id,vendor_id'],
-          ['card_id', `eq.${id}`],
-        ]),
-        restQuery<{ id: string; name: string; city: string | null }>('vendors', [
-          ['select', 'id,name,city'],
-          ['order', 'name.asc'],
-        ]),
-        restQuery<Record<string, unknown>>('discounts', [['card_id', `eq.${id}`]]),
-      ]);
-      if (cards.length === 0) return json(request, { error: 'Card not found' }, { status: 404 });
-      const vendorById = new Map(vendorRows.map((v) => [v.id, v]));
-      const discountByVendor = new Map(discountRows.map((d) => [d.vendor_id as string, d]));
-      const vendors = links
-        .map((link) => {
-          const vendor = vendorById.get(link.vendor_id);
-          if (!vendor) return null;
-          const discount = discountByVendor.get(link.vendor_id);
-          return { id: vendor.id, name: vendor.name, city: vendor.city, ...(discount ?? {}) };
-        })
-        .filter((v): v is NonNullable<typeof v> => v !== null);
-      return json(request, { ...cards[0], participatingBusinesses: vendors });
-    }
-
     // Public, customer-facing directory of participating businesses for the
     // mobile app. Every vendor's exclusive discount hangs off the single
     // membership card; the member unlocks them all with their own membership
@@ -1123,271 +575,6 @@ Deno.serve(async (request) => {
       return json(request, items);
     }
 
-    // Public customer-facing event tickets. Active tickets appear in the app automatically.
-    if (path === '/api/tickets' && request.method === 'GET') {
-      const claims = authenticate(request);
-      const userId = claims?.role === 'customer' ? claims.sub : null;
-      await withDbClient(async (client) => {
-        await client.query('BEGIN');
-        try {
-          const due = await client.query<{ id: string }>("SELECT id FROM tickets WHERE drawing_status = 'open' AND drawing_deadline <= now() FOR UPDATE SKIP LOCKED");
-          for (const row of due.rows) {
-            const winner = await client.query<{ user_id: string }>(
-              `WITH weights AS (
-                 SELECT user_id, SUM(requested_count)::int AS weight
-                 FROM ticket_entries
-                 WHERE ticket_id = $1
-                 GROUP BY user_id
-               )
-               SELECT user_id
-               FROM weights
-               ORDER BY random() * weight DESC
-               LIMIT 1`,
-              [row.id],
-            );
-            if (winner.rows[0]) {
-              await client.query("UPDATE tickets SET user_id = $1, drawing_status = 'drawn', updated_at = now() WHERE id = $2", [winner.rows[0].user_id, row.id]);
-            } else {
-              await client.query("UPDATE tickets SET drawing_status = 'drawn', updated_at = now() WHERE id = $1", [row.id]);
-            }
-          }
-          await client.query('COMMIT');
-        } catch (error) {
-          await client.query('ROLLBACK');
-          throw error;
-        }
-      });
-      // Reads via PostgREST: ticket rows carry a JSONB barcodes array — the
-      // direct pg socket dies on that payload size from edge isolates.
-      const [tickets, entryRows] = await Promise.all([
-        restQuery<Record<string, unknown>>('tickets', [
-          ['select', 'id,name,barcode,barcode_format,allowed_uses,used_uses,available_count,status,drawing_deadline,drawing_status,user_id,created_at,barcodes'],
-          ['status', 'eq.active'],
-          ['order', 'created_at.desc'],
-        ]),
-        userId
-          ? restQuery<{ ticket_id: string; requested_count: number }>('ticket_entries', [
-              ['select', 'ticket_id,requested_count'],
-              ['user_id', `eq.${userId}`],
-            ])
-          : Promise.resolve([] as { ticket_id: string; requested_count: number }[]),
-      ]);
-      const entryByTicket = new Map<string, number>();
-      for (const entry of entryRows) {
-        entryByTicket.set(entry.ticket_id, (entryByTicket.get(entry.ticket_id) ?? 0) + Number(entry.requested_count));
-      }
-      const nowMs = Date.now();
-      const rows = tickets.filter((row) => {
-        const deadline = typeof row.drawing_deadline === 'string' ? new Date(row.drawing_deadline).getTime() : NaN;
-        const open = row.drawing_status === 'open' && deadline > nowMs;
-        return open || (userId !== null && row.user_id === userId);
-      });
-      return json(request, rows.map((row) => ({
-        id: row.id,
-        name: row.name,
-        barcode: row.barcode,
-        barcodeFormat: row.barcode_format,
-        allowedUses: row.allowed_uses,
-        usedUses: row.used_uses,
-        remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
-        availableCount: row.available_count ?? 4,
-        barcodes: userId !== null && row.user_id === userId && Array.isArray(row.barcodes) ? row.barcodes : [],
-        status: row.status,
-        drawingDeadline: row.drawing_deadline,
-        drawingStatus: row.drawing_status,
-        entryCount: entryByTicket.get(row.id as string) ?? 0,
-        userId: row.user_id,
-        createdAt: row.created_at,
-      })));
-    }
-
-    if (/^\/api\/tickets\/[^/]+$/.test(path) && request.method === 'GET') {
-      const id = path.split('/').pop()!;
-      const rows = await dbQuery('SELECT id, name, barcode, barcode_format, allowed_uses, used_uses, available_count, status, drawing_deadline, drawing_status, created_at, barcodes FROM tickets WHERE id = $1 LIMIT 1', [id]);
-      if (rows.length === 0) return json(request, { error: 'Ticket not found' }, { status: 404 });
-      const row = rows[0];
-      return json(request, {
-        id: row.id,
-        name: row.name,
-        barcode: row.barcode,
-        barcodeFormat: row.barcode_format,
-        allowedUses: row.allowed_uses,
-        usedUses: row.used_uses,
-        remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
-        availableCount: row.available_count ?? 4,
-        barcodes: [],
-        status: row.status,
-        drawingDeadline: row.drawing_deadline,
-        drawingStatus: row.drawing_status,
-        createdAt: row.created_at,
-      });
-    }
-
-    // Enter a random drawing: choose a ticket and request 1-4 entries.
-    if (path === '/api/tickets/enter' && request.method === 'POST') {
-      const claims = requireRole(request, ['customer']);
-      if (claims instanceof Response) return claims;
-      const userId = claims.sub;
-      const body = ticketEntrySchema.parse(await readJsonBody(request, {}));
-      const tickets = await dbQuery<{ id: string; drawing_status: string; drawing_deadline: string | null; available_count: number }>(
-        'SELECT id, drawing_status, drawing_deadline, available_count FROM tickets WHERE id = $1 AND status = $2 LIMIT 1',
-        [body.ticketId, 'active'],
-      );
-      const ticket = tickets[0];
-      if (!ticket) return json(request, { error: 'Ticket not found' }, { status: 404 });
-      if (ticket.drawing_status !== 'open') return json(request, { error: 'This drawing has already closed' }, { status: 409 });
-      if (ticket.drawing_deadline && new Date(ticket.drawing_deadline).getTime() <= Date.now()) return json(request, { error: 'This drawing has already closed' }, { status: 409 });
-
-      const availableCount = Math.max(1, Number(ticket.available_count) || 4);
-      const maxRequestCount = Math.min(4, availableCount);
-      if (body.requestedCount > maxRequestCount) {
-        return json(request, { error: `You can request up to ${maxRequestCount} ticket${maxRequestCount === 1 ? '' : 's'} for this drawing` }, { status: 400 });
-      }
-
-      await dbQuery(
-        `INSERT INTO ticket_entries (ticket_id, user_id, requested_count)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (ticket_id, user_id)
-         DO UPDATE SET requested_count = LEAST($4, ticket_entries.requested_count + EXCLUDED.requested_count), updated_at = now()`,
-        [body.ticketId, userId, body.requestedCount, maxRequestCount],
-      );
-      return json(request, { success: true, ticketId: body.ticketId, requestedCount: body.requestedCount });
-    }
-
-    if (/^\/api\/tickets\/[^/]+$/.test(path) && request.method === 'POST') {
-      const id = path.split('/').pop()!;
-      const rows = await dbQuery(
-        `UPDATE tickets
-         SET used_uses = used_uses + 1,
-             status = CASE WHEN used_uses + 1 >= allowed_uses THEN 'used' ELSE status END,
-             updated_at = now()
-         WHERE id = $1 AND status = 'active' AND used_uses < allowed_uses
-         RETURNING id, name, barcode, barcode_format, allowed_uses, used_uses, available_count, status, drawing_deadline, drawing_status, created_at, barcodes`,
-        [id],
-      );
-      if (rows.length === 0) return json(request, { error: 'Ticket unavailable or fully used' }, { status: 409 });
-      const row = rows[0];
-      return json(request, {
-        id: row.id,
-        name: row.name,
-        barcode: row.barcode,
-        barcodeFormat: row.barcode_format,
-        allowedUses: row.allowed_uses,
-        usedUses: row.used_uses,
-        remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
-        availableCount: row.available_count ?? 4,
-        barcodes: [],
-        status: row.status,
-        drawingDeadline: row.drawing_deadline,
-        drawingStatus: row.drawing_status,
-        createdAt: row.created_at,
-      });
-    }
-
-    // Admin ticket management.
-    if (path === '/api/admin/tickets' && request.method === 'GET') {
-      const auth = requireRole(request, ['admin']);
-      if (auth instanceof Response) return auth;
-      const rows = await restQuery<Record<string, unknown>>('tickets', [
-        ['select', 'id,name,barcode,barcode_format,allowed_uses,used_uses,available_count,barcodes,status,drawing_date,user_id,created_at'],
-        ['order', 'created_at.desc'],
-      ]);
-      return json(request, rows.map((row) => ({
-        id: row.id,
-        name: row.name,
-        barcode: row.barcode,
-        barcodeFormat: row.barcode_format,
-        allowedUses: row.allowed_uses,
-        usedUses: row.used_uses,
-        remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
-        availableCount: row.available_count ?? 4,
-        barcodes: Array.isArray(row.barcodes) ? row.barcodes : [],
-        status: row.status,
-        drawingDate: row.drawing_date,
-        userId: row.user_id,
-        createdAt: row.created_at,
-      })));
-    }
-
-    if (path === '/api/admin/tickets' && request.method === 'POST') {
-      const auth = requireRole(request, ['admin']);
-      if (auth instanceof Response) return auth;
-      const body = ticketCreateSchema.parse(await readJsonBody(request, {}));
-      const drawingDate = body.drawingDate?.trim() || null;
-      const rows = await dbQuery<{ id: string }>(
-        `INSERT INTO tickets (barcode, barcode_format, name, allowed_uses, available_count, barcodes, drawing_deadline, drawing_date, user_id)
-         VALUES ($1, $2, $3, $4, $5, $6::jsonb, COALESCE($7::timestamptz, ($8::date + interval '23 hours 59 minutes')::timestamptz, now() + interval '7 days'), $8, $9)
-         RETURNING id`,
-        [body.barcode, body.barcodeFormat ?? null, body.name, body.allowedUses, body.availableCount, JSON.stringify(body.barcodes), body.drawingDeadline ?? null, drawingDate, body.userId ?? null],
-      );
-      return json(request, { id: rows[0]!.id }, { status: 201 });
-    }
-
-    if (/^\/api\/admin\/tickets\/[^/]+$/.test(path) && request.method === 'PATCH') {
-      const auth = requireRole(request, ['admin']);
-      if (auth instanceof Response) return auth;
-      const id = path.split('/').pop()!;
-      const body = ticketUpdateSchema.parse(await readJsonBody(request, {}));
-      const drawingDate = body.drawingDate === undefined ? null : (body.drawingDate?.trim() || null);
-      const rows = await dbQuery(
-        `UPDATE tickets
-         SET name = COALESCE($2, name),
-             barcode = COALESCE($3, barcode),
-             barcode_format = COALESCE($4, barcode_format),
-             allowed_uses = COALESCE($5, allowed_uses),
-             available_count = COALESCE($12, available_count),
-             barcodes = COALESCE($13::jsonb, barcodes),
-             used_uses = COALESCE($6, used_uses),
-             status = COALESCE($7, status),
-             drawing_deadline = COALESCE($8::timestamptz, (CASE WHEN $10 = '' OR $10 IS NULL THEN NULL ELSE $10::date END + interval '23 hours 59 minutes')::timestamptz, drawing_deadline),
-             drawing_status = COALESCE($9, drawing_status),
-             drawing_date = CASE WHEN $10 = '' OR $10 IS NULL THEN NULL ELSE $10::date END,
-             user_id = COALESCE($11, user_id),
-             updated_at = now()
-         WHERE id = $1
-         RETURNING *`,
-        [id, body.name ?? null, body.barcode ?? null, body.barcodeFormat ?? null, body.allowedUses ?? null, body.usedUses ?? null, body.status ?? null, body.drawingDeadline === undefined ? null : body.drawingDeadline, body.drawingStatus ?? null, drawingDate, body.userId === undefined ? null : body.userId, body.availableCount ?? null, body.barcodes ? JSON.stringify(body.barcodes) : null],
-      );
-      if (rows.length === 0) return json(request, { error: 'Ticket not found' }, { status: 404 });
-      const row = rows[0];
-      return json(request, {
-        id: row.id,
-        name: row.name,
-        barcode: row.barcode,
-        barcodeFormat: row.barcode_format,
-        allowedUses: row.allowed_uses,
-        usedUses: row.used_uses,
-        remainingUses: Math.max(0, Number(row.allowed_uses) - Number(row.used_uses)),
-        availableCount: row.available_count ?? 4,
-        barcodes: Array.isArray(row.barcodes) ? row.barcodes : [],
-        status: row.status,
-        drawingDate: row.drawing_date,
-        userId: row.user_id,
-        createdAt: row.created_at,
-      });
-    }
-
-    if (/^\/api\/admin\/tickets\/[^/]+$/.test(path) && request.method === 'DELETE') {
-      const auth = requireRole(request, ['admin']);
-      if (auth instanceof Response) return auth;
-      const id = path.split('/').pop()!;
-      return json(request, await dbQuery('DELETE FROM tickets WHERE id = $1 RETURNING id', [id]));
-    }
-
-    if (path === '/api/admin/cards' && request.method === 'GET') {
-      const auth = requireRole(request, ['admin']);
-      if (auth instanceof Response) return auth;
-      const q = queryObject(url);
-      return json(request, await loadCardsWithBusinesses({ ...(q.theme ? { theme: q.theme } : {}), ...(q.status ? { status: q.status } : {}) }));
-    }
-    if (/^\/api\/admin\/cards\/[^/]+$/.test(path) && request.method === 'GET') {
-      const auth = requireRole(request, ['admin']);
-      if (auth instanceof Response) return auth;
-      const id = path.split('/').pop()!;
-      const cards = await loadCardsWithBusinesses({ id });
-      if (cards.length === 0) return json(request, { error: 'Card not found' }, { status: 404 });
-      return json(request, cards[0]);
-    }
     if (path === '/api/admin/analytics' && request.method === 'GET') {
       const auth = requireRole(request, ['admin']);
       if (auth instanceof Response) return auth;
@@ -1437,8 +624,7 @@ Deno.serve(async (request) => {
         restQuery<{ vendor_id: string; type: string | null; value: number | null; discount_code: string | null; description: string | null; starts_at: string | null; ends_at: string | null; boosted: boolean | null; members_only: boolean | null }>(
           'discounts',
           [
-            ['select', 'vendor_id,type,value,discount_code,description,starts_at,ends_at,boosted,members_only,created_at,cards!inner(is_membership)'],
-            ['cards.is_membership', 'eq.true'],
+            ['select', 'vendor_id,type,value,discount_code,description,starts_at,ends_at,boosted,members_only,created_at'],
             ['order', 'created_at.desc'],
           ],
         ),
@@ -1510,67 +696,45 @@ Deno.serve(async (request) => {
       );
       if (body.discountType !== undefined || body.discountValue !== undefined || body.discountDescription !== undefined || body.discountStartsAt !== undefined || body.discountEndsAt !== undefined || body.boosted !== undefined || body.membersOnly !== undefined) {
         if (body.discountType !== undefined || body.discountValue !== undefined) {
-          // Upsert so vendors without a membership discount row get one created;
-          // a plain UPDATE would silently affect zero rows.
-          const membership = await dbQuery<{ id: string }>(`SELECT id FROM cards WHERE is_membership = true LIMIT 1`);
-          const membershipId = membership[0]?.id;
-          if (membershipId) {
-            await dbQuery(`INSERT INTO card_vendors (card_id, vendor_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [membershipId, id]);
-            const discountCode = generateDiscountCode({
-              merchantId: String(rows[0]?.name ?? id),
-              type: body.discountType ?? 'percent',
-              value: body.discountValue ?? 0,
-            });
-            await dbQuery(
-              `INSERT INTO discounts (card_id, vendor_id, type, value, discount_code, description, active, starts_at, ends_at, boosted, members_only)
-               VALUES ($2, $1, COALESCE($3, 'percent'), COALESCE($4, 0), $5, $6, true, $7, $8, $9, COALESCE($10, false))
-               ON CONFLICT (card_id, vendor_id) DO UPDATE SET
-                 type = COALESCE($3, discounts.type),
-                 value = COALESCE($4, discounts.value),
-                 discount_code = COALESCE(discounts.discount_code, EXCLUDED.discount_code),
-                 description = COALESCE($6, discounts.description),
-                 starts_at = COALESCE($7, discounts.starts_at),
-                 ends_at = COALESCE($8, discounts.ends_at),
-                 boosted = COALESCE($9, discounts.boosted),
-                 members_only = COALESCE($10, discounts.members_only),
-                 active = true,
-                 updated_at = now()`,
-              [id, membershipId, body.discountType ?? null, body.discountValue ?? null, discountCode, body.discountDescription ?? null, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? null, body.membersOnly ?? null],
-            );
-          }
+          // Upsert so vendors without a discount row get one created.
+          const discountCode = generateDiscountCode({
+            merchantId: String(rows[0]?.name ?? id),
+            type: body.discountType ?? 'percent',
+            value: body.discountValue ?? 0,
+          });
+          await dbQuery(
+            `INSERT INTO discounts (vendor_id, type, value, discount_code, description, active, starts_at, ends_at, boosted, members_only)
+             VALUES ($1, COALESCE($2, 'percent'), COALESCE($3, 0), $4, $5, true, $6, $7, $8, COALESCE($9, false))
+             ON CONFLICT (vendor_id) DO UPDATE SET
+               type = COALESCE($2, discounts.type), value = COALESCE($3, discounts.value),
+               discount_code = COALESCE(discounts.discount_code, EXCLUDED.discount_code),
+               description = COALESCE($5, discounts.description), starts_at = COALESCE($6, discounts.starts_at),
+               ends_at = COALESCE($7, discounts.ends_at), boosted = COALESCE($8, discounts.boosted),
+               members_only = COALESCE($9, discounts.members_only), active = true, updated_at = now()`,
+            [id, body.discountType ?? null, body.discountValue ?? null, discountCode, body.discountDescription ?? null, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? null, body.membersOnly ?? null],
+          );
         } else {
           await dbQuery(
-            `UPDATE discounts SET type = COALESCE($2, type), value = COALESCE($3, value), description = COALESCE($4, description), starts_at = COALESCE($5, starts_at), ends_at = COALESCE($6, ends_at), boosted = COALESCE($7, boosted), members_only = COALESCE($8, members_only), updated_at = now() WHERE vendor_id = $1 AND card_id = (SELECT id FROM cards WHERE is_membership = true LIMIT 1)`,
+            `UPDATE discounts SET type = COALESCE($2, type), value = COALESCE($3, value), description = COALESCE($4, description), starts_at = COALESCE($5, starts_at), ends_at = COALESCE($6, ends_at), boosted = COALESCE($7, boosted), members_only = COALESCE($8, members_only), updated_at = now() WHERE vendor_id = $1`,
             [id, body.discountType ?? null, body.discountValue ?? null, body.discountDescription ?? null, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? null, body.membersOnly ?? null],
           );
         }
       }
       return json(request, rows[0] ?? {});
     }
-    // Returns a vendor's exclusive discount on the shared membership card. There
-    // is no per-vendor wallet pass anymore — members carry one membership pass,
-    // and the business applies this discount when they scan the member barcode.
+    // Returns a vendor's exclusive discount code for admin reference.
     if (/^\/api\/admin\/vendors\/[^/]+\/pass$/.test(path) && request.method === 'GET') {
       const auth = requireRole(request, ['admin']);
       if (auth instanceof Response) return auth;
       const id = path.split('/').slice(-2)[0]!;
-      const rows = await dbQuery<{ card_id: string; card_name: string; discount_type: 'fixed' | 'percent' | 'bogo'; discount_value: string; discount_code: string | null; pos_system: string | null }>(
-        `SELECT c.id AS card_id, c.name AS card_name, d.type AS discount_type, d.value AS discount_value, d.discount_code, v.pos_system
-         FROM discounts d
-         JOIN cards c ON c.id = d.card_id AND c.is_membership = true
-         JOIN vendors v ON v.id = d.vendor_id
-         WHERE d.vendor_id = $1 ORDER BY d.created_at DESC LIMIT 1`,
+      const rows = await dbQuery<{ discount_type: 'fixed' | 'percent' | 'bogo'; discount_value: string; discount_code: string | null }>(
+        `SELECT d.type AS discount_type, d.value AS discount_value, d.discount_code FROM discounts d WHERE d.vendor_id = $1 ORDER BY d.created_at DESC LIMIT 1`,
         [id],
       );
       const row = rows[0];
       if (!row) return json(request, { error: 'No discount for this vendor' }, { status: 404 });
       const label = humanDiscountLabel(row.discount_type, Number(row.discount_value));
-      return json(request, {
-        discountCode: row.discount_code,
-        discount: { type: row.discount_type, value: Number(row.discount_value), label },
-        membershipCard: { id: row.card_id, name: row.card_name },
-        posInstructions: `Ask the customer to show their ${row.card_name} pass, scan its barcode, then apply code ${row.discount_code ?? '(none)'} in your POS${row.pos_system ? ` (${row.pos_system})` : ''}. No NFC required.`,
-      });
+      return json(request, { discountCode: row.discount_code, discount: { type: row.discount_type, value: Number(row.discount_value), label } });
     }
     if (/^\/api\/admin\/vendors\/[^/]+\/approve$/.test(path) && request.method === 'POST') {
       const auth = requireRole(request, ['admin']);
@@ -1607,13 +771,9 @@ Deno.serve(async (request) => {
         if (vendorRows.rows.length === 0) return null;
         const vendor = vendorRows.rows[0] as { id: string; name: string };
 
-        const membershipRows = await client.query('SELECT id, name FROM cards WHERE is_membership = true LIMIT 1');
-        if (membershipRows.rows.length === 0) return null;
-        const cardId = (membershipRows.rows[0] as { id: string }).id;
-
         const existing = await client.query(
-          'SELECT id, type, value FROM discounts WHERE vendor_id = $1 AND card_id = $2 LIMIT 1',
-          [id, cardId],
+          'SELECT id, type, value FROM discounts WHERE vendor_id = $1 LIMIT 1',
+          [id],
         );
 
         let discountId: string;
@@ -1630,11 +790,10 @@ Deno.serve(async (request) => {
           const label = humanDiscountLabel(type, value);
           const discountCode = generateDiscountCode({ merchantId: vendor.name, type, value });
           const inserted = await client.query(
-            'INSERT INTO discounts (card_id, vendor_id, type, value, discount_code, description, active) VALUES ($1, $2, $3, $4, $5, $6, true) RETURNING id',
-            [cardId, id, type, value, discountCode, `${label} member discount`],
+            'INSERT INTO discounts (vendor_id, type, value, discount_code, description, active) VALUES ($1, $2, $3, $4, $5, true) RETURNING id',
+            [id, type, value, discountCode, `${label} member discount`],
           );
           discountId = (inserted.rows[0] as { id: string }).id;
-          await client.query('INSERT INTO card_vendors (card_id, vendor_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [cardId, id]);
         }
 
         const newCode = generateDiscountCode({ merchantId: vendor.name, type, value });
@@ -1645,124 +804,11 @@ Deno.serve(async (request) => {
       if (!result) return json(request, { error: 'Vendor or membership card not found' }, { status: 404 });
       return json(request, result);
     }
-    if (path === '/api/admin/cards' && request.method === 'POST') {
-      const auth = requireRole(request, ['admin']);
-      if (auth instanceof Response) return auth;
-      const body = cardSchema.parse(await readJsonBody(request, {}));
-      const rows = await dbQuery<{ id: string }>(`INSERT INTO cards (name, theme, description, image_url, logo_url, icon_url, primary_color, secondary_color, qr_size, layout, expiration_date, max_uses, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`, [
-        body.name,
-        body.theme,
-        body.description ?? null,
-        body.imageUrl ?? null,
-        body.logoUrl ?? null,
-        body.iconUrl ?? null,
-        body.primaryColor ?? null,
-        body.secondaryColor ?? null,
-        body.qrSize ?? 240,
-        body.layout ?? 'qr_bottom',
-        body.expirationDate ?? null,
-        body.maxUses ?? null,
-        body.status ?? 'draft',
-      ]);
-      return json(request, { id: rows[0]!.id }, { status: 201 });
-    }
-    if (/^\/api\/admin\/cards\/[^/]+$/.test(path) && request.method === 'PATCH') {
-      const auth = requireRole(request, ['admin']);
-      if (auth instanceof Response) return auth;
-      const id = path.split('/').pop()!;
-      const body = cardSchema.partial().parse(await readJsonBody(request, {}));
-      const rows = await dbQuery(
-        `UPDATE cards SET name = COALESCE($2, name), theme = COALESCE($3, theme), description = COALESCE($4, description), image_url = COALESCE($5, image_url), logo_url = COALESCE($6, logo_url), icon_url = COALESCE($7, icon_url), primary_color = COALESCE($8, primary_color), secondary_color = COALESCE($9, secondary_color), qr_size = COALESCE($10, qr_size), layout = COALESCE($11, layout), expiration_date = COALESCE($12, expiration_date), max_uses = COALESCE($13, max_uses), status = COALESCE($14, status), updated_at = now() WHERE id = $1 RETURNING *`,
-        [id, body.name ?? null, body.theme ?? null, body.description ?? null, body.imageUrl ?? null, body.logoUrl ?? null, body.iconUrl ?? null, body.primaryColor ?? null, body.secondaryColor ?? null, body.qrSize ?? null, body.layout ?? null, body.expirationDate ?? null, body.maxUses ?? null, body.status ?? null],
-      );
-      return json(request, rows[0] ?? {});
-    }
-    if (/^\/api\/admin\/cards\/[^/]+$/.test(path) && request.method === 'DELETE') {
-      const auth = requireRole(request, ['admin']);
-      if (auth instanceof Response) return auth;
-      const id = path.split('/').pop()!;
-      return json(request, await dbQuery('DELETE FROM cards WHERE id = $1 RETURNING id', [id]));
-    }
-    if (/^\/api\/admin\/cards\/[^/]+\/vendors$/.test(path) && request.method === 'POST') {
-      const auth = requireRole(request, ['admin']);
-      if (auth instanceof Response) return auth;
-      const id = path.split('/').slice(-2)[0]!;
-      const body = z.object({ vendorId: z.string().uuid() }).parse(await readJsonBody(request, {}));
-      return json(request, await dbQuery('INSERT INTO card_vendors (card_id, vendor_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING *', [id, body.vendorId]));
-    }
-    if (/^\/api\/admin\/cards\/[^/]+\/vendors\/[^/]+$/.test(path) && request.method === 'DELETE') {
-      const auth = requireRole(request, ['admin']);
-      if (auth instanceof Response) return auth;
-      const parts = path.split('/');
-      return json(request, await dbQuery('DELETE FROM card_vendors WHERE card_id = $1 AND vendor_id = $2 RETURNING *', [parts[4], parts[6]]));
-    }
-    if (path === '/api/admin/users' && request.method === 'GET') {
-      const auth = requireRole(request, ['admin']);
-      if (auth instanceof Response) return auth;
-      const q = queryObject(url);
-      // Read via PostgREST: the users table outgrows the direct pg socket
-      // from edge isolates as the member count climbs.
-      const params: Array<[string, string]> = [
-        ['select', 'id,email,phone,full_name,first_name,last_name,city,status,push_enabled_new_vendor,push_enabled_expiring_deal,push_enabled_local_event,promo_email_opt_in,promo_sms_opt_in,terms_accepted_at,privacy_accepted_at,eula_accepted_at,created_at,updated_at'],
-        ['order', 'created_at.desc'],
-      ];
-      if (q.status) params.push(['status', `eq.${q.status}`]);
-      const searchTerm = q.search?.trim().replace(/[,()]/g, '') ?? '';
-      if (searchTerm) {
-        params.push(['or', `(email.ilike.*${searchTerm}*,phone.ilike.*${searchTerm}*,full_name.ilike.*${searchTerm}*)`]);
-      }
-      const rows = await restQuery<UserProfileRow>('users', params);
-      return json(request, rows.map(mapUserProfileRow));
-    }
-    if (/^\/api\/admin\/users\/[^/]+$/.test(path) && request.method === 'GET') {
-      const auth = requireRole(request, ['admin']);
-      if (auth instanceof Response) return auth;
-      const id = path.split('/').pop()!;
-      const rows = await dbQuery<UserProfileRow>(
-        `SELECT id, email::text AS email, phone, full_name, first_name, last_name, city, status, push_enabled_new_vendor, push_enabled_expiring_deal, push_enabled_local_event, promo_email_opt_in, promo_sms_opt_in, terms_accepted_at, privacy_accepted_at, eula_accepted_at, created_at, updated_at FROM users WHERE id = $1 LIMIT 1`,
-        [id],
-      );
-      if (rows.length === 0) return json(request, { error: 'User not found' }, { status: 404 });
-      return json(request, mapUserProfileRow(rows[0]!));
-    }
-    if (/^\/api\/admin\/users\/[^/]+$/.test(path) && request.method === 'PATCH') {
-      const auth = requireRole(request, ['admin']);
-      if (auth instanceof Response) return auth;
-      const id = path.split('/').pop()!;
-      const body = adminUserUpdateSchema.parse(await readJsonBody(request, {}));
-      const rows = await dbQuery<UserProfileRow>(
-        `UPDATE users SET full_name = COALESCE($2, full_name), email = COALESCE($3, email), phone = COALESCE($4, phone), city = COALESCE($5, city), status = COALESCE($6, status), push_enabled_new_vendor = COALESCE($7, push_enabled_new_vendor), push_enabled_expiring_deal = COALESCE($8, push_enabled_expiring_deal), push_enabled_local_event = COALESCE($9, push_enabled_local_event), promo_email_opt_in = COALESCE($10, promo_email_opt_in), promo_sms_opt_in = COALESCE($11, promo_sms_opt_in), updated_at = now() WHERE id = $1 RETURNING id, email::text AS email, phone, full_name, first_name, last_name, city, status, push_enabled_new_vendor, push_enabled_expiring_deal, push_enabled_local_event, promo_email_opt_in, promo_sms_opt_in, terms_accepted_at, privacy_accepted_at, eula_accepted_at, created_at, updated_at`,
-        [
-          id,
-          body.fullName ?? null,
-          body.email ?? null,
-          body.phone ?? null,
-          body.city ?? null,
-          body.status ?? null,
-          body.pushPreferences?.newVendor ?? null,
-          body.pushPreferences?.expiringDeal ?? null,
-          body.pushPreferences?.localEvent ?? null,
-          body.promoEmailOptIn ?? null,
-          body.promoSmsOptIn ?? null,
-        ],
-      );
-      if (rows.length === 0) return json(request, { error: 'User not found' }, { status: 404 });
-      return json(request, mapUserProfileRow(rows[0]!));
-    }
-    if (/^\/api\/admin\/users\/[^/]+$/.test(path) && request.method === 'DELETE') {
-      const auth = requireRole(request, ['admin']);
-      if (auth instanceof Response) return auth;
-      const id = path.split('/').pop()!;
-      const rows = await dbQuery<{ id: string }>('DELETE FROM users WHERE id = $1 RETURNING id', [id]);
-      if (rows.length === 0) return json(request, { error: 'User not found' }, { status: 404 });
-      return noContent(request);
-    }
-
     if (path === '/api/admin/discounts' && request.method === 'GET') {
       const auth = requireRole(request, ['admin']);
       if (auth instanceof Response) return auth;
       const rows = await restQuery('discounts', [
-        ['select', 'id,card_id,vendor_id,type,value,min_purchase,max_uses_total,max_uses_per_customer,city_overrides,active,created_at,updated_at'],
+        ['select', 'id,vendor_id,type,value,min_purchase,max_uses_total,max_uses_per_customer,city_overrides,active,created_at,updated_at'],
         ['order', 'created_at.desc'],
       ]);
       return json(request, rows);
@@ -1771,7 +817,7 @@ Deno.serve(async (request) => {
       const auth = requireRole(request, ['admin']);
       if (auth instanceof Response) return auth;
       const id = path.split('/').pop()!;
-      const rows = await dbQuery('SELECT id, card_id, vendor_id, type, value, min_purchase, max_uses_total, max_uses_per_customer, city_overrides, active, created_at, updated_at FROM discounts WHERE id = $1 LIMIT 1', [id]);
+      const rows = await dbQuery('SELECT id, vendor_id, type, value, min_purchase, max_uses_total, max_uses_per_customer, city_overrides, active, created_at, updated_at FROM discounts WHERE id = $1 LIMIT 1', [id]);
       if (rows.length === 0) {
         return json(request, { error: 'Discount not found' }, { status: 404 });
       }
@@ -1782,8 +828,8 @@ Deno.serve(async (request) => {
       if (auth instanceof Response) return auth;
       const body = discountSchema.parse(await readJsonBody(request, {}));
       const rows = await dbQuery<{ id: string }>(
-        `INSERT INTO discounts (card_id, vendor_id, type, value, min_purchase, max_uses_total, max_uses_per_customer, city_overrides, active) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9) RETURNING id`,
-        [body.cardId, body.vendorId, body.type, body.value, body.minPurchase, body.maxUsesTotal ?? null, body.maxUsesPerCustomer ?? null, JSON.stringify(body.cityOverrides), body.active],
+        `INSERT INTO discounts (vendor_id, type, value, min_purchase, max_uses_total, max_uses_per_customer, city_overrides, active) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8) RETURNING id`,
+        [body.vendorId, body.type, body.value, body.minPurchase, body.maxUsesTotal ?? null, body.maxUsesPerCustomer ?? null, JSON.stringify(body.cityOverrides ?? {}), body.active],
       );
       return json(request, { id: rows[0]!.id }, { status: 201 });
     }
@@ -1793,8 +839,8 @@ Deno.serve(async (request) => {
       const id = path.split('/').pop()!;
       const body = discountSchema.partial().parse(await readJsonBody(request, {}));
       const rows = await dbQuery(
-        `UPDATE discounts SET card_id = COALESCE($2, card_id), vendor_id = COALESCE($3, vendor_id), type = COALESCE($4, type), value = COALESCE($5, value), min_purchase = COALESCE($6, min_purchase), max_uses_total = COALESCE($7, max_uses_total), max_uses_per_customer = COALESCE($8, max_uses_per_customer), city_overrides = COALESCE($9::jsonb, city_overrides), active = COALESCE($10, active), updated_at = now() WHERE id = $1 RETURNING *`,
-        [id, body.cardId ?? null, body.vendorId ?? null, body.type ?? null, body.value ?? null, body.minPurchase ?? null, body.maxUsesTotal ?? null, body.maxUsesPerCustomer ?? null, body.cityOverrides ? JSON.stringify(body.cityOverrides) : null, body.active ?? null],
+        `UPDATE discounts SET vendor_id = COALESCE($2, vendor_id), type = COALESCE($3, type), value = COALESCE($4, value), min_purchase = COALESCE($5, min_purchase), max_uses_total = COALESCE($6, max_uses_total), max_uses_per_customer = COALESCE($7, max_uses_per_customer), city_overrides = COALESCE($8::jsonb, city_overrides), active = COALESCE($9, active), updated_at = now() WHERE id = $1 RETURNING *`,
+        [id, body.vendorId ?? null, body.type ?? null, body.value ?? null, body.minPurchase ?? null, body.maxUsesTotal ?? null, body.maxUsesPerCustomer ?? null, body.cityOverrides ? JSON.stringify(body.cityOverrides) : null, body.active ?? null],
       );
       return json(request, rows[0] ?? {});
     }
@@ -2112,240 +1158,23 @@ Deno.serve(async (request) => {
     }
 
     // The current member's single all-in-one membership pass (auto-created).
-    if (path === '/api/me/pass' && (request.method === 'GET' || request.method === 'POST')) {
-      const auth = requireRole(request, ['customer']);
-      if (auth instanceof Response) return auth;
-      const pass = await ensureMembershipPass(auth.sub);
-      return json(request, {
-        pass: { passId: pass.id, serialNumber: pass.serial_number, lookupToken: pass.lookup_token, barcodeValue: pass.barcode_value ?? pass.lookup_token, cardId: pass.card_id },
-      });
-    }
-    if (path === '/api/me/analytics' && request.method === 'GET') {
-      const auth = requireRole(request, ['customer']);
-      if (auth instanceof Response) return auth;
-      const totalRows = await dbQuery<{ redemptions: string }>('SELECT COUNT(*)::text AS redemptions FROM redemptions WHERE user_id = $1', [auth.sub]);
-      const vendorRows = await dbQuery<{ vendor_id: string; vendor_name: string; redemptions: string }>(
-        `SELECT v.id AS vendor_id, v.name AS vendor_name, COUNT(r.id)::text AS redemptions
-         FROM redemptions r
-         JOIN vendors v ON v.id = r.vendor_id
-         WHERE r.user_id = $1
-         GROUP BY v.id, v.name
-         ORDER BY COUNT(r.id) DESC`,
-        [auth.sub],
-      );
-      const recentRows = await dbQuery<{ day: string; redemptions: string }>(
-        `SELECT to_char(date_trunc('day', redeemed_at), 'YYYY-MM-DD') AS day, COUNT(*)::text AS redemptions
-         FROM redemptions
-         WHERE user_id = $1 AND redeemed_at >= now() - interval '30 days'
-         GROUP BY 1
-         ORDER BY 1 DESC`,
-        [auth.sub],
-      );
-      return json(request, {
-        totalRedemptions: Number(totalRows[0]?.redemptions ?? '0'),
-        byVendor: vendorRows.map((row) => ({ vendorId: row.vendor_id, vendorName: row.vendor_name, redemptions: Number(row.redemptions) })),
-        daily: recentRows.map((row) => ({ day: row.day, redemptions: Number(row.redemptions) })),
-      });
-    }
-    if (path === '/api/me' && request.method === 'GET') {
-      const auth = requireRole(request, ['customer']);
-      if (auth instanceof Response) return auth;
-      const profile = await buildCustomerProfile(auth.sub);
-      if (!profile) return json(request, { error: 'User not found' }, { status: 404 });
-      return json(request, profile);
-    }
-    if (path === '/api/me' && request.method === 'PATCH') {
-      const auth = requireRole(request, ['customer']);
-      if (auth instanceof Response) return auth;
+    // Anonymous push registration: devices register/unregister their Expo
+    // push token without an account. Token is the dedupe key.
+    if (path === '/api/push/register' && request.method === 'POST') {
       const body = z.object({
-        city: z.string().trim().min(1).optional(),
-        promoEmailOptIn: z.boolean().optional(),
-        promoSmsOptIn: z.boolean().optional(),
-        pushPreferences: z.object({
-          newVendor: z.boolean().optional(),
-          expiringDeal: z.boolean().optional(),
-          localEvent: z.boolean().optional(),
-        }).optional(),
+        token: z.string().min(1).max(300).nullable(),
+        platform: z.string().max(30).optional(),
       }).parse(await readJsonBody(request, {}));
-      const rows = await dbQuery<{
-        id: string;
-        email: string | null;
-        phone: string | null;
-        full_name: string;
-        first_name: string | null;
-        last_name: string | null;
-        city: string | null;
-        status: string;
-        push_enabled_new_vendor: boolean;
-        push_enabled_expiring_deal: boolean;
-        push_enabled_local_event: boolean;
-        promo_email_opt_in: boolean;
-        promo_sms_opt_in: boolean;
-        terms_accepted_at: string | null;
-        privacy_accepted_at: string | null;
-        eula_accepted_at: string | null;
-      }>(
-        `UPDATE users
-         SET city = COALESCE($2, city),
-             promo_email_opt_in = COALESCE($3, promo_email_opt_in),
-             promo_sms_opt_in = COALESCE($4, promo_sms_opt_in),
-             push_enabled_new_vendor = COALESCE($5, push_enabled_new_vendor),
-             push_enabled_expiring_deal = COALESCE($6, push_enabled_expiring_deal),
-             push_enabled_local_event = COALESCE($7, push_enabled_local_event),
-             updated_at = now()
-         WHERE id = $1
-         RETURNING id, email::text AS email, phone, full_name, first_name, last_name, city, status,
-                   push_enabled_new_vendor, push_enabled_expiring_deal, push_enabled_local_event,
-                   promo_email_opt_in, promo_sms_opt_in,
-                   terms_accepted_at, privacy_accepted_at, eula_accepted_at`,
-        [auth.sub, body.city ?? null, body.promoEmailOptIn ?? null, body.promoSmsOptIn ?? null, body.pushPreferences?.newVendor ?? null, body.pushPreferences?.expiringDeal ?? null, body.pushPreferences?.localEvent ?? null],
-      );
-      const user = rows[0];
-      if (!user) return json(request, { error: 'User not found' }, { status: 404 });
-      return json(request, {
-        id: user.id,
-        email: user.email,
-        phone: user.phone,
-        fullName: user.full_name,
-        firstName: user.first_name,
-        lastName: user.last_name,
-        city: user.city,
-        status: user.status,
-        promoEmailOptIn: user.promo_email_opt_in,
-        promoSmsOptIn: user.promo_sms_opt_in,
-        termsAcceptedAt: user.terms_accepted_at,
-        privacyAcceptedAt: user.privacy_accepted_at,
-        eulaAcceptedAt: user.eula_accepted_at,
-        pushPreferences: {
-          newVendor: user.push_enabled_new_vendor,
-          expiringDeal: user.push_enabled_expiring_deal,
-          localEvent: user.push_enabled_local_event,
-        },
-      });
-    }
-    if (path === '/api/me' && request.method === 'DELETE') {
-      const auth = requireRole(request, ['customer']);
-      if (auth instanceof Response) return auth;
-      await dbQuery('DELETE FROM users WHERE id = $1', [auth.sub]);
-      return json(request, { deleted: true });
-    }
-    if (path === '/api/me/push-token' && request.method === 'POST') {
-      const auth = requireRole(request, ['customer']);
-      if (auth instanceof Response) return auth;
-      const body = pushTokenSchema.parse(await readJsonBody(request, {}));
-      await savePushToken(auth.sub, body.token, body.city);
+      if (body.token === null) {
+        return json(request, { registered: false });
+      }
+      await saveDevicePushToken(body.token, body.platform ?? null);
       return json(request, { registered: true });
     }
-
-    // Backwards-compatible create endpoint: always returns the member's single
-    // membership pass (idempotent). Any supplied cardId is ignored.
-    if (path === '/api/passes' && request.method === 'POST') {
-      const auth = requireRole(request, ['customer']);
-      if (auth instanceof Response) return auth;
-      const pass = await ensureMembershipPass(auth.sub);
-      return json(request, {
-        pass: { passId: pass.id, serialNumber: pass.serial_number, lookupToken: pass.lookup_token, barcodeValue: pass.barcode_value ?? pass.lookup_token, cardId: pass.card_id },
-      }, { status: 201 });
-    }
-    if (/^\/api\/passes\/[^/]+$/.test(path) && request.method === 'GET') {
-      const serial = path.split('/').pop()!;
-      const rows = await dbQuery(`SELECT p.*, c.name AS card_name, c.description AS card_description FROM passes p JOIN cards c ON c.id = p.card_id WHERE p.serial_number = $1 LIMIT 1`, [serial]);
-      if (rows.length === 0) return json(request, { error: 'Pass not found' }, { status: 404 });
-      return json(request, rows[0]);
-    }
-    if (/^\/api\/lookup\/[^/]+$/.test(path) && request.method === 'GET') {
-      const lookupToken = path.split('/').pop()!;
-      const result = await resolvePassLookup(lookupToken, url.searchParams.get('vendorId') ?? undefined, url.searchParams.get('city') ?? undefined);
-      if (!result) return json(request, { error: 'Not found' }, { status: 404 });
-      return json(request, result);
-    }
-    if (path === '/api/discounts/lookup' && request.method === 'GET') {
-      const token = url.searchParams.get('token') ?? '';
-      if (!token) return json(request, { error: 'token is required' }, { status: 400 });
-      const result = await resolvePassLookup(token, undefined, url.searchParams.get('city') ?? undefined);
-      if (!result) return json(request, { error: 'Not found' }, { status: 404 });
-      return json(request, result);
-    }
-    if (/^\/api\/discounts\/by-code\/[^/]+$/.test(path) && request.method === 'GET') {
-      const auth = requireRole(request, ['customer']);
-      if (auth instanceof Response) return auth;
-      const code = path.split('/').pop()!;
-      const userId = auth.sub;
-      const result = await redeemDiscount({
-        discountCode: code,
-        userId,
-        actorType: 'customer',
-        actorId: userId,
-        ip: getIp(request),
-      });
-      if (!result.valid) return json(request, { error: result.reason ?? 'Unable to redeem this discount' }, { status: 409 });
-      const rows = await dbQuery<{ vendor_name: string; card_name: string; type: 'fixed' | 'percent' | 'bogo'; value: string }>(
-        `SELECT v.name AS vendor_name, c.name AS card_name, d.type, d.value
-         FROM discounts d
-         JOIN vendors v ON v.id = d.vendor_id
-         JOIN cards c ON c.id = d.card_id
-         WHERE d.discount_code = $1 AND d.active = true AND c.is_membership = true
-         LIMIT 1`,
-        [code],
-      );
-      const row = rows[0];
-      return json(request, {
-        vendorName: row?.vendor_name ?? 'Vendor',
-        cardName: row?.card_name ?? 'Membership',
-        discountCode: code,
-        type: row?.type ?? 'fixed',
-        value: Number(row?.value ?? 0),
-        discountLabel: humanDiscountLabel(row?.type ?? 'fixed', Number(row?.value ?? 0)),
-      });
-    }
-    if (/^\/api\/lookup\/card\/[^/]+$/.test(path) && request.method === 'GET') {
-      const cardId = path.split('/').pop()!;
-      const result = await resolveCardLookup(cardId, url.searchParams.get('vendorId') ?? undefined, url.searchParams.get('city') ?? undefined);
-      if (!result) return json(request, { error: 'Not found' }, { status: 404 });
-      return json(request, result);
-    }
-    if (path === '/api/redeem' && request.method === 'POST') {
-      const auth = authenticate(request);
-      const body = z
-        .object({
-          lookupToken: z.string().optional(),
-          cardId: z.string().uuid().optional(),
-          userId: z.string().uuid().optional(),
-          vendorId: z.string().uuid().optional(),
-          discountCode: z.string().optional(),
-          discountId: z.string().uuid().optional(),
-          city: z.string().optional(),
-          purchaseAmount: z.number().optional(),
-          giftCardId: z.string().uuid().optional(),
-        })
-        .parse(await readJsonBody(request, {}));
-      const result = await redeemDiscount({ ...body, actorType: auth?.role ?? 'system', actorId: auth?.sub ?? null, ip: getIp(request) });
-      return json(request, result);
-    }
-
-    if (/^\/api\/onboarding\/[^/]+$/.test(path) && request.method === 'GET') {
-      const code = path.split('/').pop()!;
-      const decoded = decodeBase64UrlJson<{ vendorId?: string; cardId?: string }>(code);
-      if (!decoded?.vendorId || !decoded?.cardId) return json(request, { error: 'Invalid onboarding code' }, { status: 404 });
-      const rows = await dbQuery(`SELECT c.id AS card_id, c.theme, c.name AS card_name, v.id AS vendor_id, v.name AS vendor_name FROM cards c JOIN vendors v ON v.id = $1 WHERE c.id = $2 LIMIT 1`, [
-        decoded.vendorId,
-        decoded.cardId,
-      ]);
-      if (rows.length === 0) return json(request, { error: 'Not found' }, { status: 404 });
-      return json(request, { theme: rows[0]!.theme, card: rows[0]!.card_name, vendor: rows[0]!.vendor_name, appStoreUrl: config.appStoreUrl, playStoreUrl: config.playStoreUrl });
-    }
-    if (path === '/api/qr/onboarding.png' && request.method === 'GET') {
-      const vendorId = url.searchParams.get('vendorId') ?? '';
-      const cardId = url.searchParams.get('cardId') ?? '';
-      if (!vendorId || !cardId) return json(request, { error: 'vendorId and cardId are required' }, { status: 400 });
-      const code = encodeBase64UrlJson({ vendorId, cardId });
-      const deepLink = `lrcard://onboard?code=${encodeURIComponent(code)}`;
-      const text = `${deepLink}\nhttps://lightraildeals.com/onboard?code=${encodeURIComponent(code)}`;
-      return Response.redirect(qrCodeUrl(text, 300), 302);
-    }
-    if (/^\/api\/qr\/lookup\/[^/]+\.png$/.test(path) && request.method === 'GET') {
-      const lookupToken = path.split('/').pop()!.replace(/\.png$/, '');
-      return Response.redirect(qrCodeUrl(lookupToken, 300), 302);
+    if (path === '/api/push/unregister' && request.method === 'POST') {
+      const body = z.object({ token: z.string().min(1).max(300) }).parse(await readJsonBody(request, {}));
+      await removeDevicePushToken(body.token);
+      return json(request, { registered: false });
     }
 
     // Redemption tokens work anonymously: a customer JWT binds the token to
@@ -2400,32 +1229,6 @@ Deno.serve(async (request) => {
       return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
     }
 
-    if (path === '/api/admin/marketing/blast' && request.method === 'POST') {
-      const auth = requireRole(request, ['admin']);
-      if (auth instanceof Response) return auth;
-      const body = z.object({
-        subject: z.string().min(1),
-        text: z.string().min(1),
-        html: z.string().optional(),
-        smsText: z.string().optional(),
-      }).parse(await readJsonBody(request, {}));
-      const recipients = await restQuery<{ email: string | null; phone: string | null; promo_email_opt_in: boolean; promo_sms_opt_in: boolean }>('users', [
-        ['select', 'email,phone,promo_email_opt_in,promo_sms_opt_in'],
-        ['status', 'eq.active'],
-        ['or', '(promo_email_opt_in.eq.true,promo_sms_opt_in.eq.true)'],
-      ]);
-      const result = await sendDealOfTheDayBlast({
-        ...body,
-        recipients: recipients.map((r) => ({
-          email: r.email,
-          phone: r.phone,
-          promoEmailOptIn: r.promo_email_opt_in,
-          promoSmsOptIn: r.promo_sms_opt_in,
-        })),
-      });
-      return json(request, result);
-    }
-
     // Admin: send a push notification to all users with a push token (optionally filtered by city).
     if (path === '/api/admin/push' && request.method === 'POST') {
       const auth = requireRole(request, ['admin']);
@@ -2433,16 +1236,13 @@ Deno.serve(async (request) => {
       const body = z.object({
         title: z.string().min(1).max(100),
         message: z.string().min(1).max(500),
-        city: z.string().optional(),
+        campaignKey: z.string().max(120).optional(),
       }).parse(await readJsonBody(request, {}));
-      const tokens = body.city && body.city.trim()
-        ? await getPushTokensByCity(body.city.trim())
-        : await getAllPushTokens();
-      if (tokens.length === 0) {
+      const result = await sendPushCampaign(body.title, body.message, auth.sub, body.campaignKey ?? null);
+      if (result.targeted === 0) {
         return json(request, { sent: 0, message: 'No push tokens registered for the selected audience.' });
       }
-      const pushResult = await sendPushNotifications(tokens, body.title, body.message, { type: 'admin_broadcast' });
-      return json(request, { sent: pushResult.sent, errors: pushResult.errors });
+      return json(request, { sent: result.sent, targeted: result.targeted, skipped: result.skipped, campaignId: result.campaignId, errors: result.errors });
     }
 
     // NCAA API proxy endpoints to bypass CORS/DNS issues. Upstream is the

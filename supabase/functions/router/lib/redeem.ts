@@ -3,15 +3,12 @@ import { withDbClient, type PoolClient } from './db.ts';
 import { applyCityRules, computeDiscountAmount, normalizeNumber, toAppliedDiscount } from './discounts.ts';
 
 export interface RedeemInput {
-  lookupToken?: string;
-  cardId?: string;
   userId?: string;
   vendorId?: string;
   discountCode?: string;
   discountId?: string;
   city?: string | null;
   purchaseAmount?: number | null;
-  giftCardId?: string;
   actorType?: 'admin' | 'vendor' | 'customer' | 'system';
   actorId?: string | null;
   ip?: string | null;
@@ -35,101 +32,56 @@ export async function redeemDiscount(input: RedeemInput): Promise<RedeemResult> 
   });
 }
 
+// Discounts are vendor-scoped: each vendor carries at most one active deal and
+// the redemption flow is fully anonymous — no membership card or account is
+// involved. Vendor/deal level limits (active window, max uses) still apply.
 export async function redeemDiscountWithClient(client: PoolClient, input: RedeemInput): Promise<RedeemResult> {
-  const lookupRow = input.lookupToken
-    ? await client.query<{ pass_id: string; user_id: string; card_id: string }>(
-        `
-          SELECT p.id AS pass_id, p.user_id, p.card_id
-          FROM passes p
-          WHERE p.lookup_token = $1
-          LIMIT 1
-        `,
-        [input.lookupToken],
-      )
-    : { rows: [] };
-
-  let userId = input.userId ?? lookupRow.rows[0]?.user_id ?? null;
-  let cardId = input.cardId ?? lookupRow.rows[0]?.card_id ?? null;
+  const userId = input.userId ?? null;
   let vendorId = input.vendorId ?? null;
   let discountId = input.discountId ?? null;
-  const passId = lookupRow.rows[0]?.pass_id ?? null;
 
   if (input.discountCode) {
     const codeRows = await client.query<{
       discount_id: string;
-      card_id: string;
       vendor_id: string;
       active: boolean;
     }>(
-      `
-        SELECT d.id AS discount_id, d.card_id, d.vendor_id, d.active
-        FROM discounts d
-        JOIN cards c ON c.id = d.card_id
-        WHERE d.discount_code = $1 AND c.is_membership = true
-        LIMIT 1
-      `,
+      `SELECT id AS discount_id, vendor_id, active FROM discounts WHERE discount_code = $1 LIMIT 1`,
       [input.discountCode],
     );
     const codeRow = codeRows.rows[0];
     if (!codeRow || !codeRow.active) {
-      return await denyAndReturn(client, input, { valid: false, reason: 'Discount not found' }, userId, cardId, passId);
+      return await denyAndReturn(client, input, { valid: false, reason: 'Discount not found' }, userId);
     }
-    cardId = codeRow.card_id;
     vendorId = codeRow.vendor_id;
     discountId = codeRow.discount_id;
     input.vendorId = codeRow.vendor_id;
     input.discountId = codeRow.discount_id;
   }
 
-  if (!cardId || !vendorId) {
-    throw new Error('cardId, vendorId, or discountCode is required');
-  }
-
-  const cardRows = await client.query<{ id: string; name: string; status: string; expiration_date: string | null; max_uses: number | null }>(
-    'SELECT id, name, status, expiration_date, max_uses FROM cards WHERE id = $1 LIMIT 1',
-    [cardId],
-  );
-  const card = cardRows.rows[0];
-  if (!card) {
-    return await denyAndReturn(client, input, { valid: false, reason: 'Card not found' });
-  }
-
-  if (card.status !== 'active') {
-    return await denyAndReturn(client, input, { valid: false, reason: 'Card is not active' }, userId, cardId, passId);
-  }
-  if (card.expiration_date && new Date(card.expiration_date).getTime() < Date.now()) {
-    return await denyAndReturn(client, input, { valid: false, reason: 'Card has expired' }, userId, cardId, passId);
-  }
-
-  const vendorParticipation = await client.query<{ exists: boolean }>('SELECT EXISTS (SELECT 1 FROM card_vendors WHERE card_id = $1 AND vendor_id = $2) AS exists', [
-    cardId,
-    vendorId,
-  ]);
-  if (!vendorParticipation.rows[0]?.exists) {
-    return await denyAndReturn(client, input, { valid: false, reason: 'Vendor is not linked to this card' }, userId, cardId, passId);
+  if (!vendorId) {
+    throw new Error('vendorId or discountCode is required');
   }
 
   const discountRows = await client.query<{
     id: string;
-    card_id: string;
     vendor_id: string;
     type: 'fixed' | 'percent' | 'bogo';
     value: string;
     description: string | null;
     min_purchase: string;
     max_uses_total: number | null;
-    max_uses_per_customer: number | null;
     uses_count: number;
     city_overrides: Record<string, { type?: 'fixed' | 'percent' | 'bogo'; value?: number }> | null;
     active: boolean;
   }>(
-    `SELECT *, description FROM discounts WHERE card_id = $1 AND vendor_id = $2 ${discountId ? 'AND id = $3' : ''} FOR UPDATE`,
-    discountId ? [cardId, vendorId, discountId] : [cardId, vendorId],
+    `SELECT * FROM discounts WHERE vendor_id = $1 ${discountId ? 'AND id = $2' : ''} ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
+    discountId ? [vendorId, discountId] : [vendorId],
   );
 
   const discount = discountRows.rows[0];
   if (!discount) {
-    return await denyAndReturn(client, input, { valid: false, reason: 'Discount not found' }, userId, cardId, passId);
+    return await denyAndReturn(client, input, { valid: false, reason: 'Discount not found' }, userId);
   }
 
   const adjustedDiscount = applyCityRules(
@@ -143,35 +95,10 @@ export async function redeemDiscountWithClient(client: PoolClient, input: Redeem
   );
 
   if (!discount.active) {
-    return await denyAndReturn(client, input, { valid: false, reason: 'Discount is inactive' }, userId, cardId, passId);
+    return await denyAndReturn(client, input, { valid: false, reason: 'Discount is inactive' }, userId);
   }
   if (discount.max_uses_total !== null && discount.uses_count >= discount.max_uses_total) {
-    return await denyAndReturn(client, input, { valid: false, reason: 'Discount limit reached' }, userId, cardId, passId);
-  }
-
-  if (discount.max_uses_per_customer !== null && userId) {
-    const perCustomer = await client.query<{ count: string }>('SELECT COUNT(*)::text AS count FROM redemptions WHERE discount_id = $1 AND user_id = $2 AND status = \'approved\'', [
-      discount.id,
-      userId,
-    ]);
-    if (Number(perCustomer.rows[0]?.count ?? '0') >= discount.max_uses_per_customer) {
-      return await denyAndReturn(client, input, { valid: false, reason: 'Customer limit reached' }, userId, cardId, passId);
-    }
-  }
-
-  if (userId) {
-    const weekly = await client.query<{ count: string }>(
-      "SELECT COUNT(*)::text AS count FROM redemptions WHERE vendor_id = $1 AND user_id = $2 AND status = 'approved' AND redeemed_at >= now() - interval '7 days'",
-      [vendorId, userId],
-    );
-    if (Number(weekly.rows[0]?.count ?? '0') >= 1) {
-      return await denyAndReturn(client, input, { valid: false, reason: 'Weekly vendor limit reached. You can only use this vendor discount once per 7 days.' }, userId, cardId, passId);
-    }
-  }
-
-  const cardUsage = await client.query<{ count: string }>('SELECT COUNT(*)::text AS count FROM redemptions WHERE card_id = $1 AND status = \'approved\'', [cardId]);
-  if (card.max_uses !== null && Number(cardUsage.rows[0]?.count ?? '0') >= card.max_uses) {
-    return await denyAndReturn(client, input, { valid: false, reason: 'Card usage limit reached' }, userId, cardId, passId);
+    return await denyAndReturn(client, input, { valid: false, reason: 'Discount limit reached' }, userId);
   }
 
   const amountInput = {
@@ -184,20 +111,13 @@ export async function redeemDiscountWithClient(client: PoolClient, input: Redeem
   const applied = toAppliedDiscount(amountInput);
   const redemption = await client.query<{ id: string }>(
     `
-      INSERT INTO redemptions (
-        discount_id, gift_card_id, card_id, vendor_id, user_id, pass_id, amount_applied, city, status, reason
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'approved', NULL)
+      INSERT INTO redemptions (discount_id, vendor_id, user_id, amount_applied, city, status, reason)
+      VALUES ($1, $2, $3, $4, $5, 'approved', NULL)
       RETURNING id
     `,
-    [discount.id, input.giftCardId ?? null, cardId, vendorId, userId, passId, computed.amountApplied, input.city ?? null],
+    [discount.id, vendorId, userId, computed.amountApplied, input.city ?? null],
   );
   await client.query('UPDATE discounts SET uses_count = uses_count + 1, updated_at = now() WHERE id = $1', [discount.id]);
-  if (input.giftCardId) {
-    await client.query('UPDATE gift_cards SET balance = GREATEST(balance - $1, 0), updated_at = now() WHERE id = $2', [
-      computed.amountApplied,
-      input.giftCardId,
-    ]);
-  }
   await client.query(
     `
       INSERT INTO transactions (actor_type, actor_id, action, entity_type, entity_id, metadata, ip)
@@ -208,7 +128,7 @@ export async function redeemDiscountWithClient(client: PoolClient, input: Redeem
       input.actorId ?? null,
       'redeem.approved',
       redemption.rows[0]!.id,
-      { discountId: discount.id, cardId, vendorId, amountApplied: computed.amountApplied, city: input.city ?? null },
+      { discountId: discount.id, vendorId, amountApplied: computed.amountApplied, city: input.city ?? null },
       input.ip ?? null,
     ],
   );
@@ -225,21 +145,18 @@ async function denyAndReturn(
   input: RedeemInput,
   result: RedeemResult,
   userId?: string | null,
-  cardId?: string | null,
-  passId?: string | null,
 ): Promise<RedeemResult> {
-  if (!cardId) {
+  if (!input.vendorId) {
     return result;
   }
 
   const denied = await client.query<{ id: string }>(
     `
-      INSERT INTO redemptions (
-        discount_id, gift_card_id, card_id, vendor_id, user_id, pass_id, amount_applied, city, status, reason
-      ) VALUES ($1, $2, $3, $4, $5, $6, 0, $7, 'denied', $8)
+      INSERT INTO redemptions (discount_id, vendor_id, user_id, amount_applied, city, status, reason)
+      VALUES ($1, $2, $3, 0, $4, 'denied', $5)
       RETURNING id
     `,
-    [input.discountId ?? null, input.giftCardId ?? null, cardId, input.vendorId, userId ?? null, passId ?? null, input.city ?? null, result.reason ?? 'Denied'],
+    [input.discountId ?? null, input.vendorId, userId ?? null, input.city ?? null, result.reason ?? 'Denied'],
   );
 
   await client.query(
@@ -252,7 +169,7 @@ async function denyAndReturn(
       input.actorId ?? null,
       'redeem.denied',
       denied.rows[0]!.id,
-      { reason: result.reason, discountId: input.discountId ?? null, cardId, vendorId: input.vendorId },
+      { reason: result.reason, discountId: input.discountId ?? null, vendorId: input.vendorId },
       input.ip ?? null,
     ],
   );

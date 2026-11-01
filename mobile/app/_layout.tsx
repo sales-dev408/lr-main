@@ -3,11 +3,10 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AdminProvider } from '@/lib/admin';
 import { AppThemeProvider } from '@/lib/appTheme';
-import { AuthProvider } from '@/lib/auth';
 import { ColorSchemeProvider } from '@/lib/colorScheme';
 import { LegalAcceptanceProvider } from '@/lib/legalAcceptance';
 import { DynamicTypeProvider } from '@/lib/dynamicType';
-import { listenForNotifications } from '@/lib/notifications';
+import { initPushNotifications, listenForNotifications } from '@/lib/notifications';
 import { getAppState } from '@/lib/api';
 import { syncWidgetItems } from '@/lib/widgetFeed';
 import { PostHogRoot } from '@/lib/posthog';
@@ -16,6 +15,9 @@ export default function RootLayout() {
   // Mirror received push notifications into the local inbox for the
   // Notifications tab, starting as early as possible in the app lifecycle.
   useEffect(() => listenForNotifications(), []);
+  // Anonymous push registration: any install can receive admin-sent alerts —
+  // no account needed. Registration only happens after OS permission.
+  useEffect(() => { void initPushNotifications(); }, []);
   // Warm the app-state snapshot once per launch: a tiny /api/app/version check
   // decides whether the cached snapshot needs re-downloading. Every directory
   // screen then reads the same cached data — this is the only backend traffic
@@ -28,7 +30,6 @@ export default function RootLayout() {
   return (
     <PostHogRoot>
       <ColorSchemeProvider>
-        <AuthProvider>
           <AdminProvider>
           <AppThemeProvider>
             <LegalAcceptanceProvider>
@@ -37,7 +38,6 @@ export default function RootLayout() {
                 <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="index" />
                 <Stack.Screen name="legal" />
-                <Stack.Screen name="auth" />
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="admin/content" />
                 <Stack.Screen name="admin/theme" />
@@ -48,7 +48,6 @@ export default function RootLayout() {
             </LegalAcceptanceProvider>
           </AppThemeProvider>
           </AdminProvider>
-        </AuthProvider>
       </ColorSchemeProvider>
     </PostHogRoot>
   );

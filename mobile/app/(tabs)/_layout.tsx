@@ -14,19 +14,19 @@ export default function TabLayout() {
         tabBar={() => null}
       >
         <Tabs.Screen name="index" options={{ title: 'Home' }} />
+        <Tabs.Screen name="events" options={{ title: 'Events' }} />
+        <Tabs.Screen name="sports" options={{ title: 'Sports' }} />
         <Tabs.Screen name="restaurants" options={{ title: 'Restaurants & Bars' }} />
         <Tabs.Screen name="shopping" options={{ title: 'Shopping' }} />
-        <Tabs.Screen name="hotels" options={{ title: 'Hotels' }} />
-        <Tabs.Screen name="sports" options={{ title: 'Sports' }} />
-        <Tabs.Screen name="events" options={{ title: 'Events' }} />
+        <Tabs.Screen name="beauty" options={{ title: 'Beauty & Health' }} />
         <Tabs.Screen name="live" options={{ title: 'Train Times' }} />
-        <Tabs.Screen name="real-estate" options={{ title: 'Real Estate' }} />
-        <Tabs.Screen name="services" options={{ title: 'Services' }} />
-        <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
-        <Tabs.Screen name="notifications" options={{ title: 'Notifications' }} />
-        <Tabs.Screen name="discover" options={{ title: 'Discover' }} />
-        <Tabs.Screen name="az-events" options={{ title: 'Events Around Arizona' }} />
+        <Tabs.Screen name="hotels" options={{ title: 'Hotels' }} />
         <Tabs.Screen name="apartments" options={{ title: 'Apartments' }} />
+        <Tabs.Screen name="real-estate" options={{ title: 'Real Estate' }} />
+        <Tabs.Screen name="discover" options={{ title: 'Discover Articles' }} />
+        <Tabs.Screen name="az-events" options={{ title: 'Events Around Arizona' }} />
+        <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
+        <Tabs.Screen name="notifications" options={{ title: 'Notifications' }} />
       </Tabs>
       <CollapsibleSidebar />
     </View>

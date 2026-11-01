@@ -10,6 +10,8 @@ export default function ShoppingScreen() {
       subtitle="Shops and services along the light rail"
       adSlot={4}
       config={{
+        layout: 'directory',
+        categoryDropdown: 'Shop Type Filter',
         vendorTypes: ['boutique', 'beauty', 'other'],
         typeOptions: [
           { label: 'All', types: null },

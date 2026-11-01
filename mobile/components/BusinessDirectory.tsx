@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, RefreshControl, ScrollView, Switch, Text, View, useWindowDimensions } from 'react-native';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as Location from 'expo-location';
 import { AppButton, Banner, BrandHeader, Card, FieldInput, GlassCard, Pill, Screen, SectionTitle, Spinner } from '@/components/Ui';
 import { AdBanner } from '@/components/AdBanner';
 import { BusinessModal } from '@/components/BusinessModal';
 import { SimpleListPicker } from '@/components/SimpleListPicker';
 import { clearVersionCache, listVendors } from '@/lib/api';
-import { useAuth } from '@/lib/auth';
 import { useThemeColors } from '@/lib/useThemeColors';
 import { useDynamicType } from '@/lib/dynamicType';
 import { useFavorites } from '@/lib/favorites';
@@ -19,8 +18,6 @@ import { compareStops, findStop, getStops } from '@/lib/stops';
 import { searchScore } from '@/lib/search';
 import type { VendorListItem } from '@/lib/types';
 
-const LINE_OPTIONS = ['All lines', 'A Line', 'B Line'] as const;
-type LineOption = (typeof LINE_OPTIONS)[number];
 
 export type DirectoryTypeOption = {
   label: string;
@@ -39,6 +36,10 @@ export type DirectoryConfig = {
   typeOptions: DirectoryTypeOption[];
   /** Offer the cuisine dropdown (restaurants pages). */
   cuisineFilter?: boolean;
+  /** Screen layout: 'restaurants' = filters first, map last; 'directory' = map first. */
+  layout?: 'restaurants' | 'directory';
+  /** Label for a category dropdown populated from vendor.category values. */
+  categoryDropdown?: string;
   /** Group the list by vendor city instead of rail stop. */
   groupByCity?: boolean;
   /** City sections to always show first, in order (groupByCity only). */
@@ -98,13 +99,12 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
   const { effectiveScale } = useDynamicType();
   const { width } = useWindowDimensions();
   const mapHeight = Math.min(280, Math.max(180, width * 0.45));
-  const router = useRouter();
-  const auth = useAuth();
   const { favorites, toggle: toggleFavorite, isFavorite } = useFavorites();
   const searchParams = useLocalSearchParams<{ type?: string }>();
   const [vendors, setVendors] = useState<VendorListItem[]>([]);
   const [typeFilter, setTypeFilter] = useState<string>('All');
   const [cuisineFilter, setCuisineFilter] = useState<string>('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [selectedVendor, setSelectedVendor] = useState<VendorListItem | null>(null);
   const [search, setSearch] = useState('');
   // The applied term — only updates when the user submits the search so
@@ -114,13 +114,11 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
-  const [locationPermission, setLocationPermission] = useState<boolean | null>(null);
   const [region, setRegion] = useState<Region | null>(null);
   const [sortByFavorites, setSortByFavorites] = useState(false);
-  const [lineFilter, setLineFilter] = useState<LineOption>('All lines');
-  const [bLineFirst, setBLineFirst] = useState(false);
+  const [, setLocationPermission] = useState(false);
+  const [bLineFirst] = useState(false);
   const [collapsedStations, setCollapsedStations] = useState<Set<string>>(new Set());
-  const [filtersOpen, setFiltersOpen] = useState(false);
   // Stops the user jumped to that have no businesses — rendered as empty
   // sections so "Jump to a stop" always lands somewhere meaningful.
   const [revealedStops, setRevealedStops] = useState<Set<string>>(new Set());
@@ -130,7 +128,6 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
   const pendingJumpStation = useRef<string | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
-  const signedIn = Boolean(auth.token);
   const pageVendorTypes = useMemo(() => new Set(config.vendorTypes.map((t) => t.toLowerCase())), [config.vendorTypes]);
 
   const pageVendors = useMemo(
@@ -218,6 +215,14 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [pageVendors]);
 
+  const categoryOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const v of pageVendors) {
+      if (v.category?.trim()) set.add(v.category.trim());
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [pageVendors]);
+
   const filteredVendors = useMemo(() => {
     const term = searchTerm.trim();
     let scored: Map<string, number> | null = null;
@@ -245,11 +250,12 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
     if (cuisineFilter) {
       list = list.filter((v) => (v.cuisine ?? '').toLowerCase() === cuisineFilter.toLowerCase());
     }
-    if (lineFilter !== 'All lines') {
-      list = list.filter((v) => findStop(v.station)?.line === lineFilter);
+    if (categoryFilter) {
+      const needle = categoryFilter.toLowerCase();
+      list = list.filter((v) => (v.category ?? '').toLowerCase() === needle);
     }
     return list;
-  }, [pageVendors, searchTerm, activeTypeOption, cuisineFilter, lineFilter]);
+  }, [pageVendors, searchTerm, activeTypeOption, cuisineFilter, categoryFilter]);
 
   const groupedVendors = useMemo(() => {
     const groups = new Map<string, VendorListItem[]>();
@@ -443,11 +449,8 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
     [vendors],
   );
 
+  // Favorites are stored locally — no sign-in required.
   function onToggleFavorite(id: string) {
-    if (!signedIn) {
-      router.push('/auth' as never);
-      return;
-    }
     posthog?.capture('business_favorite_updated', {
       vendor_id: id,
       is_favorited: !isFavorite(id),
@@ -455,7 +458,121 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
     void toggleFavorite(id);
   }
 
-  const activeFilterCount = (typeFilter !== 'All' ? 1 : 0) + (cuisineFilter ? 1 : 0) + (lineFilter !== 'All lines' ? 1 : 0);
+
+  const mapSection = region ? (
+    <View style={{ height: mapHeight, borderRadius: 16, overflow: 'hidden' }}>
+      <MapView
+        style={{ flex: 1, borderRadius: 16 }}
+        initialRegion={region}
+        region={region}
+        showsUserLocation
+        onRegionChangeComplete={setRegion}
+      >
+        {mappedVendors.map(
+          (vendor) =>
+            vendor.latitude != null &&
+            vendor.longitude != null && (
+              <Marker
+                key={vendor.id}
+                coordinate={{ latitude: vendor.latitude, longitude: vendor.longitude }}
+                title={vendor.name}
+                description={vendor.discount.label}
+                onPress={() => selectVendor(vendor.id)}
+              />
+            ),
+        )}
+      </MapView>
+    </View>
+  ) : null;
+
+  const filtersCard = (
+    <GlassCard>
+      <View style={{ flexDirection: 'row', alignItems: 'stretch', gap: 8 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <FieldInput
+            placeholder={`Search ${title.toLowerCase()}…`}
+            value={search}
+            onChangeText={(text) => {
+              setSearch(text);
+              setSearchTerm(text);
+            }}
+            onSubmitEditing={() => setSearchTerm(search.trim())}
+            returnKeyType="search"
+            autoCorrect={false}
+            autoCapitalize="none"
+          />
+        </View>
+        <AppButton variant="primary" onPress={() => setSearchTerm(search.trim())}>
+          Search
+        </AppButton>
+      </View>
+      {config.cuisineFilter && cuisineOptions.length > 0 ? (
+        <View style={{ marginTop: 8 }}>
+          <SimpleListPicker
+            label="Cuisine Filter"
+            selected={cuisineFilter}
+            entries={cuisineOptions.map((c) => ({
+              value: c,
+              label: c.charAt(0).toUpperCase() + c.slice(1),
+              count: pageVendors.filter((v) => (v.cuisine ?? '').toLowerCase() === c.toLowerCase()).length,
+            }))}
+            onSelect={setCuisineFilter}
+            itemNoun="business"
+            allLabel="All cuisines"
+          />
+        </View>
+      ) : null}
+      {config.categoryDropdown && categoryOptions.length > 0 ? (
+        <View style={{ marginTop: 8 }}>
+          <SimpleListPicker
+            label={config.categoryDropdown}
+            selected={categoryFilter}
+            entries={categoryOptions.map((c) => ({
+              value: c,
+              label: c,
+              count: pageVendors.filter((v) => (v.category ?? '').trim() === c).length,
+            }))}
+            onSelect={setCategoryFilter}
+            itemNoun="business"
+            allLabel="All types"
+          />
+        </View>
+      ) : null}
+      {config.layout === 'restaurants' && config.typeOptions.length > 0 ? (
+        <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+          {config.typeOptions.map((option) => (
+            <AppButton
+              key={option.label}
+              variant={typeFilter === option.label ? 'primary' : 'secondary'}
+              onPress={() => {
+                setTypeFilter(typeFilter === option.label ? 'All' : option.label);
+                setCuisineFilter('');
+              }}
+            >
+              {option.label}
+            </AppButton>
+          ))}
+        </View>
+      ) : null}
+      {config.groupByCity ? null : (
+        <View style={{ marginTop: 8 }}>
+          <StopPicker entries={stopEntries} onSelect={jumpToStation} label="Jump to a stop" itemNoun="business" />
+        </View>
+      )}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4, marginTop: 4 }}>
+        <Text style={{ color: colors.ink, fontSize: 14 * effectiveScale }} allowFontScaling={false}>
+          Sort favorites first
+        </Text>
+        <Switch
+          value={sortByFavorites}
+          onValueChange={setSortByFavorites}
+          trackColor={{ false: colors.border, true: colors.brand }}
+          thumbColor="#fff"
+          accessibilityLabel="Sort favorites first"
+        />
+      </View>
+    </GlassCard>
+  );
 
   return (
     <Screen>
@@ -483,179 +600,9 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
 
         {adSlot ? <AdBanner slot={adSlot} /> : null}
 
-        {region ? (
-          <View style={{ height: mapHeight, borderRadius: 16, overflow: 'hidden' }}>
-            <MapView
-              style={{ flex: 1, borderRadius: 16 }}
-              initialRegion={region}
-              region={region}
-              showsUserLocation
-              onRegionChangeComplete={setRegion}
-            >
-              {mappedVendors.map(
-                (vendor) =>
-                  vendor.latitude != null &&
-                  vendor.longitude != null && (
-                    <Marker
-                      key={vendor.id}
-                      coordinate={{ latitude: vendor.latitude, longitude: vendor.longitude }}
-                      title={vendor.name}
-                      description={vendor.discount.label}
-                      onPress={() => selectVendor(vendor.id)}
-                    />
-                  ),
-              )}
-            </MapView>
-          </View>
-        ) : null}
+        {config.layout === 'restaurants' ? null : mapSection}
 
-        <GlassCard>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            <SectionTitle
-              title="Filter & jump"
-              subtitle={
-                activeFilterCount > 0
-                  ? `${activeFilterCount} filter${activeFilterCount === 1 ? '' : 's'} active`
-                  : 'Search, filter, or jump to a stop'
-              }
-            />
-            <AppButton variant={filtersOpen ? 'primary' : 'secondary'} onPress={() => setFiltersOpen((v) => !v)}>
-              {filtersOpen ? 'Done' : 'Filters'}
-            </AppButton>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'stretch', gap: 8 }}>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <FieldInput
-                placeholder={`Search ${title.toLowerCase()}…`}
-                value={search}
-                onChangeText={(text) => {
-                  setSearch(text);
-                  // Live filtering — every typed word must match somewhere,
-                  // so partial names like "palomar hotel" still hit.
-                  setSearchTerm(text);
-                }}
-                onSubmitEditing={() => setSearchTerm(search.trim())}
-                returnKeyType="search"
-                autoCorrect={false}
-                autoCapitalize="none"
-              />
-            </View>
-            <AppButton variant="primary" onPress={() => setSearchTerm(search.trim())}>
-              Search
-            </AppButton>
-          </View>
-          {config.groupByCity ? null : (
-            <View style={{ marginTop: 4 }}>
-              <StopPicker entries={stopEntries} onSelect={jumpToStation} label="Jump to a stop" itemNoun="business" />
-            </View>
-          )}
-
-          {filtersOpen ? (
-            <View style={{ gap: 10, marginTop: 4 }}>
-              {config.typeOptions.length > 1 ? (
-                <View>
-                  <Text style={{ color: colors.muted, fontSize: 12 * effectiveScale, marginBottom: 6 }} allowFontScaling={false}>
-                    Type
-                  </Text>
-                  <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-                    {config.typeOptions.map((option) => (
-                      <AppButton
-                        key={option.label}
-                        variant={typeFilter === option.label ? 'primary' : 'secondary'}
-                        onPress={() => {
-                          setTypeFilter(option.label);
-                          setCuisineFilter('');
-                        }}
-                      >
-                        {option.label}
-                      </AppButton>
-                    ))}
-                  </View>
-                </View>
-              ) : null}
-
-              {config.cuisineFilter && cuisineOptions.length > 0 ? (
-                <SimpleListPicker
-                  label="Cuisine"
-                  selected={cuisineFilter}
-                  entries={cuisineOptions.map((c) => ({
-                    value: c,
-                    label: c.charAt(0).toUpperCase() + c.slice(1),
-                    count: pageVendors.filter((v) => (v.cuisine ?? '').toLowerCase() === c.toLowerCase()).length,
-                  }))}
-                  onSelect={setCuisineFilter}
-                  itemNoun="business"
-                  allLabel="Any cuisine"
-                />
-              ) : null}
-
-              {config.groupByCity ? null : (
-              <View>
-                <Text style={{ color: colors.muted, fontSize: 12 * effectiveScale, marginBottom: 6 }} allowFontScaling={false}>
-                  Rail line
-                </Text>
-                <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-                  {LINE_OPTIONS.map((value) => (
-                    <AppButton
-                      key={value}
-                      variant={lineFilter === value ? 'primary' : 'secondary'}
-                      onPress={() => setLineFilter(value)}
-                    >
-                      {value}
-                    </AppButton>
-                  ))}
-                </View>
-              </View>
-              )}
-
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 }}>
-                <Text style={{ color: colors.ink, fontSize: 14 * effectiveScale }} allowFontScaling={false}>
-                  Sort favorites first
-                </Text>
-                <Switch
-                  value={sortByFavorites}
-                  onValueChange={setSortByFavorites}
-                  trackColor={{ false: colors.border, true: colors.brand }}
-                  thumbColor="#fff"
-                  accessibilityLabel="Sort favorites first"
-                />
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 }}>
-                <Text style={{ color: colors.ink, fontSize: 14 * effectiveScale }} allowFontScaling={false}>
-                  Show B Line stops first
-                </Text>
-                <Switch
-                  value={bLineFirst}
-                  onValueChange={setBLineFirst}
-                  trackColor={{ false: colors.border, true: colors.brand }}
-                  thumbColor="#fff"
-                  accessibilityLabel="Show B Line stops first"
-                />
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 }}>
-                <Text style={{ color: colors.ink, fontSize: 14 * effectiveScale }} allowFontScaling={false}>
-                  {config.groupByCity ? 'Sections' : 'Stations'}
-                </Text>
-                <AppButton
-                  variant="secondary"
-                  onPress={() => {
-                    if (collapsedStations.size === 0) {
-                      setCollapsedStations(new Set(groupedVendors.keys()));
-                    } else {
-                      setCollapsedStations(new Set());
-                    }
-                  }}
-                >
-                  {collapsedStations.size === 0 ? 'Collapse all' : 'Expand all'}
-                </AppButton>
-              </View>
-            </View>
-          ) : null}
-
-          {locationPermission === false ? (
-            <Banner tone="info">Location permission denied. Enable it in settings to see nearby businesses sorted by distance.</Banner>
-          ) : null}
-        </GlassCard>
+        {filtersCard}
 
         {loading ? <Spinner /> : null}
         {error ? <Banner tone="error">{error}</Banner> : null}
@@ -699,7 +646,6 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
                       : null;
                   const favorite = isFavorite(vendor.id);
                   const vendorLine = findStop(vendor.station)?.line ?? null;
-                  const locked = vendor.membersOnly && !signedIn;
                   return (
                     <Pressable
                       key={vendor.id}
@@ -735,7 +681,7 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
                           </Text>
                         ) : null}
                         <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
-                          <Pill tone={locked ? 'neutral' : 'success'}>{locked ? '🔒 Members-only' : vendor.discount.label}</Pill>
+                          <Pill tone="success">{vendor.discount.label}</Pill>
                           {vendorLine ? <Pill tone="neutral">{vendorLine}</Pill> : null}
                           {vendor.cuisine ? <Pill tone="neutral">{vendor.cuisine}</Pill> : null}
                           {remaining ? <Pill tone="warning">{remaining}</Pill> : null}
@@ -745,7 +691,7 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
                       <Pressable
                         onPress={() => onToggleFavorite(vendor.id)}
                         accessibilityLabel={
-                          !signedIn ? 'Sign in to save favorites' : favorite ? 'Remove from favorites' : 'Add to favorites'
+                          favorite ? 'Remove from favorites' : 'Add to favorites'
                         }
                         style={{ padding: 8 }}
                       >
@@ -762,6 +708,7 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
         </View>
       );
     })}
+        {config.layout === 'restaurants' ? mapSection : null}
       </ScrollView>
       <ScrollToTopButton visible={showScrollTop} onPress={() => scrollRef.current?.scrollTo({ y: 0, animated: true })} />
       <BusinessModal vendor={selectedVendor} onClose={() => setSelectedVendor(null)} />

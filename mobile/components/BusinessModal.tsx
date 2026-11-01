@@ -4,7 +4,6 @@ import { LiquidGlassView, isLiquidGlassSupported } from '@callstack/liquid-glass
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppButton, Pill, SectionTitle } from '@/components/Ui';
-import { useAuth } from '@/lib/auth';
 import { useAppColorScheme } from '@/lib/colorScheme';
 import { useThemeColors } from '@/lib/useThemeColors';
 import { useDynamicType } from '@/lib/dynamicType';
@@ -45,14 +44,11 @@ export function BusinessModal({ vendor, onClose }: Props) {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const auth = useAuth();
   const { toggle: toggleFavorite, isFavorite } = useFavorites();
 
   if (!vendor) return null;
 
-  const signedIn = Boolean(auth.token);
   const favorite = isFavorite(vendor.id);
-  const locked = vendor.membersOnly && !signedIn;
   const remaining = formatTimeRemaining(vendor.endsAt);
   const line = findStop(vendor.station)?.line ?? null;
 
@@ -71,22 +67,12 @@ export function BusinessModal({ vendor, onClose }: Props) {
     posthog?.capture('discount_redemption_started', {
       vendor_id: vendor!.id,
       vendor_type: vendor!.vendorType ?? 'other',
-      authenticated: signedIn,
     });
     onClose();
     router.push((`/discount?vendorId=${encodeURIComponent(vendor!.id)}`) as never);
   }
 
-  function openAuth() {
-    onClose();
-    router.push('/auth' as never);
-  }
-
   function onFavorite() {
-    if (!signedIn) {
-      openAuth();
-      return;
-    }
     void toggleFavorite(vendor!.id);
   }
 
@@ -139,9 +125,7 @@ export function BusinessModal({ vendor, onClose }: Props) {
               </View>
               <Pressable
                 onPress={onFavorite}
-                accessibilityLabel={
-                  !signedIn ? 'Sign in to save favorites' : favorite ? 'Remove from favorites' : 'Add to favorites'
-                }
+                accessibilityLabel={favorite ? 'Remove from favorites' : 'Add to favorites'}
                 style={{ padding: 6 }}
               >
                 <Text style={{ fontSize: 26 * effectiveScale, color: favorite ? colors.accent : colors.subtle }} allowFontScaling={false}>
@@ -156,7 +140,7 @@ export function BusinessModal({ vendor, onClose }: Props) {
               </Text>
             ) : null}
             <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-              <Pill tone={locked ? 'neutral' : 'success'}>{locked ? '🔒 Members-only deal' : vendor.discount.label}</Pill>
+              <Pill tone="success">{vendor.discount.label}</Pill>
               {vendor.boosted ? <Pill tone="warning">Flash deal</Pill> : null}
               {remaining ? <Pill tone="neutral">{remaining}</Pill> : null}
             </View>
@@ -197,11 +181,7 @@ export function BusinessModal({ vendor, onClose }: Props) {
             </Text>
 
             <View style={{ gap: 10, marginTop: 4 }}>
-              {locked ? (
-                <AppButton onPress={openAuth}>Sign in to redeem this deal</AppButton>
-              ) : (
-                <AppButton onPress={openDiscount}>Show discount QR</AppButton>
-              )}
+              <AppButton onPress={openDiscount}>Show discount QR</AppButton>
               <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
                 {vendor.address ? (
                   <AppButton variant="secondary" onPress={openMaps} style={{ flexGrow: 1 }}>
@@ -226,11 +206,6 @@ export function BusinessModal({ vendor, onClose }: Props) {
               <AppButton variant="secondary" onPress={() => void shareDeal(vendor)}>
                 Share this deal
               </AppButton>
-              {!signedIn ? (
-                <Text style={{ color: colors.muted, fontSize: 12 * effectiveScale, textAlign: 'center' }} allowFontScaling={false}>
-                  Sign in to save favorites and unlock member-exclusive deals.
-                </Text>
-              ) : null}
             </View>
           </ScrollView>
         </View>

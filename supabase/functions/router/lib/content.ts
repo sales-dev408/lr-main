@@ -175,19 +175,28 @@ export interface ThemeSettings {
   brand: string;
   primaryGradient: [string, string];
   tabs: ThemeTab[];
+  /** 'nba-allstar' flips the whole app + admin site to the basketball theme. */
+  mode?: 'nba-allstar';
 }
 
 export const DEFAULT_THEME: ThemeSettings = {
-  brand: '#0d9488',
-  primaryGradient: ['#0d9488', '#6366f1'],
+  brand: '#0e7490',
+  primaryGradient: ['#0e7490', '#ea580c'],
   tabs: [
-    { key: 'index', label: 'Home', color: '#0d9488', gradient: ['#14b8a6', '#0d9488'] },
-    { key: 'live', label: 'Train Schedule', color: '#f59e0b', gradient: ['#fbbf24', '#d97706'] },
-    { key: 'browse', label: 'Browse', color: '#f43f5e', gradient: ['#fb7185', '#e11d48'] },
-    { key: 'events', label: 'Events', color: '#8b5cf6', gradient: ['#a78bfa', '#7c3aed'] },
+    { key: 'index', label: 'Home', color: '#0e7490', gradient: ['#06b6d4', '#0e7490'] },
+    { key: 'events', label: 'Events', color: '#e11d48', gradient: ['#fb7185', '#e11d48'] },
+    { key: 'sports', label: 'Sports', color: '#059669', gradient: ['#34d399', '#059669'] },
+    { key: 'restaurants', label: 'Restaurants & Bars', color: '#ea580c', gradient: ['#fb923c', '#ea580c'] },
+    { key: 'shopping', label: 'Shopping', color: '#7c3aed', gradient: ['#a78bfa', '#7c3aed'] },
+    { key: 'beauty', label: 'Beauty & Health', color: '#db2777', gradient: ['#f472b6', '#db2777'] },
+    { key: 'live', label: 'Train Times', color: '#4f46e5', gradient: ['#818cf8', '#4f46e5'] },
+    { key: 'hotels', label: 'Hotels', color: '#0284c7', gradient: ['#38bdf8', '#0284c7'] },
     { key: 'apartments', label: 'Apartments', color: '#f59e0b', gradient: ['#fbbf24', '#d97706'] },
-    { key: 'discover', label: 'Discover', color: '#10b981', gradient: ['#34d399', '#059669'] },
-    { key: 'profile', label: 'Profile', color: '#0ea5e9', gradient: ['#38bdf8', '#0284c7'] },
+    { key: 'real-estate', label: 'Real Estate', color: '#0d9488', gradient: ['#2dd4bf', '#0d9488'] },
+    { key: 'discover', label: 'Discover Articles', color: '#0d9488', gradient: ['#2dd4bf', '#0d9488'] },
+    { key: 'az-events', label: 'Events Around Arizona', color: '#d97706', gradient: ['#fbbf24', '#d97706'] },
+    { key: 'settings', label: 'Settings', color: '#57534e', gradient: ['#a8a29e', '#57534e'] },
+    { key: 'notifications', label: 'Notifications', color: '#57534e', gradient: ['#a8a29e', '#57534e'] },
   ],
 };
 
@@ -221,6 +230,7 @@ export async function getTheme(): Promise<ThemeSettings> {
     brand: stored.brand ?? DEFAULT_THEME.brand,
     primaryGradient: stored.primaryGradient ?? DEFAULT_THEME.primaryGradient,
     tabs: mergeTabs(stored.tabs),
+    ...(stored.mode === 'nba-allstar' ? { mode: 'nba-allstar' as const } : {}),
   };
 }
 

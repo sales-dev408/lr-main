@@ -2,7 +2,6 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { dbQuery, withDbClient, type PoolClient } from '../db/pool.js';
-import { profileColumns, mapProfileRow, type ProfileRow } from './user.js';
 import { getAdminAnalytics, getVendorAnalytics } from '../services/analytics.js';
 import { buildLookupDiscountView, generateDiscountCode, humanDiscountLabel } from '../services/discounts.js';
 import { generateTempPassword } from '../utils/ids.js';
@@ -10,7 +9,6 @@ import { writeTransactionAudit } from '../services/audit.js';
 import { sendVendorWelcomeEmail, sendDealOfTheDayBlast } from '../services/resend.js';
 import { getAllPushTokens, getPushTokensByCity, sendPushNotifications } from '../services/push.js';
 import { qrCodeUrl } from '../services/quickchart.js';
-import { deleteDiscountFromVendorConnections, syncDiscountToVendorConnections } from '../services/pos.js';
 import { config } from '../config.js';
 
 function isUniqueViolation(error: unknown): boolean {
@@ -118,22 +116,7 @@ const userUpdateSchema = z.object({
 });
 
 export async function registerAdminRoutes(fastify: FastifyInstance): Promise<void> {
-  fastify.get('/api/admin/cards', { preHandler: fastify.requireRole(['admin']) }, async (request) => {
-    const query = request.query as { theme?: string; status?: string };
-    return loadCardsWithBusinesses({
-      ...(query.theme ? { theme: query.theme } : {}),
-      ...(query.status ? { status: query.status } : {}),
-    });
-  });
 
-  fastify.get('/api/admin/cards/:id', { preHandler: fastify.requireRole(['admin']) }, async (request, reply) => {
-    const id = (request.params as { id: string }).id;
-    const cards = await loadCardsWithBusinesses({ id });
-    if (cards.length === 0) {
-      return reply.code(404).send({ error: 'Card not found' });
-    }
-    return cards[0];
-  });
 
   fastify.get('/api/admin/analytics', { preHandler: fastify.requireRole(['admin']) }, async (request) => {
     const query = request.query as { from?: string; to?: string; city?: string };
@@ -534,50 +517,6 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
     return getVendorAnalytics(id);
   });
 
-  fastify.post('/api/admin/marketing/blast', { preHandler: fastify.requireRole(['admin']) }, async (request, reply) => {
-    const body = z.object({
-      subject: z.string().min(1),
-      text: z.string().min(1),
-      html: z.string().optional(),
-      smsText: z.string().optional(),
-    }).parse(request.body);
-
-    const recipients = await dbQuery<{ email: string | null; phone: string | null; promo_email_opt_in: boolean; promo_sms_opt_in: boolean }>(
-      `SELECT email, phone, promo_email_opt_in, promo_sms_opt_in
-       FROM users
-       WHERE (promo_email_opt_in = true AND email IS NOT NULL AND email <> '')
-          OR (promo_sms_opt_in = true AND phone IS NOT NULL AND phone <> '')`,
-    );
-
-    if (recipients.length === 0) {
-      return reply.send({ emails: 0, sms: 0, errors: ['No opted-in recipients'] });
-    }
-
-    const result = await sendDealOfTheDayBlast({
-      subject: body.subject,
-      text: body.text,
-      html: body.html,
-      smsText: body.smsText,
-      recipients: recipients.map((r) => ({
-        email: r.email,
-        phone: r.phone,
-        promoEmailOptIn: r.promo_email_opt_in,
-        promoSmsOptIn: r.promo_sms_opt_in,
-      })),
-    });
-
-    await writeTransactionAudit({
-      actorType: 'admin',
-      actorId: request.user?.sub ?? null,
-      action: 'admin.marketing.blast',
-      entityType: 'marketing_blast',
-      entityId: null,
-      metadata: { recipients: recipients.length, ...result },
-      ip: request.ip,
-    });
-
-    return reply.send(result);
-  });
 
   fastify.post('/api/admin/push', { preHandler: fastify.requireRole(['admin']) }, async (request, reply) => {
     const body = z.object({
@@ -609,98 +548,10 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
     return reply.send({ sent: pushResult.sent, errors: pushResult.errors });
   });
 
-  fastify.post('/api/admin/cards', { preHandler: fastify.requireRole(['admin']) }, async (request, reply) => {
-    const body = cardSchema.parse(request.body);
-    const rows = await dbQuery<{ id: string }>(
-      `
-        INSERT INTO cards (name, theme, description, image_url, logo_url, icon_url, primary_color, secondary_color, qr_size, layout, expiration_date, max_uses, status)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-        RETURNING id
-      `,
-      [
-        body.name,
-        body.theme,
-        body.description ?? null,
-        body.imageUrl ?? null,
-        body.logoUrl ?? null,
-        body.iconUrl ?? null,
-        body.primaryColor ?? null,
-        body.secondaryColor ?? null,
-        body.qrSize ?? 240,
-        body.layout ?? 'qr_bottom',
-        body.expirationDate ?? null,
-        body.maxUses ?? null,
-        body.status ?? 'draft',
-      ],
-    );
-    return reply.code(201).send({ id: rows[0]!.id });
-  });
 
-  fastify.patch('/api/admin/cards/:id', { preHandler: fastify.requireRole(['admin']) }, async (request, reply) => {
-    const id = (request.params as { id: string }).id;
-    const body = cardSchema.partial().parse(request.body);
-    const rows = await dbQuery(
-      `
-        UPDATE cards
-        SET name = COALESCE($2, name),
-            theme = COALESCE($3, theme),
-            description = COALESCE($4, description),
-            image_url = COALESCE($5, image_url),
-            logo_url = COALESCE($6, logo_url),
-            icon_url = COALESCE($7, icon_url),
-            primary_color = COALESCE($8, primary_color),
-            secondary_color = COALESCE($9, secondary_color),
-            qr_size = COALESCE($10, qr_size),
-            layout = COALESCE($11, layout),
-            expiration_date = COALESCE($12, expiration_date),
-            max_uses = COALESCE($13, max_uses),
-            status = COALESCE($14, status),
-            updated_at = now()
-        WHERE id = $1
-        RETURNING *
-      `,
-      [
-        id,
-        body.name ?? null,
-        body.theme ?? null,
-        body.description ?? null,
-        body.imageUrl ?? null,
-        body.logoUrl ?? null,
-        body.iconUrl ?? null,
-        body.primaryColor ?? null,
-        body.secondaryColor ?? null,
-        body.qrSize ?? null,
-        body.layout ?? null,
-        body.expirationDate ?? null,
-        body.maxUses ?? null,
-        body.status ?? null,
-      ],
-    );
-    if (rows.length === 0) {
-      return reply.code(404).send({ error: 'Card not found' });
-    }
-    return rows[0];
-  });
 
-  fastify.delete('/api/admin/cards/:id', { preHandler: fastify.requireRole(['admin']) }, async (request, reply) => {
-    const id = (request.params as { id: string }).id;
-    const rows = await dbQuery('DELETE FROM cards WHERE id = $1 RETURNING id', [id]);
-    if (rows.length === 0) {
-      return reply.code(404).send({ error: 'Card not found' });
-    }
-    return rows;
-  });
 
-  fastify.post('/api/admin/cards/:id/vendors', { preHandler: fastify.requireRole(['admin']) }, async (request) => {
-    const id = (request.params as { id: string }).id;
-    const body = z.object({ vendorId: z.string().uuid() }).parse(request.body);
-    return dbQuery('INSERT INTO card_vendors (card_id, vendor_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING *', [id, body.vendorId]);
-  });
 
-  fastify.delete('/api/admin/cards/:id/vendors/:vendorId', { preHandler: fastify.requireRole(['admin']) }, async (request) => {
-    const params = request.params as { id: string; vendorId: string };
-    return dbQuery('DELETE FROM card_vendors WHERE card_id = $1 AND vendor_id = $2 RETURNING *', [params.id, params.vendorId]);
-  });
 
   fastify.post('/api/admin/discounts', { preHandler: fastify.requireRole(['admin']) }, async (request, reply) => {
     const body = discountSchema.parse(request.body);
@@ -731,9 +582,6 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
       }
       throw error;
     }
-    void syncDiscountToVendorConnections({ discountId: rows[0]!.id, action: 'upsert' }).catch((error) => {
-      fastify.log.warn({ error, discountId: rows[0]!.id }, 'POS auto-sync failed');
-    });
     return reply.code(201).send({ id: rows[0]!.id });
   });
 
@@ -772,17 +620,11 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
     if (rows.length === 0) {
       return reply.code(404).send({ error: 'Discount not found' });
     }
-    void syncDiscountToVendorConnections({ discountId: id, action: 'upsert' }).catch((error) => {
-      fastify.log.warn({ error, discountId: id }, 'POS auto-sync failed');
-    });
     return rows[0];
   });
 
   fastify.delete('/api/admin/discounts/:id', { preHandler: fastify.requireRole(['admin']) }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
-    void deleteDiscountFromVendorConnections({ discountId: id }).catch((error) => {
-      fastify.log.warn({ error, discountId: id }, 'POS auto-sync failed');
-    });
     const rows = await dbQuery('DELETE FROM discounts WHERE id = $1 RETURNING id', [id]);
     if (rows.length === 0) {
       return reply.code(404).send({ error: 'Discount not found' });
@@ -790,188 +632,8 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
     return rows;
   });
 
-  fastify.get('/api/admin/users', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 200, timeWindow: '1 minute' } } }, async (request) => {
-    const query = request.query as { status?: string; search?: string };
-    const status = query.status ?? null;
-    const search = query.search?.trim() ? `%${query.search.trim()}%` : null;
-    const rows = await dbQuery<ProfileRow>(
-      `SELECT ${profileColumns}
-       FROM users
-       WHERE ($1::text IS NULL OR status = $1)
-         AND ($2::text IS NULL OR email::text ILIKE $2 OR phone ILIKE $2 OR full_name ILIKE $2)
-       ORDER BY created_at DESC`,
-      [status, search],
-    );
-    return rows.map((row) => mapProfileRow(row));
-  });
 
-  fastify.get('/api/admin/users/:id', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 200, timeWindow: '1 minute' } } }, async (request, reply) => {
-    const id = (request.params as { id: string }).id;
-    const rows = await dbQuery<ProfileRow>(
-      `SELECT ${profileColumns} FROM users WHERE id = $1 LIMIT 1`,
-      [id],
-    );
-    if (rows.length === 0) {
-      return reply.code(404).send({ error: 'User not found' });
-    }
-    return mapProfileRow(rows[0]!);
-  });
 
-  fastify.patch('/api/admin/users/:id', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 200, timeWindow: '1 minute' } } }, async (request, reply) => {
-    const id = (request.params as { id: string }).id;
-    const body = userUpdateSchema.parse(request.body);
-    // Only keys actually present in the body are written, so an explicit
-    // `null` clears a column while an omitted key leaves it untouched.
-    const columnMap: Record<string, string> = {
-      fullName: 'full_name',
-      email: 'email',
-      phone: 'phone',
-      city: 'city',
-      status: 'status',
-      promoEmailOptIn: 'promo_email_opt_in',
-      promoSmsOptIn: 'promo_sms_opt_in',
-    };
-    const entries: Array<[string, unknown]> = Object.entries(columnMap)
-      .filter(([key]) => (body as Record<string, unknown>)[key] !== undefined)
-      .map(([key, column]) => [column, (body as Record<string, unknown>)[key]]);
-    if (body.pushPreferences !== undefined) {
-      const prefs: Array<[string, keyof NonNullable<typeof body.pushPreferences>]> = [
-        ['push_enabled_new_vendor', 'newVendor'],
-        ['push_enabled_expiring_deal', 'expiringDeal'],
-        ['push_enabled_local_event', 'localEvent'],
-      ];
-      for (const [column, key] of prefs) {
-        const value = body.pushPreferences[key];
-        if (value !== undefined) entries.push([column, value]);
-      }
-    }
-    const rows = entries.length === 0
-      ? await dbQuery<ProfileRow>(`SELECT ${profileColumns} FROM users WHERE id = $1`, [id])
-      : await dbQuery<ProfileRow>(
-          `UPDATE users SET ${entries.map(([column], i) => `${column} = $${i + 2}`).join(', ')}, updated_at = now()
-           WHERE id = $1
-           RETURNING ${profileColumns}`,
-          [id, ...entries.map(([, value]) => value)],
-        );
-    if (rows.length === 0) {
-      return reply.code(404).send({ error: 'User not found' });
-    }
-    return mapProfileRow(rows[0]!);
-  });
 
-  fastify.delete('/api/admin/users/:id', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 200, timeWindow: '1 minute' } } }, async (request, reply) => {
-    const id = (request.params as { id: string }).id;
-    const rows = await dbQuery<{ id: string }>('DELETE FROM users WHERE id = $1 RETURNING id', [id]);
-    if (rows.length === 0) {
-      return reply.code(404).send({ error: 'User not found' });
-    }
-    return reply.code(204).send();
-  });
 }
 
-async function loadCardsWithBusinesses(filters: { id?: string; theme?: string; status?: string }) {
-  const cards = await dbQuery<{
-    id: string;
-    name: string;
-    theme: string;
-    description: string | null;
-    image_url: string | null;
-    logo_url: string | null;
-    icon_url: string | null;
-    primary_color: string | null;
-    secondary_color: string | null;
-    qr_size: number | null;
-    layout: string | null;
-    expiration_date: string | null;
-    max_uses: number | null;
-    status: string;
-  }>(
-    `
-      SELECT *
-      FROM cards
-      WHERE is_membership = true
-        AND ($1::uuid IS NULL OR id = $1::uuid)
-        AND ($2::text IS NULL OR $2 = '' OR theme = $2)
-        AND ($3::text IS NULL OR $3 = '' OR status = $3)
-      ORDER BY created_at DESC
-    `,
-    [filters.id ?? null, filters.theme ?? null, filters.status ?? null],
-  );
-
-  const cardIds = cards.map((card) => card.id);
-  const vendors = cardIds.length
-    ? await dbQuery<{
-        card_id: string;
-        vendor_id: string;
-        vendor_name: string;
-        vendor_city: string | null;
-        discount_id: string | null;
-        discount_type: 'fixed' | 'percent' | 'bogo' | null;
-        discount_value: string | null;
-        min_purchase: string | null;
-        max_uses_total: number | null;
-        max_uses_per_customer: number | null;
-        uses_count: number | null;
-        city_overrides: Record<string, { type?: 'fixed' | 'percent' | 'bogo'; value?: number }> | null;
-        active: boolean | null;
-      }>(
-        `
-          SELECT cv.card_id,
-                 v.id AS vendor_id,
-                 v.name AS vendor_name,
-                 v.city AS vendor_city,
-                 d.id AS discount_id,
-                 d.type AS discount_type,
-                 d.value AS discount_value,
-                 d.min_purchase,
-                 d.max_uses_total,
-                 d.max_uses_per_customer,
-                 d.uses_count,
-                 d.city_overrides,
-                 d.active
-          FROM card_vendors cv
-          JOIN vendors v ON v.id = cv.vendor_id
-          LEFT JOIN discounts d ON d.card_id = cv.card_id AND d.vendor_id = cv.vendor_id
-          WHERE cv.card_id = ANY($1::uuid[])
-          ORDER BY v.name
-        `,
-        [cardIds],
-      )
-    : [];
-
-  return cards.map((card) => {
-    const participating = vendors.filter((vendor) => vendor.card_id === card.id).map((vendor) => {
-      const discount =
-        vendor.discount_id && vendor.discount_type && vendor.discount_value !== null && vendor.min_purchase !== null
-          ? buildLookupDiscountView(
-              {
-                id: vendor.discount_id,
-                cardId: card.id,
-                vendorId: vendor.vendor_id,
-                type: vendor.discount_type,
-                value: vendor.discount_value,
-                minPurchase: vendor.min_purchase,
-                maxUsesTotal: vendor.max_uses_total,
-                maxUsesPerCustomer: vendor.max_uses_per_customer,
-                usesCount: vendor.uses_count ?? 0,
-                cityOverrides: vendor.city_overrides,
-                active: Boolean(vendor.active),
-              },
-              null,
-            )
-          : null;
-
-      return {
-        id: vendor.vendor_id,
-        name: vendor.vendor_name,
-        city: vendor.vendor_city,
-        discount,
-      };
-    });
-
-    return {
-      ...card,
-      participatingBusinesses: participating,
-    };
-  });
-}

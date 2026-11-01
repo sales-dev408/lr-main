@@ -47,7 +47,7 @@ export default function AdminContentScreen() {
       <Screen>
         <Card>
           <SectionTitle title="Editing locked" subtitle="Unlock editing from the sign-in screen first." />
-          <AppButton onPress={() => router.replace('/auth')}>Go to sign in</AppButton>
+          <AppButton onPress={() => router.replace('/settings' as never)}>Go to sign in</AppButton>
         </Card>
       </Screen>
     );

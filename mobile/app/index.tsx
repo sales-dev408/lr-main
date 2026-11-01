@@ -1,17 +1,15 @@
 import { useState } from 'react';
 import { Redirect } from 'expo-router';
 import { LoadingScreen } from '@/components/LoadingScreen';
-import { useAuth } from '@/lib/auth';
 import { useAppTheme } from '@/lib/appTheme';
 import { useLegalAcceptance } from '@/lib/legalAcceptance';
 
 export default function IndexScreen() {
-  const auth = useAuth();
   const appTheme = useAppTheme();
   const legal = useLegalAcceptance();
   const [entered, setEntered] = useState(false);
 
-  if (auth.loading || appTheme.loading || legal.loading) {
+  if (appTheme.loading || legal.loading) {
     return <LoadingScreen />;
   }
 

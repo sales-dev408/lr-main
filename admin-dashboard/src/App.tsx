@@ -5,7 +5,6 @@ import { ApartmentsPage } from './pages/ApartmentsPage';
 import { RealEstatePage } from './pages/RealEstatePage';
 import { ContentPage } from './pages/ContentPage';
 import { LoginPage } from './pages/LoginPage';
-import { MarketingPage } from './pages/MarketingPage';
 import { PushNotificationsPage } from './pages/PushNotificationsPage';
 import { OverviewPage } from './pages/OverviewPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -13,7 +12,6 @@ import { ThemePage } from './pages/ThemePage';
 import { EventsPage } from './pages/EventsPage';
 import { AdsPage } from './pages/AdsPage';
 import { VendorsPage } from './pages/VendorsPage';
-import { UsersPage } from './pages/UsersPage';
 import { StopsPage } from './pages/StopsPage';
 
 export function App() {
@@ -32,8 +30,6 @@ export function App() {
         <Route path="/apartments" element={<ApartmentsPage />} />
         <Route path="/real-estate" element={<RealEstatePage />} />
         <Route path="/stops" element={<StopsPage />} />
-        <Route path="/users" element={<UsersPage />} />
-        <Route path="/marketing" element={<MarketingPage />} />
         <Route path="/push" element={<PushNotificationsPage />} />
         <Route path="/content" element={<ContentPage />} />
         <Route path="/ads" element={<AdsPage />} />

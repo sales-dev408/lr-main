@@ -7,7 +7,6 @@ import {
   isNotificationsMuted,
   setNotificationsMutedLocal,
 } from './notificationInbox';
-import type { CardSummary, PushPreferences, RssEvent } from './types';
 
 type NotificationsModule = typeof import('expo-notifications');
 
@@ -104,9 +103,8 @@ export function listenForNotifications() {
 // token so the backend stops delivering to this device entirely (signed-in
 // users only — anonymous users never have a server token). Unmuting
 // re-registers the token.
-export async function setNotificationsMuted(mutedValue: boolean, signedIn: boolean): Promise<void> {
+export async function setNotificationsMuted(mutedValue: boolean): Promise<void> {
   setNotificationsMutedLocal(mutedValue);
-  if (!signedIn) return;
   try {
     if (mutedValue) {
       await unregisterPushToken();
@@ -118,54 +116,5 @@ export async function setNotificationsMuted(mutedValue: boolean, signedIn: boole
   }
 }
 
-export async function scheduleDealNotifications(cards: CardSummary[], prefs?: PushPreferences): Promise<void> {
-  if (Platform.OS === 'web' || !Notifications || prefs?.expiringDeal === false) return;
-  await cancelScheduledNotifications(DEAL_NOTIFICATION_PREFIX);
 
-  const now = Date.now();
-  for (const card of cards) {
-    if (!card.expiration_date || card.status !== 'active') continue;
-    const expiration = new Date(card.expiration_date).getTime();
-    if (!expiration || expiration <= now) continue;
-    const reminder = new Date(expiration - 24 * 60 * 60 * 1000);
-    if (reminder.getTime() <= now) continue;
-    await Notifications.scheduleNotificationAsync({
-      identifier: `${DEAL_NOTIFICATION_PREFIX}${card.id}`,
-      content: {
-        title: 'Deal expiring soon',
-        body: `${card.name} expires ${new Date(card.expiration_date).toLocaleDateString()}. Use it before it's gone!`,
-        data: { type: 'expiring_deal', cardId: card.id },
-      },
-      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: reminder },
-    });
-  }
-}
 
-function eventMatchesCity(event: RssEvent, city: string): boolean {
-  if (!city) return false;
-  if (event.city && event.city.trim().toLowerCase() === city.trim().toLowerCase()) return true;
-  const haystack = `${event.title} ${event.description ?? ''} ${event.sourceName ?? ''}`.toLowerCase();
-  return haystack.includes(city.toLowerCase());
-}
-
-export async function scheduleEventNotifications(events: RssEvent[], city: string, prefs?: PushPreferences): Promise<void> {
-  if (Platform.OS === 'web' || !Notifications || !city || prefs?.localEvent === false) return;
-  await cancelScheduledNotifications(EVENT_NOTIFICATION_PREFIX);
-
-  const now = Date.now();
-  const cutoff = now + 7 * 24 * 60 * 60 * 1000;
-  for (const event of events) {
-    if (!event.pubDate || !eventMatchesCity(event, city)) continue;
-    const eventTime = new Date(event.pubDate).getTime();
-    if (!eventTime || eventTime <= now || eventTime > cutoff) continue;
-    await Notifications.scheduleNotificationAsync({
-      identifier: `${EVENT_NOTIFICATION_PREFIX}${event.id}`,
-      content: {
-        title: 'Local event happening soon',
-        body: event.title,
-        data: { type: 'local_event', link: event.link },
-      },
-      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(eventTime - 60 * 60 * 1000) },
-    });
-  }
-}

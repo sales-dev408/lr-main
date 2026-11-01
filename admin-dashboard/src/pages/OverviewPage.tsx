@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { getAdminAnalytics, listAdminCards, listAdminVendors } from '../lib/api';
+import { getAdminAnalytics, listAdminVendors } from '../lib/api';
 import { Button, EmptyState, ErrorBanner, InfoCard, PageCard, Spinner } from '../components/Ui';
 import { BarChart } from '../components/Chart';
 import type { AdminAnalyticsResponse, CardSummary, VendorRecord } from '../lib/types';
 
 export function OverviewPage() {
   const [analytics, setAnalytics] = useState<AdminAnalyticsResponse | null>(null);
-  const [cards, setCards] = useState<CardSummary[]>([]);
   const [vendors, setVendors] = useState<VendorRecord[]>([]);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -21,14 +20,13 @@ export function OverviewPage() {
       setLoading(true);
       setError(null);
       try {
-        const [analyticsData, cardsData, vendorsData] = await Promise.all([
+        const [analyticsData, vendorsData] = await Promise.all([
           getAdminAnalytics({ ...(from ? { from } : {}), ...(to ? { to } : {}), ...(city ? { city } : {}) }),
-          listAdminCards(),
           listAdminVendors({}),
         ]);
         if (!active) return;
         setAnalytics(analyticsData);
-        setCards(cardsData);
+        
         setVendors(vendorsData);
       } catch (err) {
         if (!active) return;
@@ -43,7 +41,6 @@ export function OverviewPage() {
     };
   }, [from, to, city]);
 
-  const activeCards = useMemo(() => cards.filter((card) => card.status === 'active').length, [cards]);
   const activeVendors = useMemo(() => vendors.filter((vendor) => vendor.status === 'approved').length, [vendors]);
 
   const vendorRows = useMemo(() => {
@@ -81,7 +78,6 @@ export function OverviewPage() {
           <div className="stats-grid">
             <InfoCard label="Total redemptions" value={analytics.totals.redemptions} />
             <InfoCard label="Unique customers" value={analytics.totals.uniqueCustomers} />
-            <InfoCard label="Active cards" value={activeCards} />
             <InfoCard label="Active vendors" value={activeVendors} />
           </div>
 

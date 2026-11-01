@@ -1,49 +1,28 @@
 import { getApiBaseUrl } from './config';
 import { ApiError } from './errors';
-import { fetchCached, clearCache, getSecureCache, setSecureCache, clearSecureCache } from './cache';
+import { fetchCached } from './cache';
 import type {
   Ad,
   AdminAuthProfile,
   ApartmentRecord,
   AppState,
   AuthResponse,
-  CityOverrideMap,
-  CardDiscount,
-  CardDetail,
   ContentBlock,
   ContentKind,
-  DiscountLookup,
   DiscountType,
-  CardSummary,
-  CreatePassResponse,
   ErrorShape,
-  LookupResult,
-  OnboardingResponse,
-  PassDetail,
-  PushPreferences,
   RealEstateRecord,
-  RedeemResult,
   RssEvent,
   StopRecord,
   ThemeSettings,
-  UserAnalytics,
-  UserProfile,
   VendorListItem,
-  WalletPlatform,
 } from './types';
 import { setStops } from './stops';
 import { getItem, setItem } from './storage';
 
-const AUTH_STORAGE_KEY = 'lr.mobile.auth';
+const PUSH_TOKEN_KEY = 'lr.mobile.pushToken';
 
-type StoredAuth = {
-  token: string;
-  profile: UserProfile;
-};
 
-function normalizeTheme(value: unknown): CardSummary['theme'] {
-  return value === 'sports' || value === 'entertainment' || value === 'shops_restaurants' ? value : 'shops_restaurants';
-}
 
 function toNumber(value: unknown): number {
   const parsed = typeof value === 'number' ? value : Number(value);
@@ -78,97 +57,10 @@ export function inferVendorType(value: unknown): string | null {
   return 'restaurant';
 }
 
-function normalizeDiscount(input: Record<string, unknown>): CardDiscount {
-  const cityOverrides = (input.city_overrides ?? input.cityOverrides ?? {}) as CityOverrideMap;
-  const applied = isRecord(input.applied)
-    ? {
-        type: normalizeDiscountType(input.applied.type),
-        value: toNumber(input.applied.value),
-        description: String(input.applied.description ?? ''),
-        ...(typeof input.applied.instruction === 'string' ? { instruction: input.applied.instruction } : {}),
-      }
-    : undefined;
 
-  return {
-    id: String(input.id),
-    cardId: String(input.cardId ?? input.card_id ?? ''),
-    vendorId: String(input.vendorId ?? input.vendor_id ?? ''),
-    type: normalizeDiscountType(input.type),
-    value: toNumber(input.value),
-    min_purchase: toNumber(input.min_purchase ?? input.minPurchase),
-    max_uses_total: toNullableNumber(input.max_uses_total ?? input.maxUsesTotal),
-    max_uses_per_customer: toNullableNumber(input.max_uses_per_customer ?? input.maxUsesPerCustomer),
-    uses_count: toNumber(input.uses_count ?? input.usesCount),
-    city_overrides: cityOverrides,
-    active: Boolean(input.active),
-    ...(applied ? { applied } : {}),
-  };
-}
 
-function normalizeDiscountType(value: unknown): DiscountType {
-  return value === 'fixed' || value === 'percent' || value === 'bogo' ? value : 'fixed';
-}
 
-function normalizeBusiness(input: Record<string, unknown>) {
-  return {
-    id: String(input.id),
-    name: String(input.name),
-    city: (input.city as string | null | undefined) ?? null,
-    discount: input.discount && isRecord(input.discount) ? normalizeDiscount(input.discount) : null,
-  };
-}
 
-function normalizeCard(input: Record<string, unknown>): CardSummary {
-  const businesses = Array.isArray(input.participatingBusinesses) ? input.participatingBusinesses.map((item) => normalizeBusiness(item as Record<string, unknown>)) : [];
-  const layout = String(input.layout ?? input.layout).trim();
-  return {
-    id: String(input.id),
-    name: String(input.name),
-    theme: normalizeTheme(input.theme),
-    description: (input.description as string | null | undefined) ?? null,
-    image_url: (input.image_url as string | null | undefined) ?? (input.imageUrl as string | null | undefined) ?? null,
-    logo_url: (input.logo_url as string | null | undefined) ?? (input.logoUrl as string | null | undefined) ?? null,
-    icon_url: (input.icon_url as string | null | undefined) ?? (input.iconUrl as string | null | undefined) ?? null,
-    primary_color: (input.primary_color as string | null | undefined) ?? (input.primaryColor as string | null | undefined) ?? null,
-    secondary_color: (input.secondary_color as string | null | undefined) ?? (input.secondaryColor as string | null | undefined) ?? null,
-    qr_size: (input.qr_size as number | null | undefined) ?? (input.qrSize as number | null | undefined) ?? null,
-    layout: layout === 'qr_top' || layout === 'qr_bottom' || layout === 'qr_left' || layout === 'qr_right' ? layout : 'qr_bottom',
-    expiration_date: (input.expiration_date as string | null | undefined) ?? (input.expirationDate as string | null | undefined) ?? null,
-    max_uses: (input.max_uses as number | null | undefined) ?? (input.maxUses as number | null | undefined) ?? null,
-    status: String(input.status),
-    participatingBusinesses: businesses,
-  };
-}
-
-function normalizePassDetail(input: Record<string, unknown>): PassDetail {
-  return {
-    id: String(input.id),
-    user_id: String(input.user_id),
-    card_id: String(input.card_id),
-    platform: input.platform === 'google' ? 'google' : 'apple',
-    serial_number: String(input.serial_number),
-    auth_token: String(input.auth_token),
-    lookup_token: String(input.lookup_token),
-    device_library_id: (input.device_library_id as string | null | undefined) ?? null,
-    push_token: (input.push_token as string | null | undefined) ?? null,
-    created_at: String(input.created_at),
-    updated_at: String(input.updated_at),
-    card_name: (input.card_name as string | undefined) ?? undefined,
-    card_description: (input.card_description as string | null | undefined) ?? undefined,
-  };
-}
-
-async function getStoredAuth(): Promise<StoredAuth | null> {
-  const raw = await getItem(AUTH_STORAGE_KEY);
-  if (!raw) {
-    return null;
-  }
-  try {
-    return JSON.parse(raw) as StoredAuth;
-  } catch {
-    return null;
-  }
-}
 
 async function parseError(response: Response): Promise<{ code: string; message: string }> {
   try {
@@ -188,17 +80,13 @@ async function parseError(response: Response): Promise<{ code: string; message: 
   }
 }
 
+function normalizeDiscountType(value: unknown): DiscountType {
+  return value === 'fixed' || value === 'percent' || value === 'bogo' ? value : 'fixed';
+}
+
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set('Accept', 'application/json');
-  // An explicit Authorization header (e.g. an admin session) wins over the
-  // stored member token.
-  if (!headers.has('Authorization')) {
-    const auth = await getStoredAuth();
-    if (auth?.token) {
-      headers.set('Authorization', `Bearer ${auth.token}`);
-    }
-  }
   if (init.body && !(init.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
   }
@@ -233,24 +121,7 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   return (await response.json()) as T;
 }
 
-export async function login(body: { email?: string; phone?: string; password: string }) {
-  return apiRequest<AuthResponse<UserProfile>>('/auth/login', { method: 'POST', body: JSON.stringify(body) });
-}
 
-export async function register(body: {
-  firstName: string;
-  lastName: string;
-  email?: string;
-  phone?: string;
-  password: string;
-  promoEmailOptIn?: boolean;
-  promoSmsOptIn?: boolean;
-  termsAccepted: boolean;
-  privacyAccepted: boolean;
-  eulaAccepted: boolean;
-}) {
-  return apiRequest<AuthResponse<UserProfile>>('/auth/register', { method: 'POST', body: JSON.stringify(body) });
-}
 
 function normalizeVendor(input: Record<string, unknown>): VendorListItem {
   const discount = isRecord(input.discount) ? input.discount : {};
@@ -489,120 +360,18 @@ export async function listApartments(): Promise<ApartmentRecord[]> {
   return legacy.map(normalizeApartment);
 }
 
-export async function socialLogin(body: { provider: string; token: string; email?: string; fullName?: string }) {
-  return apiRequest<AuthResponse<UserProfile>>('/auth/social', { method: 'POST', body: JSON.stringify(body) });
-}
 
-export async function getOnboarding(code: string) {
-  return apiRequest<OnboardingResponse>(`/onboarding/${encodeURIComponent(code)}`);
-}
 
-export async function listCards(params: { theme?: string; city?: string }) {
-  const query = new URLSearchParams();
-  if (params.theme) {
-    query.set('theme', params.theme);
-  }
-  if (params.city) {
-    query.set('city', params.city);
-  }
-  const queryString = query.toString();
-  const cacheKey = `cards:${params.theme ?? 'all'}:${params.city ?? 'all'}`;
-  return fetchCached(
-    cacheKey,
-    async () => {
-      const cards = await apiRequest<Record<string, unknown>[]>(`/cards${queryString ? `?${queryString}` : ''}`);
-      return cards.map(normalizeCard);
-    },
-    5 * 60 * 1000,
-  );
-}
-
-export async function getCard(id: string, city?: string) {
-  const query = city ? `?city=${encodeURIComponent(city)}` : '';
-  const cacheKey = `card:${id}:${city ?? 'all'}`;
-  return fetchCached(
-    cacheKey,
-    async () => {
-      const card = await apiRequest<Record<string, unknown>>(`/cards/${encodeURIComponent(id)}${query}`);
-      return normalizeCard(card) as CardDetail;
-    },
-    10 * 60 * 1000,
-  );
-}
 
 // Fetches (creating if needed) the current member's single membership pass.
-const MY_PASS_CACHE_KEY = 'my-pass';
-export async function getMyPass() {
-  const cached = await getSecureCache<CreatePassResponse>(MY_PASS_CACHE_KEY, 60 * 1000);
-  if (cached) {
-    return cached;
-  }
-  try {
-    const fresh = await apiRequest<CreatePassResponse>('/me/pass');
-    await setSecureCache(MY_PASS_CACHE_KEY, fresh);
-    return fresh;
-  } catch (error) {
-    const stale = await getSecureCache<CreatePassResponse>(MY_PASS_CACHE_KEY, Number.MAX_SAFE_INTEGER);
-    if (stale) {
-      return stale;
-    }
-    throw error;
-  }
-}
 
 // Ensures the member's membership pass exists and returns it. `cardId` is
 // accepted for backwards compatibility but ignored — there is one membership
 // pass per user.
-export async function createPass(body: { cardId?: string; platform?: WalletPlatform } = {}) {
-  const result = await apiRequest<CreatePassResponse>('/me/pass', {
-    method: 'POST',
-    body: JSON.stringify(body.platform ? { platform: body.platform } : {}),
-  });
-  await clearSecureCache(MY_PASS_CACHE_KEY);
-  await setSecureCache(MY_PASS_CACHE_KEY, result);
-  return result;
-}
 
-export async function getPass(serial: string) {
-  const pass = await apiRequest<Record<string, unknown>>(`/passes/${encodeURIComponent(serial)}`);
-  return normalizePassDetail(pass);
-}
 
-export async function lookupByToken(token: string, city?: string, vendorId?: string) {
-  const query = new URLSearchParams();
-  if (city) {
-    query.set('city', city);
-  }
-  if (vendorId) {
-    query.set('vendorId', vendorId);
-  }
-  const queryString = query.toString();
-  return apiRequest<LookupResult>(`/lookup/${encodeURIComponent(token)}${queryString ? `?${queryString}` : ''}`);
-}
 
-export async function lookupByCard(cardId: string, city?: string, vendorId?: string) {
-  const query = new URLSearchParams();
-  if (city) {
-    query.set('city', city);
-  }
-  if (vendorId) {
-    query.set('vendorId', vendorId);
-  }
-  const queryString = query.toString();
-  return apiRequest<LookupResult>(`/lookup/card/${encodeURIComponent(cardId)}${queryString ? `?${queryString}` : ''}`);
-}
 
-export async function redeem(body: {
-  lookupToken?: string;
-  cardId?: string;
-  userId?: string;
-  vendorId: string;
-  discountId?: string;
-  city?: string;
-  purchaseAmount?: number;
-}) {
-  return apiRequest<RedeemResult>('/redeem', { method: 'POST', body: JSON.stringify(body) });
-}
 
 // ---- CMS content + theme --------------------------------------------------
 
@@ -672,28 +441,19 @@ export async function recordLegalAcceptance(platform: string) {
   });
 }
 
-export async function registerPushToken(token: string, city?: string | null) {
-  return apiRequest('/me/push-token', { method: 'POST', body: JSON.stringify({ token, city }) });
+
+export async function registerPushToken(token: string) {
+  await setItem(PUSH_TOKEN_KEY, token);
+  return apiRequest('/push/register', { method: 'POST', body: JSON.stringify({ token, platform: 'expo' }) });
 }
 
-export async function unregisterPushToken() {
-  return apiRequest('/me/push-token', { method: 'POST', body: JSON.stringify({ token: null }) });
+export async function unregisterPushToken(token?: string) {
+  const t = token ?? (await getItem(PUSH_TOKEN_KEY));
+  if (!t) return;
+  return apiRequest('/push/unregister', { method: 'POST', body: JSON.stringify({ token: t }) });
 }
 
-export async function getMe(): Promise<UserProfile> {
-  return fetchCached('me', () => apiRequest<UserProfile>('/me'), 60 * 1000);
-}
 
-export async function updateMe(body: { city?: string | null; pushPreferences?: PushPreferences; promoEmailOptIn?: boolean; promoSmsOptIn?: boolean }): Promise<UserProfile> {
-  const result = await apiRequest<UserProfile>('/me', { method: 'PATCH', body: JSON.stringify(body) });
-  await clearCache('me');
-  return result;
-}
-
-export async function deleteMe(): Promise<void> {
-  await apiRequest('/me', { method: 'DELETE' });
-  await clearCache('me');
-}
 
 // ---- In-app admin editing -------------------------------------------------
 // The app presents the first/last-name inputs as the credential fields, but the
@@ -738,13 +498,7 @@ export async function adminSaveTheme(token: string, theme: ThemeSettings) {
   return apiRequest<ThemeSettings>('/admin/settings/theme', { method: 'PATCH', headers: adminHeaders(token), body: JSON.stringify(theme) });
 }
 
-export async function getMyAnalytics(): Promise<UserAnalytics> {
-  return fetchCached('my-analytics', () => apiRequest<UserAnalytics>('/me/analytics'), 60 * 1000);
-}
 
-export async function lookupDiscountByCode(code: string): Promise<DiscountLookup> {
-  return apiRequest<DiscountLookup>(`/discounts/by-code/${encodeURIComponent(code)}`);
-}
 
 export interface RedemptionToken {
   token: string;
@@ -774,10 +528,4 @@ export interface PasswordReset {
   success: boolean;
 }
 
-export async function requestPasswordReset(identifier: string): Promise<PasswordResetRequest> {
-  return apiRequest<PasswordResetRequest>('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ identifier: identifier.trim() }) });
-}
 
-export async function resetPassword(body: { identifier: string; code: string; password: string }): Promise<PasswordReset> {
-  return apiRequest<PasswordReset>('/auth/reset-password', { method: 'POST', body: JSON.stringify({ ...body, identifier: body.identifier.trim() }) });
-}

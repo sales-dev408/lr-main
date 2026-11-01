@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { AppButton, Banner, BrandHeader, Card, Pill, Screen, SectionTitle } from '@/components/Ui';
-import { useAuth } from '@/lib/auth';
 import {
   clearInbox,
   markAllInboxRead,
@@ -31,15 +30,13 @@ function formatReceivedAt(ts: number): string {
 export default function NotificationsScreen() {
   const colors = useThemeColors();
   const { effectiveScale } = useDynamicType();
-  const auth = useAuth();
   const { entries, muted, unread } = useNotificationInbox();
   const [muteBusy, setMuteBusy] = useState(false);
-  const signedIn = Boolean(auth.token);
 
   async function toggleMuted(value: boolean) {
     setMuteBusy(true);
     try {
-      await setNotificationsMuted(value, signedIn);
+      await setNotificationsMuted(value);
     } finally {
       setMuteBusy(false);
     }

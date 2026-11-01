@@ -9,6 +9,7 @@ export default function RestaurantsScreen() {
       subtitle="Dining and nightlife along the light rail"
       adSlot={2}
       config={{
+        layout: 'restaurants',
         vendorTypes: ['restaurant', 'bar', 'cafe'],
         cuisineFilter: true,
         typeOptions: [

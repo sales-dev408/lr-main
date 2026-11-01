@@ -52,6 +52,7 @@ export default function AzEventsScreen() {
   const pendingSection = useRef<number | null>(null);
   const [viewMode, setViewMode] = useState<AzViewMode>('all');
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
 
   const sections = useMemo<MonthSection[]>(() => {
     // Past events drop off automatically once their last day has ended.
@@ -86,7 +87,7 @@ export default function AzEventsScreen() {
       <Link href="/events" asChild>
         <AppButton variant="secondary">← Back to Events</AppButton>
       </Link>
-      <SectionTitle title="Arizona Master Events Calendar" subtitle="September 2026 – August 2027 · statewide" />
+      <SectionTitle title="Arizona Master Events Calendar" subtitle="November 2026 – August 2027 · statewide" />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
         {LEGEND.map((entry) => (
           <View key={entry.kind} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -113,14 +114,14 @@ export default function AzEventsScreen() {
         {sections.map((section) => (
           <Pressable
             key={section.title}
-            onPress={() => scrollToMonth(section.index)}
+            onPress={() => { setSelectedMonth(section.title); scrollToMonth(section.index); }}
             hitSlop={6}
             accessibilityRole="button"
             accessibilityLabel={`Jump to ${section.title}`}
             style={({ pressed }) => ({
               borderRadius: 999,
               borderWidth: 1,
-              borderColor: colors.border,
+              borderColor: selectedMonth === section.title ? colors.brand : colors.border,
               backgroundColor: pressed ? colors.brand : colors.panel,
               paddingHorizontal: 12,
               paddingVertical: 6,

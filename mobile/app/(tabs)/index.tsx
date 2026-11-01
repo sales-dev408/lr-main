@@ -1,10 +1,8 @@
-import { useMemo } from 'react';
 import { Image, ImageBackground, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { Link } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AdBanner } from '@/components/AdBanner';
 import { AppButton, Card, Screen, SectionTitle } from '@/components/Ui';
-import { useAuth } from '@/lib/auth';
 import { useThemeColors } from '@/lib/useThemeColors';
 import { useDynamicType } from '@/lib/dynamicType';
 
@@ -25,12 +23,8 @@ function QuickAction({ label, href, emoji }: { label: string; href: `/${string}`
 export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const { effectiveScale } = useDynamicType();
-  const auth = useAuth();
 
-  const greeting = useMemo(() => {
-    const name = auth.profile?.fullName?.split(' ')[0];
-    return name ? `Welcome back, ${name}` : 'Explore the Valley Metro';
-  }, [auth.profile?.fullName]);
+  const greeting = 'Explore the Valley Metro';
 
   const heroHeight = Math.min(280, Math.max(200, width * 0.55));
 
@@ -94,7 +88,7 @@ export default function HomeScreen() {
         <AdBanner slot={1} />
 
         <Card>
-          <SectionTitle title="Around the Valley" subtitle="More guides and your account" />
+          <SectionTitle title="Around the Valley" subtitle="More guides and settings" />
           <View style={{ gap: 10 }}>
             <Link href="/apartments" asChild>
               <AppButton variant="secondary">Apartments near the rail</AppButton>
@@ -105,8 +99,8 @@ export default function HomeScreen() {
             <Link href="/discover" asChild>
               <AppButton variant="secondary">Discover</AppButton>
             </Link>
-            <Link href="/profile" asChild>
-              <AppButton variant="secondary">Profile & settings</AppButton>
+            <Link href={"/settings" as never} asChild>
+              <AppButton variant="secondary">Settings</AppButton>
             </Link>
           </View>
         </Card>

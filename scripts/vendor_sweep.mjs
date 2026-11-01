@@ -77,7 +77,7 @@ await client.connect();
 
 const vendors = (await client.query(
   `SELECT id, name, address, city, category, vendor_type, cuisine, station, latitude, longitude
-   FROM vendors WHERE status = 'approved' ORDER BY name`,
+   FROM vendors WHERE status = 'approved' ORDER BY name${process.env.VENDOR_SWEEP_LIMIT ? ' LIMIT ' + Number(process.env.VENDOR_SWEEP_LIMIT) : ''}`,
 )).rows;
 console.log(`sweeping ${vendors.length} vendors`);
 

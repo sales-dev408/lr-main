@@ -5,7 +5,6 @@ import { Button, ErrorBanner, Input, PageCard, SuccessBanner, Textarea } from '.
 export function PushNotificationsPage() {
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
-  const [city, setCity] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
@@ -19,8 +18,7 @@ export function PushNotificationsPage() {
       const res = await sendPushNotification({
         title: title.trim(),
         message: message.trim(),
-        city: city.trim() || undefined,
-      });
+        });
       if (res.sent === 0) {
         setResult(res.message ?? 'No push tokens registered for the selected audience.');
       } else {
@@ -29,7 +27,6 @@ export function PushNotificationsPage() {
       }
       setTitle('');
       setMessage('');
-      setCity('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to send push notification');
     } finally {
@@ -72,15 +69,6 @@ export function PushNotificationsPage() {
               required
             />
           </label>
-          <label>
-            City (optional)
-            <Input
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              placeholder="Leave blank to send to all members"
-            />
-          </label>
-          <small className="muted">If a city is specified, only members who set that city in their profile will receive the notification.</small>
           <Button type="submit" disabled={sending || !title.trim() || !message.trim()}>
             {sending ? 'Sending…' : 'Send push notification'}
           </Button>

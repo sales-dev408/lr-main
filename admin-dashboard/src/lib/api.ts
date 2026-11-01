@@ -362,44 +362,11 @@ export async function listAdminCards(): Promise<CardSummary[]> {
   return cards.map((card) => normalizeCard(card));
 }
 
-export async function getCard(id: string): Promise<CardDetailResponse> {
-  const card = await apiRequest<Record<string, unknown>>(`/admin/cards/${id}`);
-  return normalizeCard(card) as CardDetailResponse;
-}
 
-export async function createCard(body: {
-  name: string;
-  theme: string;
-  description?: string;
-  imageUrl?: string;
-  logoUrl?: string;
-  iconUrl?: string;
-  primaryColor?: string;
-  secondaryColor?: string;
-  qrSize?: number;
-  layout?: string;
-  expirationDate?: string;
-  maxUses?: number;
-  status?: string;
-}): Promise<{ id: string }> {
-  return apiRequest('/admin/cards', { method: 'POST', body: jsonBody(body) });
-}
 
-export async function updateCard(id: string, body: Partial<Record<string, unknown>>): Promise<Record<string, unknown>> {
-  return apiRequest(`/admin/cards/${id}`, { method: 'PATCH', body: jsonBody(body) });
-}
 
-export async function deleteCard(id: string): Promise<unknown> {
-  return apiRequest(`/admin/cards/${id}`, { method: 'DELETE' });
-}
 
-export async function addCardVendor(cardId: string, vendorId: string): Promise<unknown> {
-  return apiRequest(`/admin/cards/${cardId}/vendors`, { method: 'POST', body: jsonBody({ vendorId }) });
-}
 
-export async function removeCardVendor(cardId: string, vendorId: string): Promise<unknown> {
-  return apiRequest(`/admin/cards/${cardId}/vendors/${vendorId}`, { method: 'DELETE' });
-}
 
 export async function createDiscount(body: {
   cardId: string;
@@ -462,8 +429,8 @@ export async function listContent(): Promise<ContentBlock[]> {
 export async function createContent(body: {
   kind: ContentKind;
   title: string;
-  body?: string;
-  url?: string;
+  body?: string | null;
+  url?: string | null;
   dataUrl?: string;
   position?: number;
   published?: boolean;
@@ -482,11 +449,8 @@ export async function deleteContent(id: string): Promise<{ deleted: boolean }> {
   return apiRequest(`/admin/content/${id}`, { method: 'DELETE' });
 }
 
-export async function sendMarketingBlast(body: { subject: string; text: string; html?: string; smsText?: string }): Promise<{ emails: number; sms: number; errors: string[] }> {
-  return apiRequest('/admin/marketing/blast', { method: 'POST', body: jsonBody(body) });
-}
 
-export async function sendPushNotification(body: { title: string; message: string; city?: string }): Promise<{ sent: number; message?: string; errors?: string[] }> {
+export async function sendPushNotification(body: { title: string; message: string; campaignKey?: string }): Promise<{ sent: number; targeted?: number; skipped?: number; campaignId?: string; message?: string; errors?: string[] }> {
   return apiRequest('/admin/push', { method: 'POST', body: jsonBody(body) });
 }
 

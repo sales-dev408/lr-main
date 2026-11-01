@@ -27,10 +27,7 @@ export async function getAdminAnalytics(filters: { from?: string; to?: string; c
     `SELECT v.id AS vendor_id, v.name AS vendor_name, COUNT(r.id)::text AS redemptions FROM redemptions r JOIN vendors v ON v.id = r.vendor_id ${clause} GROUP BY v.id, v.name ORDER BY COUNT(r.id) DESC`,
     values,
   );
-  const cardUsage = await dbQuery<{ card_id: string; card_name: string; redemptions: string }>(
-    `SELECT c.id AS card_id, c.name AS card_name, COUNT(r.id)::text AS redemptions FROM redemptions r JOIN cards c ON c.id = r.card_id ${clause} GROUP BY c.id, c.name ORDER BY COUNT(r.id) DESC`,
-    values,
-  );
+  const cardUsage: Array<{ card_id: string; card_name: string; redemptions: string }> = [];
   const timeSeries = await dbQuery<{ day: string; redemptions: string }>(
     `SELECT to_char(date_trunc('day', redeemed_at), 'YYYY-MM-DD') AS day, COUNT(*)::text AS redemptions FROM redemptions WHERE redeemed_at >= now() - interval '30 days' ${filters.city ? 'AND city = $1' : ''} GROUP BY 1 ORDER BY 1`,
     filters.city ? [filters.city] : [],
@@ -54,10 +51,7 @@ export async function getVendorAnalytics(vendorId: string) {
     `SELECT to_char(date_trunc('day', redeemed_at), 'YYYY-MM-DD') AS day, COUNT(*)::text AS redemptions FROM redemptions WHERE vendor_id = $1 GROUP BY 1 ORDER BY 1 DESC LIMIT 30`,
     [vendorId],
   );
-  const cards = await dbQuery<{ card_id: string; card_name: string; redemptions: string; unique_customers: string }>(
-    `SELECT c.id AS card_id, c.name AS card_name, COUNT(r.id)::text AS redemptions, COUNT(DISTINCT r.user_id)::text AS unique_customers FROM redemptions r JOIN cards c ON c.id = r.card_id WHERE r.vendor_id = $1 GROUP BY c.id, c.name ORDER BY COUNT(r.id) DESC`,
-    [vendorId],
-  );
+  const cards: Array<{ card_id: string; card_name: string; redemptions: string; unique_customers: string }> = [];
   const aggregate = await dbQuery<{ redemptions: string; unique_customers: string }>(
     `SELECT COUNT(*)::text AS redemptions, COUNT(DISTINCT user_id)::text AS unique_customers FROM redemptions WHERE vendor_id = $1`,
     [vendorId],

@@ -40,11 +40,12 @@ export function inferVendorType(category: string | null | undefined): string | n
   if (!raw) return null;
   const lower = raw.toLowerCase();
   if (lower === 'restaurant' || lower === 'bar' || lower === 'cafe' || lower === 'other' || lower === 'beauty' || lower === 'boutique') return lower;
-  if (/(beauty|barber|salon|nail|lash|brow|spa\b|hair)/i.test(raw)) return 'beauty';
+  if (lower === 'services') return 'other';
+  if (/(beauty|barber|salon|nail|lash|brow|spa\b|hair|wellness|urgent care|pharmacy|clinic|dental|massage|tattoo|fitness|gym|yoga|chiropract|eyecare|health)/i.test(raw)) return 'beauty';
   if (/boutique/i.test(raw)) return 'boutique';
   if (/(bar|pub|brew|tavern|lounge|cocktail|wine|beer|rooftop|live music)/i.test(raw)) return 'bar';
   if (/(caf|coffee)/i.test(raw)) return 'cafe';
-  if (/(convenience|market|store|retail|shop|sport|entertainment|music)/i.test(raw)) return 'other';
+  if (/(convenience|market|store|retail|shop|sport|entertainment|music|service)/i.test(raw)) return 'other';
   return 'restaurant';
 }
 
@@ -85,35 +86,11 @@ export interface CreateVendorResult {
   vendor: { id: string; name: string; ownerName: string | null; address: string | null; category: string; email: string | null; phone: string | null };
   discountCode: string;
   discount: { id: string; type: DiscountType; value: number; label: string };
-  membershipCard: { id: string; name: string };
-  posInstructions: string;
 }
 
-function posInstructions(code: string, label: string): string {
-  return [
-    `Activate the "${label}" member discount in your point-of-sale system:`,
-    '1. Ask the customer to show their Light Rail membership pass and scan its barcode (or check the participating-business list in the app).',
-    `2. Apply this discount using code ${code}.`,
-    '3. No NFC or special hardware is required — any barcode scanner or manual keypad works.',
-  ].join('\n');
-}
-
-// Returns the id of the singleton membership card, creating it if needed.
-export async function getMembershipCardId(client: PoolClient): Promise<{ id: string; name: string }> {
-  const existing = await client.query<{ id: string; name: string }>('SELECT id, name FROM cards WHERE is_membership = true LIMIT 1');
-  if (existing.rows[0]) return existing.rows[0];
-  const created = await client.query<{ id: string; name: string }>(
-    `INSERT INTO cards (name, theme, description, status, is_membership)
-     VALUES ('Light Rail Membership', 'shops_restaurants', 'Your all-in-one membership card. Show it at any participating business for member discounts.', 'active', true)
-     RETURNING id, name`,
-  );
-  return created.rows[0]!;
-}
-
-// "Add a vendor" workflow for the membership model: creates the vendor, attaches
-// its exclusive discount to the single membership card, and generates a
-// POS-friendly discount code. No per-vendor wallet pass is created — every
-// member carries one membership pass that unlocks all vendor discounts.
+// "Add a vendor" workflow: creates the vendor and its exclusive discount,
+// which hangs off the vendor directly (the membership card system is gone).
+// Anyone with the app can redeem the deal via the anonymous QR flow.
 export async function createVendorWithDiscount(input: CreateVendorInput): Promise<CreateVendorResult> {
   const label = humanDiscountLabel(input.discountType, input.discountValue);
 
@@ -156,23 +133,21 @@ export async function createVendorWithDiscount(input: CreateVendorInput): Promis
         await client.query('UPDATE vendors SET icon_url = COALESCE($2, icon_url), logo_url = COALESCE($3, logo_url) WHERE id = $1', [vendorId, iconUrl, logoUrl]);
       }
 
-      const membership = await getMembershipCardId(client);
       const discountCode = generateDiscountCode({ merchantId: input.name || vendorId, type: input.discountType, value: input.discountValue });
 
-      await client.query('INSERT INTO card_vendors (card_id, vendor_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [membership.id, vendorId]);
       const discountRows = await client.query<{ id: string }>(
-        `INSERT INTO discounts (card_id, vendor_id, type, value, discount_code, description, active, starts_at, ends_at, boosted, members_only)
-         VALUES ($1, $2, $3, $4, $5, $6, true, $7, $8, $9, $10)
-         ON CONFLICT (card_id, vendor_id) DO UPDATE SET type = EXCLUDED.type, value = EXCLUDED.value, discount_code = COALESCE(discounts.discount_code, EXCLUDED.discount_code), description = EXCLUDED.description, active = true, starts_at = EXCLUDED.starts_at, ends_at = EXCLUDED.ends_at, boosted = EXCLUDED.boosted, members_only = EXCLUDED.members_only, updated_at = now()
+        `INSERT INTO discounts (vendor_id, type, value, discount_code, description, active, starts_at, ends_at, boosted, members_only)
+         VALUES ($1, $2, $3, $4, $5, true, $6, $7, $8, $9)
+         ON CONFLICT (vendor_id) DO UPDATE SET type = EXCLUDED.type, value = EXCLUDED.value, discount_code = COALESCE(discounts.discount_code, EXCLUDED.discount_code), description = EXCLUDED.description, active = true, starts_at = EXCLUDED.starts_at, ends_at = EXCLUDED.ends_at, boosted = EXCLUDED.boosted, members_only = EXCLUDED.members_only, updated_at = now()
          RETURNING id`,
-        [membership.id, vendorId, input.discountType, input.discountValue, discountCode, discountDescription, input.discountStartsAt ?? null, input.discountEndsAt ?? null, input.boosted ?? false, input.membersOnly ?? false],
+        [vendorId, input.discountType, input.discountValue, discountCode, discountDescription, input.discountStartsAt ?? null, input.discountEndsAt ?? null, input.boosted ?? false, input.membersOnly ?? false],
       );
       const discountId = discountRows.rows[0]!.id;
 
       await client.query(
         `INSERT INTO transactions (actor_type, action, entity_type, entity_id, metadata)
          VALUES ('admin', 'admin.vendor.create', 'vendor', $1, $2::jsonb)`,
-        [vendorId, { name: input.name, discountCode, membershipCardId: membership.id }],
+        [vendorId, { name: input.name, discountCode }],
       );
 
       await client.query('COMMIT');
@@ -181,8 +156,6 @@ export async function createVendorWithDiscount(input: CreateVendorInput): Promis
         vendor: { id: vendorId, name: input.name, ownerName: input.ownerName ?? null, address: input.address ?? null, category: input.category, email: input.email ?? null, phone: input.phone ?? null },
         discountCode,
         discount: { id: discountId, type: input.discountType, value: input.discountValue, label },
-        membershipCard: { id: membership.id, name: membership.name },
-        posInstructions: posInstructions(discountCode, label),
       };
 
       if (input.email) {
@@ -260,9 +233,7 @@ export async function getVendorDirectory(vendorId?: string): Promise<VendorDirec
   const [vendors, discounts] = await Promise.all([
     restQuery<Record<string, unknown>>('vendors', vendorParams),
     restQuery<Record<string, unknown>>('discounts', [
-      ['select', 'vendor_id,type,value,discount_code,description,starts_at,ends_at,boosted,members_only,card_id,cards!inner(is_membership,status,icon_url,logo_url)'],
-      ['cards.is_membership', 'eq.true'],
-      ['cards.status', 'eq.active'],
+      ['select', 'vendor_id,type,value,discount_code,description,starts_at,ends_at,boosted,members_only'],
       ['active', 'eq.true'],
       ['or', `(starts_at.is.null,starts_at.lte.${now})`],
       ['or', `(ends_at.is.null,ends_at.gte.${now})`],
@@ -280,7 +251,6 @@ export async function getVendorDirectory(vendorId?: string): Promise<VendorDirec
     .map((v) => {
       const d = byVendor.get(v.id as string);
       if (!d) return null;
-      const card = (d.cards as Record<string, unknown> | null) ?? null;
       return {
         ...v,
         discount_type: d.type ?? null,
@@ -291,9 +261,6 @@ export async function getVendorDirectory(vendorId?: string): Promise<VendorDirec
         ends_at: d.ends_at ?? null,
         boosted: d.boosted ?? false,
         members_only: d.members_only ?? false,
-        card_id: d.card_id ?? '',
-        card_icon: card?.icon_url ?? null,
-        card_logo: card?.logo_url ?? null,
       };
     })
     .filter((r): r is NonNullable<typeof r> => r !== null)
@@ -321,8 +288,8 @@ export async function getVendorDirectory(vendorId?: string): Promise<VendorDirec
       latitude: row.latitude,
       longitude: row.longitude,
       posSystem: row.pos_system,
-      iconUrl: row.icon_url ?? row.card_icon,
-      logoUrl: row.logo_url ?? row.card_logo,
+      iconUrl: row.icon_url,
+      logoUrl: row.logo_url,
       phone: row.phone,
       website: row.website,
       membersOnly: row.members_only,
@@ -342,7 +309,7 @@ export async function getVendorDirectory(vendorId?: string): Promise<VendorDirec
       boosted: row.boosted,
       startsAt: row.starts_at,
       endsAt: row.ends_at,
-      cardId: row.card_id ?? '',
+      cardId: '',
       walletUrl: null,
     };
   });
@@ -357,7 +324,6 @@ export async function getAdminVendorById(id: string): Promise<Record<string, unk
      LEFT JOIN LATERAL (
        SELECT d.type, d.value, d.discount_code, d.description, d.starts_at, d.ends_at, d.boosted, d.members_only
        FROM discounts d
-       JOIN cards c ON c.id = d.card_id AND c.is_membership = true
        WHERE d.vendor_id = v.id
        ORDER BY d.created_at DESC
        LIMIT 1
