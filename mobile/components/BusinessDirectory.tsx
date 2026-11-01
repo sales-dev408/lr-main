@@ -46,6 +46,17 @@ export type DirectoryConfig = {
   cityOrder?: string[];
 };
 
+// The five primary cuisine families from the restructure spec. Each cuisine
+// string in the data is matched into a family; tapping a family reveals the
+// actual cuisine sub-types present in the results.
+const CUISINE_GROUPS: Array<{ label: string; pattern: RegExp }> = [
+  { label: 'American', pattern: /american|bbq|bar-?b-?que|burger|steak|seafood|southern|comfort|wing|diner|breakfast|brunch|sandwich|cajun|smash|deli|smok/i },
+  { label: 'Mexican', pattern: /mexican|tex-?mex|taco|burrito|taquer|southwest|latin|mariscos/i },
+  { label: 'Italian', pattern: /italian|pizza|pasta|pizzeria/i },
+  { label: 'Mediterranean', pattern: /mediterranean|greek|turkish|lebanese|middle east|shawarma|falafel|kebab/i },
+  { label: 'Asian', pattern: /chinese|japanese|korean|thai|vietnam|indian|filipino|sushi|ramen|pho|asian|laotian|hawaiian|dim sum|malaysian|indonesian|tibetan|nepalese/i },
+];
+
 function distanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -105,6 +116,7 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
   const [typeFilter, setTypeFilter] = useState<string>('All');
   const [cuisineFilter, setCuisineFilter] = useState<string>('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
+  const [cuisineGroup, setCuisineGroup] = useState<string | null>(null);
   const [selectedVendor, setSelectedVendor] = useState<VendorListItem | null>(null);
   const [search, setSearch] = useState('');
   // The applied term — only updates when the user submits the search so
@@ -215,6 +227,15 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [pageVendors]);
 
+  const groupCuisines = useMemo(() => {
+    if (!cuisineGroup) return [];
+    if (cuisineGroup === 'Other') {
+      return cuisineOptions.filter((c) => !CUISINE_GROUPS.some((g) => g.pattern.test(c)));
+    }
+    const group = CUISINE_GROUPS.find((g) => g.label === cuisineGroup);
+    return group ? cuisineOptions.filter((c) => group.pattern.test(c)) : [];
+  }, [cuisineGroup, cuisineOptions]);
+
   const categoryOptions = useMemo(() => {
     const set = new Set<string>();
     for (const v of pageVendors) {
@@ -250,12 +271,20 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
     if (cuisineFilter) {
       list = list.filter((v) => (v.cuisine ?? '').toLowerCase() === cuisineFilter.toLowerCase());
     }
+    if (!cuisineFilter && cuisineGroup) {
+      if (cuisineGroup === 'Other') {
+        list = list.filter((v) => !v.cuisine || !CUISINE_GROUPS.some((g) => g.pattern.test(v.cuisine ?? '')));
+      } else {
+        const group = CUISINE_GROUPS.find((g) => g.label === cuisineGroup);
+        if (group) list = list.filter((v) => v.cuisine != null && group.pattern.test(v.cuisine ?? ''));
+      }
+    }
     if (categoryFilter) {
       const needle = categoryFilter.toLowerCase();
       list = list.filter((v) => (v.category ?? '').toLowerCase() === needle);
     }
     return list;
-  }, [pageVendors, searchTerm, activeTypeOption, cuisineFilter, categoryFilter]);
+  }, [pageVendors, searchTerm, activeTypeOption, cuisineFilter, cuisineGroup, categoryFilter]);
 
   const groupedVendors = useMemo(() => {
     const groups = new Map<string, VendorListItem[]>();
@@ -507,19 +536,43 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
         </AppButton>
       </View>
       {config.cuisineFilter && cuisineOptions.length > 0 ? (
-        <View style={{ marginTop: 8 }}>
-          <SimpleListPicker
-            label="Cuisine Filter"
-            selected={cuisineFilter}
-            entries={cuisineOptions.map((c) => ({
-              value: c,
-              label: c.charAt(0).toUpperCase() + c.slice(1),
-              count: pageVendors.filter((v) => (v.cuisine ?? '').toLowerCase() === c.toLowerCase()).length,
-            }))}
-            onSelect={setCuisineFilter}
-            itemNoun="business"
-            allLabel="All cuisines"
-          />
+        <View style={{ marginTop: 8, gap: 8 }}>
+          <Text style={{ color: colors.muted, fontSize: 12 * effectiveScale }} allowFontScaling={false}>
+            Cuisine Filter
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+            <AppButton
+              variant={!cuisineGroup && !cuisineFilter ? 'primary' : 'secondary'}
+              onPress={() => { setCuisineGroup(null); setCuisineFilter(''); }}
+            >
+              All cuisines
+            </AppButton>
+            {[...CUISINE_GROUPS.map((g) => g.label), 'Other'].map((label) => (
+              <AppButton
+                key={label}
+                variant={cuisineGroup === label ? 'primary' : 'secondary'}
+                onPress={() => {
+                  setCuisineGroup(cuisineGroup === label ? null : label);
+                  setCuisineFilter('');
+                }}
+              >
+                {label}
+              </AppButton>
+            ))}
+          </View>
+          {cuisineGroup && groupCuisines.length > 0 ? (
+            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+              {groupCuisines.map((c) => (
+                <AppButton
+                  key={c}
+                  variant={cuisineFilter === c ? 'primary' : 'secondary'}
+                  onPress={() => setCuisineFilter(cuisineFilter === c ? '' : c)}
+                >
+                  {`${c.charAt(0).toUpperCase() + c.slice(1)} (${pageVendors.filter((v) => (v.cuisine ?? '').toLowerCase() === c.toLowerCase()).length})`}
+                </AppButton>
+              ))}
+            </View>
+          ) : null}
         </View>
       ) : null}
       {config.categoryDropdown && categoryOptions.length > 0 ? (
@@ -600,7 +653,7 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
 
         {adSlot ? <AdBanner slot={adSlot} /> : null}
 
-        {config.layout === 'restaurants' ? null : mapSection}
+        {mapSection}
 
         {filtersCard}
 
@@ -708,7 +761,6 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
         </View>
       );
     })}
-        {config.layout === 'restaurants' ? mapSection : null}
       </ScrollView>
       <ScrollToTopButton visible={showScrollTop} onPress={() => scrollRef.current?.scrollTo({ y: 0, animated: true })} />
       <BusinessModal vendor={selectedVendor} onClose={() => setSelectedVendor(null)} />
