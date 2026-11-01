@@ -18,7 +18,7 @@ export default function TabLayout() {
         <Tabs.Screen name="sports" options={{ title: 'Sports' }} />
         <Tabs.Screen name="restaurants" options={{ title: 'Restaurants & Bars' }} />
         <Tabs.Screen name="shopping" options={{ title: 'Shopping' }} />
-        <Tabs.Screen name="beauty" options={{ title: 'Beauty & Health' }} />
+        <Tabs.Screen name="beauty" options={{ title: 'Health & Beauty' }} />
         <Tabs.Screen name="live" options={{ title: 'Train Times' }} />
         <Tabs.Screen name="hotels" options={{ title: 'Hotels' }} />
         <Tabs.Screen name="apartments" options={{ title: 'Apartments' }} />

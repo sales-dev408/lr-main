@@ -561,17 +561,18 @@ export function BusinessDirectory({ title, subtitle, config, adSlot = 2 }: Props
             ))}
           </View>
           {cuisineGroup && groupCuisines.length > 0 ? (
-            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-              {groupCuisines.map((c) => (
-                <AppButton
-                  key={c}
-                  variant={cuisineFilter === c ? 'primary' : 'secondary'}
-                  onPress={() => setCuisineFilter(cuisineFilter === c ? '' : c)}
-                >
-                  {`${c.charAt(0).toUpperCase() + c.slice(1)} (${pageVendors.filter((v) => (v.cuisine ?? '').toLowerCase() === c.toLowerCase()).length})`}
-                </AppButton>
-              ))}
-            </View>
+            <SimpleListPicker
+              label={`${cuisineGroup} cuisine`}
+              selected={cuisineFilter}
+              entries={groupCuisines.map((c) => ({
+                value: c,
+                label: c.charAt(0).toUpperCase() + c.slice(1),
+                count: pageVendors.filter((v) => (v.cuisine ?? '').toLowerCase() === c.toLowerCase()).length,
+              }))}
+              onSelect={setCuisineFilter}
+              itemNoun="business"
+              allLabel={`All ${cuisineGroup.toLowerCase()}`}
+            />
           ) : null}
         </View>
       ) : null}

@@ -188,7 +188,7 @@ export const DEFAULT_THEME: ThemeSettings = {
     { key: 'sports', label: 'Sports', color: '#059669', gradient: ['#34d399', '#059669'] },
     { key: 'restaurants', label: 'Restaurants & Bars', color: '#ea580c', gradient: ['#fb923c', '#ea580c'] },
     { key: 'shopping', label: 'Shopping', color: '#7c3aed', gradient: ['#a78bfa', '#7c3aed'] },
-    { key: 'beauty', label: 'Beauty & Health', color: '#db2777', gradient: ['#f472b6', '#db2777'] },
+    { key: 'beauty', label: 'Health & Beauty', color: '#db2777', gradient: ['#f472b6', '#db2777'] },
     { key: 'live', label: 'Train Times', color: '#4f46e5', gradient: ['#818cf8', '#4f46e5'] },
     { key: 'hotels', label: 'Hotels', color: '#0284c7', gradient: ['#38bdf8', '#0284c7'] },
     { key: 'apartments', label: 'Apartments', color: '#f59e0b', gradient: ['#fbbf24', '#d97706'] },

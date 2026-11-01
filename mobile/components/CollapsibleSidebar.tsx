@@ -25,7 +25,7 @@ const PRIMARY_ITEMS: NavItem[] = [
   { key: 'sports', label: 'Sports', icon: '🏀', href: '/sports' },
   { key: 'restaurants', label: 'Restaurants & Bars', icon: '🍽', href: '/restaurants' },
   { key: 'shopping', label: 'Shopping', icon: '🛍', href: '/shopping' },
-  { key: 'beauty', label: 'Beauty & Health', icon: '💅', href: '/beauty' },
+  { key: 'beauty', label: 'Health & Beauty', icon: '💅', href: '/beauty' },
   { key: 'live', label: 'Train Times', icon: '⚡', href: '/live' },
   { key: 'hotels', label: 'Hotels', icon: '🏨', href: '/hotels' },
   { key: 'apartments', label: 'Apartments', icon: '🏢', href: '/apartments' },
