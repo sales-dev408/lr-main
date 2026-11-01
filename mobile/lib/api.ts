@@ -230,6 +230,7 @@ const VERSION_CHECK_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const bundledSeed = require('../assets/app-snapshot.json') as Record<string, unknown> | null;
 
 let versionCache: { version: string; at: number } | null = null;
+let stateMemo: { version: string; state: AppState } | null = null;
 
 export function clearVersionCache(): void {
   versionCache = null;
@@ -274,6 +275,10 @@ export async function getAppState(): Promise<AppState | null> {
     // Backend is unavailable; fall through and try the cached version below.
   }
 
+  // In-memory hit: skip the storage read + multi-MB JSON.parse entirely.
+  if (stateMemo && stateMemo.version === currentVersion) {
+    return stateMemo.state;
+  }
   const cachedVersion = await getItem(APP_STATE_VERSION_KEY);
   const cachedData = await getItem(APP_STATE_DATA_KEY);
   if (cachedVersion === currentVersion && cachedData) {
@@ -285,6 +290,7 @@ export async function getAppState(): Promise<AppState | null> {
         await fetchMissingStops(cached);
       }
       setStops(cached?.stops ?? []);
+      stateMemo = { version: currentVersion, state: cached };
       return cached;
     } catch {
       // ignore parse error and fetch fresh below
@@ -298,6 +304,7 @@ export async function getAppState(): Promise<AppState | null> {
     // directly so the stop picker and vendor grouping work regardless.
     await fetchMissingStops(state);
     setStops(state.stops);
+    stateMemo = { version: currentVersion, state };
     await setItem(APP_STATE_VERSION_KEY, currentVersion);
     await setItem(APP_STATE_DATA_KEY, JSON.stringify(state));
     return state;

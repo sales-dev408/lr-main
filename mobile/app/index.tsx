@@ -9,7 +9,7 @@ export default function IndexScreen() {
   const legal = useLegalAcceptance();
   const [entered, setEntered] = useState(false);
 
-  if (appTheme.loading || legal.loading) {
+  if (legal.loading) {
     return <LoadingScreen />;
   }
 
