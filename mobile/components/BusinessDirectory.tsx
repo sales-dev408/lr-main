@@ -49,7 +49,7 @@ export type DirectoryConfig = {
 // The five primary cuisine families from the restructure spec. Each cuisine
 // string in the data is matched into a family; tapping a family reveals the
 // actual cuisine sub-types present in the results.
-const CUISINE_GROUPS: Array<{ label: string; pattern: RegExp }> = [
+const CUISINE_GROUPS: { label: string; pattern: RegExp }[] = [
   { label: 'American', pattern: /american|bbq|bar-?b-?que|burger|steak|seafood|southern|comfort|wing|diner|breakfast|brunch|sandwich|cajun|smash|deli|smok/i },
   { label: 'Mexican', pattern: /mexican|tex-?mex|taco|burrito|taquer|southwest|latin|mariscos/i },
   { label: 'Italian', pattern: /italian|pizza|pasta|pizzeria/i },
