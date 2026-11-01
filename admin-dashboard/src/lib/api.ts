@@ -292,15 +292,15 @@ export async function updateAdminVendor(
   id: string,
   body: {
     name?: string;
-    ownerName?: string;
-    address?: string;
+    ownerName?: string | null;
+    address?: string | null;
     station?: string | null;
-    category?: 'Sports' | 'Dining' | 'Entertainment';
-    email?: string;
-    phone?: string;
+    category?: 'Sports' | 'Dining' | 'Entertainment' | null;
+    email?: string | null;
+    phone?: string | null;
     website?: string | null;
-    latitude?: number;
-    longitude?: number;
+    latitude?: number | null;
+    longitude?: number | null;
     status?: string;
     discountType?: 'fixed' | 'percent' | 'bogo';
     discountValue?: number;
@@ -473,7 +473,7 @@ export async function createContent(body: {
 
 export async function updateContent(
   id: string,
-  body: Partial<{ kind: ContentKind; title: string; body: string; url: string; dataUrl: string; position: number; published: boolean }>,
+  body: Partial<{ kind: ContentKind; title: string; body: string | null; url: string | null; dataUrl: string | null; position: number; published: boolean }>,
 ): Promise<ContentBlock> {
   return apiRequest(`/admin/content/${id}`, { method: 'PATCH', body: jsonBody(body) });
 }

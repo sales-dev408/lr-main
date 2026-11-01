@@ -17,6 +17,7 @@ interface ThemeSettings {
   brand: string;
   primaryGradient: [string, string];
   tabs: ThemeTab[];
+  mode?: string;
 }
 
 const DEFAULT_THEME: ThemeSettings = {
@@ -56,6 +57,7 @@ async function getTheme(): Promise<ThemeSettings> {
     brand: stored.brand ?? DEFAULT_THEME.brand,
     primaryGradient: stored.primaryGradient ?? DEFAULT_THEME.primaryGradient,
     tabs: mergeTabs(stored.tabs),
+    ...(stored.mode ? { mode: stored.mode } : {}),
   };
 }
 

@@ -507,16 +507,18 @@ export function VendorsPage() {
         return Number.isNaN(d.getTime()) ? null : d.toISOString();
       };
       const numOrUndef = (v: unknown) => (v === null || v === undefined || v === '' ? undefined : Number.isFinite(Number(v)) ? Number(v) : undefined);
+      // Send explicit `null` for cleared fields — the backend treats null as
+      // "clear this column" and an absent key as "leave unchanged".
       await updateAdminVendor(editing.id, {
         name: editing.name.trim(),
-        ownerName: editing.owner_name?.trim() || undefined,
-        address: (editing.address ?? editing.location)?.trim() || undefined,
+        ownerName: editing.owner_name?.trim() || null,
+        address: (editing.address ?? editing.location)?.trim() || null,
         station: editing.station || null,
-        latitude: numOrUndef(editing.latitude),
-        longitude: numOrUndef(editing.longitude),
-        category: (editing.category as VendorCategory | null) || undefined,
-        email: editing.email?.trim() || undefined,
-        phone: editing.phone?.trim() || undefined,
+        latitude: editing.latitude == null ? null : numOrUndef(editing.latitude),
+        longitude: editing.longitude == null ? null : numOrUndef(editing.longitude),
+        category: (editing.category as VendorCategory | null) || null,
+        email: editing.email?.trim() || null,
+        phone: editing.phone?.trim() || null,
         website: editing.website?.trim() || null,
         status: editing.status,
         ...(editing.discount_type || value !== null ? { discountType: kind } : {}),

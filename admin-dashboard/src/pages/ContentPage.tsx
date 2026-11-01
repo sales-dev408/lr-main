@@ -77,8 +77,9 @@ export function ContentPage() {
       const payload = {
         kind: form.kind,
         title: form.title,
-        body: form.body || undefined,
-        url: form.url || undefined,
+        // Explicit null clears stored values; undefined leaves them alone.
+        body: form.body || null,
+        url: form.url || null,
         dataUrl: dataUrl || undefined,
         position: Number(form.position) || 0,
         published: form.published,

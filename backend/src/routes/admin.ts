@@ -61,16 +61,16 @@ const cardSchema = z.object({
 
 const vendorSchema = z.object({
   name: z.string().min(1),
-  ownerName: z.string().optional(),
-  location: z.string().optional(),
-  city: z.string().optional(),
-  address: z.string().optional(),
+  ownerName: z.string().optional().nullable(),
+  location: z.string().optional().nullable(),
+  city: z.string().optional().nullable(),
+  address: z.string().optional().nullable(),
   station: z.string().optional().nullable(),
-  category: z.string().optional(),
+  category: z.string().optional().nullable(),
   posType: z.enum(['square', 'stripe', 'clover', 'toast', 'other']).optional(),
   posSystem: z.string().optional(),
-  email: z.string().email().optional(),
-  phone: z.string().optional(),
+  email: z.string().email().optional().nullable(),
+  phone: z.string().optional().nullable(),
   website: z.string().optional().nullable(),
   password: z.string().min(8).optional(),
   status: z.enum(['pending', 'approved', 'rejected', 'suspended']).optional(),
@@ -82,10 +82,10 @@ const vendorSchema = z.object({
   membersOnly: z.boolean().optional(),
   discountTerms: z.string().optional().nullable(),
   discountDescription: z.string().optional().nullable(),
-  latitude: z.number().optional(),
-  longitude: z.number().optional(),
-  iconDataUrl: z.string().optional(),
-  logoDataUrl: z.string().optional(),
+  latitude: z.number().optional().nullable(),
+  longitude: z.number().optional().nullable(),
+  iconDataUrl: z.string().optional().nullable(),
+  logoDataUrl: z.string().optional().nullable(),
 });
 
 const discountSchema = z.object({
@@ -94,8 +94,8 @@ const discountSchema = z.object({
   type: z.enum(['fixed', 'percent', 'bogo']),
   value: z.number(),
   minPurchase: z.number().default(0),
-  maxUsesTotal: z.number().int().positive().optional(),
-  maxUsesPerCustomer: z.number().int().positive().optional(),
+  maxUsesTotal: z.number().int().positive().optional().nullable(),
+  maxUsesPerCustomer: z.number().int().positive().optional().nullable(),
   cityOverrides: z.record(z.string(), z.object({ type: z.enum(['fixed', 'percent', 'bogo']).optional(), value: z.number().optional() })).default({}),
   active: z.boolean().default(true),
 });
@@ -266,12 +266,12 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
 
       const discountRows = await client.query<{ id: string }>(
         `
-          INSERT INTO discounts (card_id, vendor_id, type, value, discount_code, description, active, starts_at, ends_at, boosted)
-          VALUES ($1, $2, $3, $4, $5, $6, true, $7, $8, $9)
-          ON CONFLICT (card_id, vendor_id) DO UPDATE SET type = EXCLUDED.type, value = EXCLUDED.value, discount_code = COALESCE(discounts.discount_code, EXCLUDED.discount_code), description = EXCLUDED.description, active = true, starts_at = EXCLUDED.starts_at, ends_at = EXCLUDED.ends_at, boosted = EXCLUDED.boosted, updated_at = now()
+          INSERT INTO discounts (card_id, vendor_id, type, value, discount_code, description, active, starts_at, ends_at, boosted, members_only)
+          VALUES ($1, $2, $3, $4, $5, $6, true, $7, $8, $9, $10)
+          ON CONFLICT (card_id, vendor_id) DO UPDATE SET type = EXCLUDED.type, value = EXCLUDED.value, discount_code = COALESCE(discounts.discount_code, EXCLUDED.discount_code), description = EXCLUDED.description, active = true, starts_at = EXCLUDED.starts_at, ends_at = EXCLUDED.ends_at, boosted = EXCLUDED.boosted, members_only = EXCLUDED.members_only, updated_at = now()
           RETURNING id
         `,
-        [cardId, vendorId, discountType, discountValue, discountCode, discountDescription, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? false],
+        [cardId, vendorId, discountType, discountValue, discountCode, discountDescription, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? false, body.membersOnly ?? false],
       );
 
       return {
@@ -324,34 +324,50 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
     if (body.discountType === 'bogo' && (!body.discountDescription || !body.discountDescription.trim())) {
       return reply.code(400).send({ error: 'BOGO discounts require a description' });
     }
-    const address = body.address ?? body.location;
+
+    // Only keys actually present in the body are written, so an explicit
+    // `null` clears a column while an omitted key leaves it untouched.
+    const VENDOR_UPDATE_COLUMNS: Record<string, string> = {
+      name: 'name',
+      ownerName: 'owner_name',
+      city: 'city',
+      station: 'station',
+      category: 'category',
+      email: 'email',
+      phone: 'phone',
+      status: 'status',
+      latitude: 'latitude',
+      longitude: 'longitude',
+      iconDataUrl: 'icon_url',
+      logoDataUrl: 'logo_url',
+      discountTerms: 'discount_terms',
+      website: 'website',
+    };
+    const setClauses: string[] = [];
+    const values: unknown[] = [id];
+    const push = (column: string, value: unknown) => {
+      values.push(value);
+      setClauses.push(`${column} = $${values.length}`);
+    };
+    for (const [key, column] of Object.entries(VENDOR_UPDATE_COLUMNS)) {
+      const value = (body as Record<string, unknown>)[key];
+      if (value !== undefined) push(column, value);
+    }
+    // `address` and `location` are always written together.
+    if (body.address !== undefined || body.location !== undefined) {
+      const address = body.address !== undefined ? body.address : body.location;
+      push('location', address);
+      push('address', address);
+    }
+
     let rows;
     try {
-      rows = await dbQuery(
-        `
-          UPDATE vendors
-          SET name = COALESCE($2, name),
-              owner_name = COALESCE($3, owner_name),
-              location = COALESCE($4, location),
-              address = COALESCE($4, address),
-              city = COALESCE($5, city),
-              station = COALESCE($6, station),
-              category = COALESCE($7, category),
-              email = COALESCE($8, email),
-              phone = COALESCE($9, phone),
-              status = COALESCE($10, status),
-              latitude = COALESCE($11, latitude),
-              longitude = COALESCE($12, longitude),
-              icon_url = COALESCE($13, icon_url),
-              logo_url = COALESCE($14, logo_url),
-              discount_terms = COALESCE($15, discount_terms),
-              website = COALESCE($16, website),
-              updated_at = now()
-          WHERE id = $1
-          RETURNING *
-        `,
-        [id, body.name ?? null, body.ownerName ?? null, address ?? null, body.city ?? null, body.station ?? null, body.category ?? null, body.email ?? null, body.phone ?? null, body.status ?? null, body.latitude ?? null, body.longitude ?? null, body.iconDataUrl ?? null, body.logoDataUrl ?? null, body.discountTerms ?? null, body.website ?? null],
-      );
+      rows = setClauses.length === 0
+        ? await dbQuery<Record<string, unknown>>('SELECT * FROM vendors WHERE id = $1', [id])
+        : await dbQuery<Record<string, unknown>>(
+            `UPDATE vendors SET ${setClauses.join(', ')}, updated_at = now() WHERE id = $1 RETURNING *`,
+            values,
+          );
     } catch (error) {
       if (isUniqueViolation(error)) {
         return reply.code(409).send({ error: 'A vendor with this email already exists.' });
@@ -363,14 +379,32 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
       return reply.code(404).send({ error: 'Vendor not found' });
     }
 
-    if (body.discountType !== undefined || body.discountValue !== undefined || body.discountStartsAt !== undefined || body.discountEndsAt !== undefined || body.boosted !== undefined || body.membersOnly !== undefined || body.discountDescription !== undefined) {
-      const discountDescription = body.discountDescription?.trim();
-      if (body.discountType !== undefined || body.discountValue !== undefined) {
-        // Upsert so vendors without a membership discount row get one created;
-        // a plain UPDATE would silently affect zero rows.
-        const membership = await dbQuery<{ id: string }>(`SELECT id FROM cards WHERE is_membership = true LIMIT 1`);
-        const membershipId = membership[0]?.id;
-        if (membershipId) {
+    const discountFieldsPresent =
+      body.discountType !== undefined || body.discountValue !== undefined || body.discountStartsAt !== undefined ||
+      body.discountEndsAt !== undefined || body.boosted !== undefined || body.membersOnly !== undefined ||
+      body.discountDescription !== undefined;
+
+    if (discountFieldsPresent) {
+      const discountDescription = body.discountDescription?.trim() ?? (body.discountDescription === null ? null : undefined);
+      // Presence-aware column updates for the membership discount row; an
+      // explicit null clears the value (e.g. removing a flash-deal window).
+      const DISCOUNT_COLUMNS: Array<[string, unknown]> = [
+        ['type', body.discountType],
+        ['value', body.discountValue],
+        ['description', discountDescription],
+        ['starts_at', body.discountStartsAt],
+        ['ends_at', body.discountEndsAt],
+        ['boosted', body.boosted],
+        ['members_only', body.membersOnly],
+      ];
+      const membership = await dbQuery<{ id: string }>(`SELECT id FROM cards WHERE is_membership = true LIMIT 1`);
+      const membershipId = membership[0]?.id;
+      if (membershipId) {
+        const existing = await dbQuery<{ id: string }>(
+          'SELECT id FROM discounts WHERE vendor_id = $1 AND card_id = $2 LIMIT 1',
+          [id, membershipId],
+        );
+        if (existing.length === 0 && (body.discountType !== undefined || body.discountValue !== undefined)) {
           await dbQuery(`INSERT INTO card_vendors (card_id, vendor_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [membershipId, id]);
           const discountCode = generateDiscountCode({
             merchantId: String(rows[0]?.name ?? id),
@@ -378,40 +412,23 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
             value: body.discountValue ?? 0,
           });
           await dbQuery(
-            `
-              INSERT INTO discounts (card_id, vendor_id, type, value, discount_code, description, active, starts_at, ends_at, boosted, members_only)
-              VALUES ($2, $1, COALESCE($3, 'percent'), COALESCE($4, 0), $5, $6, true, $7, $8, $9, COALESCE($10, false))
-              ON CONFLICT (card_id, vendor_id) DO UPDATE SET
-                type = COALESCE($3, discounts.type),
-                value = COALESCE($4, discounts.value),
-                discount_code = COALESCE(discounts.discount_code, EXCLUDED.discount_code),
-                description = COALESCE($6, discounts.description),
-                starts_at = COALESCE($7, discounts.starts_at),
-                ends_at = COALESCE($8, discounts.ends_at),
-                boosted = COALESCE($9, discounts.boosted),
-                members_only = COALESCE($10, discounts.members_only),
-                active = true,
-                updated_at = now()
-            `,
-            [id, membershipId, body.discountType ?? null, body.discountValue ?? null, discountCode, discountDescription ?? null, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? null, body.membersOnly ?? null],
+            `INSERT INTO discounts (card_id, vendor_id, type, value, discount_code, description, active, starts_at, ends_at, boosted, members_only)
+             VALUES ($2, $1, COALESCE($3, 'percent'), COALESCE($4, 0), $5, $6, true, $7, $8, COALESCE($9, false), COALESCE($10, false))`,
+            [id, membershipId, body.discountType ?? null, body.discountValue ?? null, discountCode,
+             discountDescription ?? null, body.discountStartsAt ?? null, body.discountEndsAt ?? null,
+             body.boosted ?? null, body.membersOnly ?? null],
           );
+        } else if (existing.length > 0) {
+          const sets = DISCOUNT_COLUMNS
+            .filter(([, value]) => value !== undefined)
+            .map(([column], index) => `${column} = $${index + 3}`);
+          if (sets.length > 0) {
+            await dbQuery(
+              `UPDATE discounts SET ${sets.join(', ')}, updated_at = now() WHERE vendor_id = $1 AND card_id = $2`,
+              [id, membershipId, ...DISCOUNT_COLUMNS.filter(([, value]) => value !== undefined).map(([, value]) => value)],
+            );
+          }
         }
-      } else {
-        await dbQuery(
-          `
-            UPDATE discounts
-            SET type = COALESCE($2, type),
-                value = COALESCE($3, value),
-                description = COALESCE($4, description),
-                starts_at = COALESCE($5, starts_at),
-                ends_at = COALESCE($6, ends_at),
-                boosted = COALESCE($7, boosted),
-                members_only = COALESCE($8, members_only),
-                updated_at = now()
-            WHERE vendor_id = $1 AND card_id = (SELECT id FROM cards WHERE is_membership = true LIMIT 1)
-          `,
-          [id, body.discountType ?? null, body.discountValue ?? null, discountDescription ?? null, body.discountStartsAt ?? null, body.discountEndsAt ?? null, body.boosted ?? null, body.membersOnly ?? null],
-        );
       }
     }
 
@@ -619,7 +636,7 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
     return reply.code(201).send({ id: rows[0]!.id });
   });
 
-  fastify.patch('/api/admin/cards/:id', { preHandler: fastify.requireRole(['admin']) }, async (request) => {
+  fastify.patch('/api/admin/cards/:id', { preHandler: fastify.requireRole(['admin']) }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const body = cardSchema.partial().parse(request.body);
     const rows = await dbQuery(
@@ -659,12 +676,19 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
         body.status ?? null,
       ],
     );
-    return rows[0] ?? {};
+    if (rows.length === 0) {
+      return reply.code(404).send({ error: 'Card not found' });
+    }
+    return rows[0];
   });
 
-  fastify.delete('/api/admin/cards/:id', { preHandler: fastify.requireRole(['admin']) }, async (request) => {
+  fastify.delete('/api/admin/cards/:id', { preHandler: fastify.requireRole(['admin']) }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
-    return dbQuery('DELETE FROM cards WHERE id = $1 RETURNING id', [id]);
+    const rows = await dbQuery('DELETE FROM cards WHERE id = $1 RETURNING id', [id]);
+    if (rows.length === 0) {
+      return reply.code(404).send({ error: 'Card not found' });
+    }
+    return rows;
   });
 
   fastify.post('/api/admin/cards/:id/vendors', { preHandler: fastify.requireRole(['admin']) }, async (request) => {
@@ -716,37 +740,29 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
   fastify.patch('/api/admin/discounts/:id', { preHandler: fastify.requireRole(['admin']) }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const body = discountSchema.partial().parse(request.body);
+    // Only keys actually present in the body are written, so an explicit
+    // `null` clears a column (e.g. removing a usage limit) while an omitted
+    // key leaves it untouched.
+    const entries: Array<[string, unknown]> = [];
+    if (body.cardId !== undefined) entries.push(['card_id', body.cardId]);
+    if (body.vendorId !== undefined) entries.push(['vendor_id', body.vendorId]);
+    if (body.type !== undefined) entries.push(['type', body.type]);
+    if (body.value !== undefined) entries.push(['value', body.value]);
+    if (body.minPurchase !== undefined) entries.push(['min_purchase', body.minPurchase]);
+    if (body.maxUsesTotal !== undefined) entries.push(['max_uses_total', body.maxUsesTotal]);
+    if (body.maxUsesPerCustomer !== undefined) entries.push(['max_uses_per_customer', body.maxUsesPerCustomer]);
+    if (body.cityOverrides !== undefined) entries.push(['city_overrides', JSON.stringify(body.cityOverrides)]);
+    if (body.active !== undefined) entries.push(['active', body.active]);
     let rows: Record<string, unknown>[];
     try {
-      rows = await dbQuery<Record<string, unknown>>(
-        `
-          UPDATE discounts
-          SET card_id = COALESCE($2, card_id),
-              vendor_id = COALESCE($3, vendor_id),
-              type = COALESCE($4, type),
-              value = COALESCE($5, value),
-              min_purchase = COALESCE($6, min_purchase),
-              max_uses_total = COALESCE($7, max_uses_total),
-              max_uses_per_customer = COALESCE($8, max_uses_per_customer),
-              city_overrides = COALESCE($9::jsonb, city_overrides),
-              active = COALESCE($10, active),
-              updated_at = now()
-          WHERE id = $1
-          RETURNING *
-        `,
-        [
-          id,
-          body.cardId ?? null,
-          body.vendorId ?? null,
-          body.type ?? null,
-          body.value ?? null,
-          body.minPurchase ?? null,
-          body.maxUsesTotal ?? null,
-          body.maxUsesPerCustomer ?? null,
-          body.cityOverrides ? JSON.stringify(body.cityOverrides) : null,
-          body.active ?? null,
-        ],
-      );
+      rows = entries.length === 0
+        ? await dbQuery<Record<string, unknown>>('SELECT * FROM discounts WHERE id = $1', [id])
+        : await dbQuery<Record<string, unknown>>(
+            `UPDATE discounts SET ${entries.map(([column], i) => `${column} = $${i + 2}${column === 'city_overrides' ? '::jsonb' : ''}`).join(', ')}, updated_at = now()
+             WHERE id = $1
+             RETURNING *`,
+            [id, ...entries.map(([, value]) => value)],
+          );
     } catch (error) {
       if (isUniqueViolation(error)) {
         return reply.code(409).send({ error: 'A discount already exists for this vendor on this card. Edit the existing discount instead.' });
@@ -762,12 +778,16 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
     return rows[0];
   });
 
-  fastify.delete('/api/admin/discounts/:id', { preHandler: fastify.requireRole(['admin']) }, async (request) => {
+  fastify.delete('/api/admin/discounts/:id', { preHandler: fastify.requireRole(['admin']) }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     void deleteDiscountFromVendorConnections({ discountId: id }).catch((error) => {
       fastify.log.warn({ error, discountId: id }, 'POS auto-sync failed');
     });
-    return dbQuery('DELETE FROM discounts WHERE id = $1 RETURNING id', [id]);
+    const rows = await dbQuery('DELETE FROM discounts WHERE id = $1 RETURNING id', [id]);
+    if (rows.length === 0) {
+      return reply.code(404).send({ error: 'Discount not found' });
+    }
+    return rows;
   });
 
   fastify.get('/api/admin/users', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 200, timeWindow: '1 minute' } } }, async (request) => {
@@ -800,35 +820,39 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
   fastify.patch('/api/admin/users/:id', { preHandler: fastify.requireRole(['admin']), config: { rateLimit: { max: 200, timeWindow: '1 minute' } } }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const body = userUpdateSchema.parse(request.body);
-    const rows = await dbQuery<ProfileRow>(
-      `UPDATE users
-       SET full_name = COALESCE($2, full_name),
-           email = COALESCE($3, email),
-           phone = COALESCE($4, phone),
-           city = COALESCE($5, city),
-           status = COALESCE($6, status),
-           push_enabled_new_vendor = COALESCE($7, push_enabled_new_vendor),
-           push_enabled_expiring_deal = COALESCE($8, push_enabled_expiring_deal),
-           push_enabled_local_event = COALESCE($9, push_enabled_local_event),
-           promo_email_opt_in = COALESCE($10, promo_email_opt_in),
-           promo_sms_opt_in = COALESCE($11, promo_sms_opt_in),
-           updated_at = now()
-       WHERE id = $1
-       RETURNING ${profileColumns}`,
-      [
-        id,
-        body.fullName ?? null,
-        body.email ?? null,
-        body.phone ?? null,
-        body.city ?? null,
-        body.status ?? null,
-        body.pushPreferences?.newVendor ?? null,
-        body.pushPreferences?.expiringDeal ?? null,
-        body.pushPreferences?.localEvent ?? null,
-        body.promoEmailOptIn ?? null,
-        body.promoSmsOptIn ?? null,
-      ],
-    );
+    // Only keys actually present in the body are written, so an explicit
+    // `null` clears a column while an omitted key leaves it untouched.
+    const columnMap: Record<string, string> = {
+      fullName: 'full_name',
+      email: 'email',
+      phone: 'phone',
+      city: 'city',
+      status: 'status',
+      promoEmailOptIn: 'promo_email_opt_in',
+      promoSmsOptIn: 'promo_sms_opt_in',
+    };
+    const entries: Array<[string, unknown]> = Object.entries(columnMap)
+      .filter(([key]) => (body as Record<string, unknown>)[key] !== undefined)
+      .map(([key, column]) => [column, (body as Record<string, unknown>)[key]]);
+    if (body.pushPreferences !== undefined) {
+      const prefs: Array<[string, keyof NonNullable<typeof body.pushPreferences>]> = [
+        ['push_enabled_new_vendor', 'newVendor'],
+        ['push_enabled_expiring_deal', 'expiringDeal'],
+        ['push_enabled_local_event', 'localEvent'],
+      ];
+      for (const [column, key] of prefs) {
+        const value = body.pushPreferences[key];
+        if (value !== undefined) entries.push([column, value]);
+      }
+    }
+    const rows = entries.length === 0
+      ? await dbQuery<ProfileRow>(`SELECT ${profileColumns} FROM users WHERE id = $1`, [id])
+      : await dbQuery<ProfileRow>(
+          `UPDATE users SET ${entries.map(([column], i) => `${column} = $${i + 2}`).join(', ')}, updated_at = now()
+           WHERE id = $1
+           RETURNING ${profileColumns}`,
+          [id, ...entries.map(([, value]) => value)],
+        );
     if (rows.length === 0) {
       return reply.code(404).send({ error: 'User not found' });
     }

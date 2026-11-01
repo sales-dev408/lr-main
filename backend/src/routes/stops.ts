@@ -49,19 +49,27 @@ export async function createStop(input: z.infer<typeof stopSchema>): Promise<Sto
 
 type StopUpdateInput = Omit<Partial<z.infer<typeof stopSchema>>, 'name'> & { name?: string | undefined };
 
+// Only keys actually present in `input` are written, so an explicit `null`
+// clears a column while an omitted key leaves it untouched.
+const STOP_UPDATE_COLUMNS: Record<string, string> = {
+  name: 'name',
+  city: 'city',
+  line: 'line',
+  position: 'position',
+  latitude: 'latitude',
+  longitude: 'longitude',
+};
+
 export async function updateStop(id: string, input: StopUpdateInput): Promise<StopRecord | null> {
+  const entries = Object.entries(input).filter(([key, value]) => value !== undefined && STOP_UPDATE_COLUMNS[key]);
+  if (entries.length === 0) return getStop(id);
+  const setClauses = entries.map(([key], index) => `${STOP_UPDATE_COLUMNS[key]} = $${index + 2}`);
+  const values = entries.map(([, value]) => value);
   const rows = await dbQuery<StopRecord>(
-    `UPDATE stops
-     SET name = COALESCE($2, name),
-         city = COALESCE($3, city),
-         line = COALESCE($4, line),
-         position = COALESCE($5, position),
-         latitude = COALESCE($6, latitude),
-         longitude = COALESCE($7, longitude),
-         updated_at = now()
+    `UPDATE stops SET ${setClauses.join(', ')}, updated_at = now()
      WHERE id = $1
      RETURNING id, name, city, line, position, latitude, longitude, created_at, updated_at`,
-    [id, input.name ?? null, input.city ?? null, input.line ?? null, input.position ?? null, input.latitude ?? null, input.longitude ?? null],
+    [id, ...values],
   );
   return rows[0] ?? null;
 }

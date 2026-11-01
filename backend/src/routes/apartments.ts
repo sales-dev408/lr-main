@@ -113,12 +113,27 @@ export async function createApartment(input: z.infer<typeof apartmentSchema>): P
 
 type ApartmentUpdateInput = Omit<Partial<z.infer<typeof apartmentSchema>>, 'name'> & { name?: string | undefined };
 
+const APARTMENT_UPDATE_COLUMNS: Record<string, string> = {
+  name: 'name',
+  listing_type: 'listing_type',
+  section: 'section',
+  station: 'station',
+  address: 'address',
+  city: 'city',
+  state: 'state',
+  zip: 'zip',
+  phone: 'phone',
+  website: 'website',
+  latitude: 'latitude',
+  longitude: 'longitude',
+};
+
 export async function updateApartment(id: string, input: ApartmentUpdateInput): Promise<ApartmentRecord | null> {
   const existing = await getApartment(id);
   if (!existing) return null;
-  const latitude = input.latitude ?? existing.latitude;
-  const longitude = input.longitude ?? existing.longitude;
-  let station = input.station ?? existing.station;
+  const latitude = input.latitude !== undefined ? input.latitude : existing.latitude;
+  const longitude = input.longitude !== undefined ? input.longitude : existing.longitude;
+  let station = input.station !== undefined ? input.station : existing.station;
   let nearRail = existing.near_rail;
   let distanceMiles = existing.distance_miles;
   if (latitude != null && longitude != null) {
@@ -127,27 +142,24 @@ export async function updateApartment(id: string, input: ApartmentUpdateInput): 
     station = proximity.station ?? station;
     nearRail = proximity.nearRail;
     distanceMiles = proximity.distanceMiles;
+  } else {
+    // Coordinates cleared or incomplete — the listing is no longer near-rail.
+    nearRail = false;
+    distanceMiles = null;
   }
+
+  // Only keys actually present in `input` are written, so an explicit `null`
+  // clears a column while an omitted key leaves it untouched.
+  const updates: Record<string, unknown> = { ...input, station };
+  const entries = Object.entries(updates).filter(([key, value]) => value !== undefined && APARTMENT_UPDATE_COLUMNS[key]);
+  const setClauses = entries.map(([key], index) => `${APARTMENT_UPDATE_COLUMNS[key]} = $${index + 2}`);
+  const values = entries.map(([, value]) => value);
+  const extraSets = ['near_rail = $' + (entries.length + 2), 'distance_miles = $' + (entries.length + 3)];
   const rows = await dbQuery<ApartmentRecord>(
-    `UPDATE apartments_hotels
-     SET name = COALESCE($2, name),
-         listing_type = COALESCE($3, listing_type),
-         section = COALESCE($4, section),
-         station = COALESCE($5, station),
-         address = COALESCE($6, address),
-         city = COALESCE($7, city),
-         state = COALESCE($8, state),
-         zip = COALESCE($9, zip),
-         phone = COALESCE($10, phone),
-         website = COALESCE($11, website),
-         latitude = COALESCE($12, latitude),
-         longitude = COALESCE($13, longitude),
-         near_rail = COALESCE($14, near_rail),
-         distance_miles = COALESCE($15, distance_miles),
-         updated_at = now()
+    `UPDATE apartments_hotels SET ${[...setClauses, ...extraSets].join(', ')}, updated_at = now()
      WHERE id = $1
      RETURNING ${COLUMNS}`,
-    [id, input.name ?? null, input.listing_type ?? null, input.section ?? null, station, input.address ?? null, input.city ?? null, input.state ?? null, input.zip ?? null, input.phone ?? null, input.website ?? null, input.latitude ?? null, input.longitude ?? null, nearRail, distanceMiles],
+    [id, ...values, nearRail, distanceMiles],
   );
   return rows[0] ?? null;
 }

@@ -97,55 +97,41 @@ export async function createRealEstate(input: z.infer<typeof realEstateSchema>):
 
 type RealEstateUpdateInput = Omit<Partial<z.infer<typeof realEstateSchema>>, 'title'> & { title?: string | undefined };
 
+// Only keys actually present in `input` are written, so an explicit `null`
+// clears a column while an omitted key leaves it untouched.
+const REAL_ESTATE_UPDATE_COLUMNS: Record<string, string> = {
+  title: 'title',
+  description: 'description',
+  price: 'price',
+  beds: 'beds',
+  baths: 'baths',
+  sqft: 'sqft',
+  property_type: 'property_type',
+  listing_status: 'listing_status',
+  address: 'address',
+  city: 'city',
+  state: 'state',
+  zip: 'zip',
+  phone: 'phone',
+  email: 'email',
+  website: 'website',
+  image_url: 'image_url',
+  station: 'station',
+  latitude: 'latitude',
+  longitude: 'longitude',
+  active: 'active',
+};
+
 export async function updateRealEstate(id: string, input: RealEstateUpdateInput): Promise<RealEstateRecord | null> {
+  const entries = Object.entries(input).filter(([key, value]) => value !== undefined && REAL_ESTATE_UPDATE_COLUMNS[key]);
+  if (entries.length === 0) return getRealEstate(id);
+  const setClauses = entries.map(([key], index) => `${REAL_ESTATE_UPDATE_COLUMNS[key]} = $${index + 2}`);
+  const values = entries.map(([, value]) => value);
   const rows = await dbQuery<RealEstateRecord>(
-    `UPDATE real_estate
-     SET title = COALESCE($2, title),
-         description = COALESCE($3, description),
-         price = COALESCE($4, price),
-         beds = COALESCE($5, beds),
-         baths = COALESCE($6, baths),
-         sqft = COALESCE($7, sqft),
-         property_type = COALESCE($8, property_type),
-         listing_status = COALESCE($9, listing_status),
-         address = COALESCE($10, address),
-         city = COALESCE($11, city),
-         state = COALESCE($12, state),
-         zip = COALESCE($13, zip),
-         phone = COALESCE($14, phone),
-         email = COALESCE($15, email),
-         website = COALESCE($16, website),
-         image_url = COALESCE($17, image_url),
-         station = COALESCE($18, station),
-         latitude = COALESCE($19, latitude),
-         longitude = COALESCE($20, longitude),
-         active = COALESCE($21, active),
-         updated_at = now()
+    `UPDATE real_estate SET ${setClauses.join(', ')}, updated_at = now()
      WHERE id = $1
      RETURNING ${COLUMNS}`,
-    [
-      id,
-      input.title ?? null,
-      input.description ?? null,
-      input.price ?? null,
-      input.beds ?? null,
-      input.baths ?? null,
-      input.sqft ?? null,
-      input.property_type ?? null,
-      input.listing_status ?? null,
-      input.address ?? null,
-      input.city ?? null,
-      input.state ?? null,
-      input.zip ?? null,
-      input.phone ?? null,
-      input.email ?? null,
-      input.website ?? null,
-      input.image_url ?? null,
-      input.station ?? null,
-      input.latitude ?? null,
-      input.longitude ?? null,
-      input.active ?? null,
-    ],
+    [id, ...values],
   );
   return rows[0] ?? null;
 }

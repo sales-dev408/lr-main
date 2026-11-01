@@ -19,9 +19,9 @@ const themeSchema = z.object({
 const contentSchema = z.object({
   kind: z.enum(['text', 'article', 'image', 'file', 'embed']),
   title: z.string().min(1),
-  body: z.string().optional(),
-  url: z.string().optional(),
-  dataUrl: z.string().optional(),
+  body: z.string().optional().nullable(),
+  url: z.string().optional().nullable(),
+  dataUrl: z.string().optional().nullable(),
   position: z.number().int().default(0),
   published: z.boolean().default(true),
 });
@@ -163,21 +163,24 @@ export async function registerSettingsRoutes(fastify: FastifyInstance): Promise<
         : body.url !== undefined
           ? body.url || null
           : undefined;
-    const rows = await dbQuery(
-      `
-        UPDATE content_blocks
-        SET kind = COALESCE($2, kind),
-            title = COALESCE($3, title),
-            body = COALESCE($4, body),
-            url = COALESCE($5, url),
-            position = COALESCE($6, position),
-            published = COALESCE($7, published),
-            updated_at = now()
-        WHERE id = $1
-        RETURNING *
-      `,
-      [id, body.kind ?? null, body.title ?? null, body.body ?? null, url ?? null, body.position ?? null, body.published ?? null],
-    );
+    // Only keys actually present in the body are written, so an explicit
+    // `null` clears a column while an omitted key leaves it untouched.
+    const updates: Record<string, unknown> = {
+      ...(body.kind !== undefined ? { kind: body.kind } : {}),
+      ...(body.title !== undefined ? { title: body.title } : {}),
+      ...(body.body !== undefined ? { body: body.body } : {}),
+      ...(url !== undefined ? { url } : {}),
+      ...(body.position !== undefined ? { position: body.position } : {}),
+      ...(body.published !== undefined ? { published: body.published } : {}),
+    };
+    const entries = Object.entries(updates);
+    const rows = entries.length === 0
+      ? await dbQuery('SELECT * FROM content_blocks WHERE id = $1', [id])
+      : await dbQuery(
+          `UPDATE content_blocks SET ${entries.map(([key], i) => `${key} = $${i + 2}`).join(', ')}, updated_at = now()
+           WHERE id = $1 RETURNING *`,
+          [id, ...entries.map(([, value]) => value)],
+        );
     if (rows.length === 0) {
       return reply.code(404).send({ error: 'Content not found' });
     }

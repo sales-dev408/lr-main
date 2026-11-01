@@ -5,7 +5,7 @@ import { dbQuery } from '../db/pool.js';
 const adSchema = z.object({
   slot: z.number().int().min(1).max(5),
   image_url: z.string().min(1),
-  link_url: z.string().optional(),
+  link_url: z.string().optional().nullable(),
   active: z.boolean().default(true),
 });
 
@@ -50,17 +50,37 @@ export async function registerAdsRoutes(fastify: FastifyInstance): Promise<void>
     async (request, reply) => {
       const id = (request.params as { id: string }).id;
       const body = adUpdateSchema.parse(request.body);
-      const rows = await dbQuery(
-        `UPDATE ads
-         SET slot = COALESCE($2, slot),
-             image_url = COALESCE($3, image_url),
-             link_url = COALESCE($4, link_url),
-             active = COALESCE($5, active),
-             updated_at = now()
-         WHERE id = $1
-         RETURNING id, slot, image_url, link_url, active, created_at, updated_at`,
-        [id, body.slot ?? null, body.image_url ?? null, body.link_url ?? null, body.active ?? null],
-      );
+      // Only keys actually present are written, so an explicit `null` clears a
+      // column (e.g. link_url) while an omitted key leaves it untouched.
+      const columnMap: Record<string, string> = {
+        slot: 'slot',
+        image_url: 'image_url',
+        link_url: 'link_url',
+        active: 'active',
+      };
+      const entries = Object.entries(body).filter(([key, value]) => value !== undefined && columnMap[key]);
+      let rows: Record<string, unknown>[];
+      try {
+        if (entries.length === 0) {
+          rows = await dbQuery(
+            'SELECT id, slot, image_url, link_url, active, created_at, updated_at FROM ads WHERE id = $1',
+            [id],
+          );
+        } else {
+          const setClauses = entries.map(([key], index) => `${columnMap[key]} = $${index + 2}`);
+          rows = await dbQuery(
+            `UPDATE ads SET ${setClauses.join(', ')}, updated_at = now()
+             WHERE id = $1
+             RETURNING id, slot, image_url, link_url, active, created_at, updated_at`,
+            [id, ...entries.map(([, value]) => value)],
+          );
+        }
+      } catch (error) {
+        if ((error as { code?: string }).code === '23505') {
+          return reply.code(409).send({ error: 'Another ad already occupies that slot' });
+        }
+        throw error;
+      }
       if (rows.length === 0) {
         return reply.code(404).send({ error: 'Ad not found' });
       }

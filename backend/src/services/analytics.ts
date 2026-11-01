@@ -6,23 +6,23 @@ export async function getAdminAnalytics(filters: { from?: string; to?: string; c
 
   if (filters.from) {
     values.push(filters.from);
-    where.push(`redeemed_at >= $${values.length}::timestamptz`);
+    where.push(`r.redeemed_at >= $${values.length}::timestamptz`);
   }
   if (filters.to) {
     values.push(filters.to);
-    where.push(`redeemed_at <= $${values.length}::timestamptz`);
+    where.push(`r.redeemed_at <= $${values.length}::timestamptz`);
   }
   if (filters.city) {
     values.push(filters.city);
-    where.push(`city = $${values.length}`);
+    where.push(`r.city = $${values.length}`);
   }
 
   const clause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
 
   const totals = await dbQuery<{ redemptions: string; unique_customers: string }>(
     `
-      SELECT COUNT(*)::text AS redemptions, COUNT(DISTINCT user_id)::text AS unique_customers
-      FROM redemptions
+      SELECT COUNT(*)::text AS redemptions, COUNT(DISTINCT r.user_id)::text AS unique_customers
+      FROM redemptions r
       ${clause}
     `,
     values,
@@ -54,10 +54,10 @@ export async function getAdminAnalytics(filters: { from?: string; to?: string; c
 
   const timeSeries = await dbQuery<{ day: string; redemptions: string }>(
     `
-      SELECT to_char(date_trunc('day', redeemed_at), 'YYYY-MM-DD') AS day, COUNT(*)::text AS redemptions
-      FROM redemptions
-      WHERE redeemed_at >= now() - interval '30 days'
-      ${filters.city ? 'AND city = $1' : ''}
+      SELECT to_char(date_trunc('day', r.redeemed_at), 'YYYY-MM-DD') AS day, COUNT(*)::text AS redemptions
+      FROM redemptions r
+      WHERE r.redeemed_at >= now() - interval '30 days'
+      ${filters.city ? 'AND r.city = $1' : ''}
       GROUP BY 1
       ORDER BY 1
     `,
